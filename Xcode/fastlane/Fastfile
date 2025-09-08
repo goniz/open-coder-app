@@ -75,4 +75,16 @@ platform :ios do
     )
     puts "✅ Ad Hoc IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
   end
+
+  desc "Generate screenshots for development"
+  lane :screenshots do
+    capture_screenshots(
+      workspace: "OpenCoder.xcworkspace",
+      scheme: "OpenCoder",
+      configuration: "Debug",
+      devices: ["iPhone 16 Pro"],
+      languages: ["en-US"],
+      output_directory: "./screenshots"
+    )
+  end
 end
