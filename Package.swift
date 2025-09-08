@@ -3,7 +3,7 @@
 import Foundation
 import PackageDescription
 
-let appName = "App"
+let appName = "OpenCoder"
 
 // MARK: - Third party dependencies
 
@@ -83,7 +83,7 @@ let dependencyClientsLive = SingleTargetLibrary(
   ]
 )
 let publicApp = SingleTargetLibrary(
-  name: "PublicApp",
+  name: "OpenCoder",
   dependencies: [
     features.targetDependency,
     views.targetDependency,

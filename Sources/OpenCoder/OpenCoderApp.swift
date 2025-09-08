@@ -7,7 +7,7 @@ import SwiftUI
 import Views
 
 @main
-public struct PublicApp: App {
+public struct OpenCoderApp: App {
   public init() {}
 
   public var body: some Scene {

@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "6C8CDCC52E69D7BF0080AE37"
-               BuildableName = "Name.app"
-               BlueprintName = "Name"
-               ReferencedContainer = "container:Name.xcodeproj">
+                BuildableName = "OpenCoder.app"
+                BlueprintName = "OpenCoder"
+                ReferencedContainer = "container:OpenCoder.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -30,7 +30,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:Name/Name.xctestplan"
+             reference = "container:OpenCoder/OpenCoder.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>

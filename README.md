@@ -28,7 +28,7 @@ graph TD
   end
 
   subgraph Local[Local Package]
-    PublicApp
+    OpenCoder
     Models
     Views
     Features
@@ -70,7 +70,7 @@ PublicApp --> iOS
 - `Views`: SwiftUI views and UI components
 - `DependencyClients`: Dependency client protocols
 - `DependencyClientsLive`: Live implementations of dependency clients
-- `PublicApp`: Main app module that ties everything together
+- `OpenCoder`: Main app module that ties everything together
 
 ## Getting Started
 
@@ -128,7 +128,7 @@ graph TD
   end
 
   subgraph Local[本地套件]
-    PublicApp
+    OpenCoder
     Models
     Views
     Features
@@ -170,7 +170,7 @@ PublicApp --> iOS
 - `Views`：SwiftUI 視圖和 UI 元件
 - `DependencyClients`：相依性注入的協定定義
 - `DependencyClientsLive`：相依性注入的實際實作
-- `PublicApp`：將所有元件組合在一起的主要應用程式模組
+- `OpenCoder`：將所有元件組合在一起的主要應用程式模組
 
 ## 開始使用
 

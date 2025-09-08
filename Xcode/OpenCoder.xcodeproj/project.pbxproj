@@ -7,17 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6C8CDCFD2E69D9200080AE37 /* PublicApp in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* PublicApp */; };
+		6C8CDCFD2E69D9200080AE37 /* OpenCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* OpenCoder */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		6C8CDCC62E69D7BF0080AE37 /* Name.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Name.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C8CDCC62E69D7BF0080AE37 /* OpenCoder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenCoder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		6C8CDCC82E69D7BF0080AE37 /* Name */ = {
+		6C8CDCC82E69D7BF0080AE37 /* OpenCoder */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Name;
+			path = OpenCoder;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C8CDCFD2E69D9200080AE37 /* PublicApp in Frameworks */,
+				6C8CDCFD2E69D9200080AE37 /* OpenCoder in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -37,7 +37,7 @@
 		6C8CDCBD2E69D7BF0080AE37 = {
 			isa = PBXGroup;
 			children = (
-				6C8CDCC82E69D7BF0080AE37 /* Name */,
+				6C8CDCC82E69D7BF0080AE37 /* OpenCoder */,
 				6C8CDCF32E69D9200080AE37 /* Frameworks */,
 				6C8CDCC72E69D7BF0080AE37 /* Products */,
 			);
@@ -46,7 +46,7 @@
 		6C8CDCC72E69D7BF0080AE37 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6C8CDCC62E69D7BF0080AE37 /* Name.app */,
+				6C8CDCC62E69D7BF0080AE37 /* OpenCoder.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,9 +61,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6C8CDCC52E69D7BF0080AE37 /* Name */ = {
+		6C8CDCC52E69D7BF0080AE37 /* OpenCoder */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 6C8CDCD22E69D7C00080AE37 /* Build configuration list for PBXNativeTarget "Name" */;
+			buildConfigurationList = 6C8CDCD22E69D7C00080AE37 /* Build configuration list for PBXNativeTarget "OpenCoder" */;
 			buildPhases = (
 				6C8CDCC22E69D7BF0080AE37 /* Sources */,
 				6C8CDCC32E69D7BF0080AE37 /* Frameworks */,
@@ -74,13 +74,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				6C8CDCC82E69D7BF0080AE37 /* Name */,
+				6C8CDCC82E69D7BF0080AE37 /* OpenCoder */,
 			);
-			name = Name;
+			name = OpenCoder;
 			packageProductDependencies = (
-				6C8CDCFC2E69D9200080AE37 /* PublicApp */,
+				6C8CDCFC2E69D9200080AE37 /* OpenCoder */,
 			);
-			productName = Name;
+			productName = OpenCoder;
 			productReference = 6C8CDCC62E69D7BF0080AE37 /* Name.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -99,7 +99,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 6C8CDCC12E69D7BF0080AE37 /* Build configuration list for PBXProject "Name" */;
+			buildConfigurationList = 6C8CDCC12E69D7BF0080AE37 /* Build configuration list for PBXProject "OpenCoder" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -114,7 +114,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				6C8CDCC52E69D7BF0080AE37 /* Name */,
+				6C8CDCC52E69D7BF0080AE37 /* OpenCoder */,
 			);
 		};
 /* End PBXProject section */
@@ -275,7 +275,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Name/Name.entitlements;
+				CODE_SIGN_ENTITLEMENTS = OpenCoder/OpenCoder.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_PREVIEWS = YES;
@@ -292,7 +292,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Name;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.OpenCoder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -307,7 +307,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Name/Name.entitlements;
+				CODE_SIGN_ENTITLEMENTS = OpenCoder/OpenCoder.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_PREVIEWS = YES;
@@ -324,7 +324,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Name;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.OpenCoder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -337,7 +337,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		6C8CDCC12E69D7BF0080AE37 /* Build configuration list for PBXProject "Name" */ = {
+		6C8CDCC12E69D7BF0080AE37 /* Build configuration list for PBXProject "OpenCoder" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6C8CDCD02E69D7C00080AE37 /* Debug */,
@@ -346,7 +346,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6C8CDCD22E69D7C00080AE37 /* Build configuration list for PBXNativeTarget "Name" */ = {
+		6C8CDCD22E69D7C00080AE37 /* Build configuration list for PBXNativeTarget "OpenCoder" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6C8CDCD32E69D7C00080AE37 /* Debug */,
@@ -358,9 +358,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6C8CDCFC2E69D9200080AE37 /* PublicApp */ = {
+		6C8CDCFC2E69D9200080AE37 /* OpenCoder */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = PublicApp;
+			productName = OpenCoder;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
