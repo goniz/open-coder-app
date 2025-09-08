@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1640"
+   LastUpgradeVersion = "2600"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "6C8CDCC52E69D7BF0080AE37"
-                BuildableName = "OpenCoder.app"
-                BlueprintName = "OpenCoder"
-                ReferencedContainer = "container:OpenCoder.xcodeproj">
+               BuildableName = "OpenCoder.app"
+               BlueprintName = "OpenCoder"
+               ReferencedContainer = "container:OpenCoder.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -30,7 +30,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-             reference = "container:OpenCoder/OpenCoder.xctestplan"
+            reference = "container:OpenCoder/OpenCoder.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>
@@ -72,6 +72,15 @@
             ReferencedContainer = "container:Name.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "6C8CDCC52E69D7BF0080AE37"
+            BuildableName = "Name.app"
+            BlueprintName = "Name"
+            ReferencedContainer = "container:Name.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

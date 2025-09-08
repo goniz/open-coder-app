@@ -1,0 +1,78 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: "ZZR4FFP696",
+      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
+      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
+    )
+    get_certificates(
+      development: false,
+      api_key: api_key
+    )
+    get_provisioning_profile(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: false,
+      readonly: false,
+      api_key: api_key
+    )
+    increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
+    build_app(
+      workspace: "OpenCoder.xcworkspace", 
+      scheme: "OpenCoder",
+      export_method: "app-store"
+    )
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Build development IPA for distribution"
+  lane :adhoc do
+    api_key = app_store_connect_api_key(
+      key_id: "ZZR4FFP696",
+      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
+      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
+    )
+
+    # Ensure the correct distribution certificate and an Ad Hoc provisioning profile
+    get_certificates(
+      development: false,
+      api_key: api_key
+    )
+    get_provisioning_profile(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: true,
+      readonly: false,
+      api_key: api_key
+    )
+
+    increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
+    build_app(
+      workspace: "OpenCoder.xcworkspace", 
+      scheme: "OpenCoder",
+      export_method: "ad-hoc",
+      output_name: "OpenCoder-AdHoc",
+      skip_codesigning: false
+    )
+    puts "✅ Ad Hoc IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
+  end
+end
