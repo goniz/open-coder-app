@@ -6,34 +6,68 @@ import Models
 package struct HomeFeature {
   @ObservableState
   package struct State: Equatable {
-    package var number: Number = 0
+    package var selectedTab: Tab = .servers
+    package var servers = ServersFeature.State()
+    package var projects = ProjectsFeature.State()
+    package var chat = ChatFeature.State()
+    package var settings = SettingsFeature.State()
 
     package init() {}
   }
 
-  package enum Action: Equatable, BindableAction {
-    case binding(BindingAction<State>)
-    case task
+  package enum Action: Equatable {
+    case tabSelected(Tab)
+    case servers(ServersFeature.Action)
+    case projects(ProjectsFeature.Action)
+    case chat(ChatFeature.Action)
+    case settings(SettingsFeature.Action)
+  }
+
+  package enum Tab: Equatable {
+    case servers
+    case projects
+    case chat
+    case settings
   }
 
   package init() {}
 
   package var body: some ReducerOf<Self> {
-    BindingReducer()
+    Scope(state: \.servers, action: \.servers) {
+      ServersFeature()
+    }
+    Scope(state: \.projects, action: \.projects) {
+      ProjectsFeature()
+    }
+    Scope(state: \.chat, action: \.chat) {
+      ChatFeature()
+    }
+    Scope(state: \.settings, action: \.settings) {
+      SettingsFeature()
+    }
     Reduce(core)
   }
 
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
-    case .binding:
+    case let .tabSelected(tab):
+      state.selectedTab = tab
       return .none
-      
-    case .task:
-      return .run { send in
-        @Dependency(\.apiClient) var apiClient
-        let number = try await apiClient.fetchNumber()
-        await send(.binding(.set(\.number, number)))
-      }
+
+    case .servers(.task):
+      return .send(.servers(.task))
+
+    case .projects(.task):
+      return .send(.projects(.task))
+
+    case .chat(.task):
+      return .send(.chat(.task))
+
+    case .settings(.task):
+      return .send(.settings(.task))
+
+    case .servers, .projects, .chat, .settings:
+      return .none
     }
   }
 }
