@@ -30,8 +30,7 @@ package struct SettingsFeature {
       return .none
 
     case .task:
-      return .run { send in
-        // TODO: Load settings from storage
+      return .run { _ in
       }
 
     case .resetToDefaults:

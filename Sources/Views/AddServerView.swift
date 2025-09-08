@@ -52,10 +52,10 @@ struct AddServerView: View {
                   .textFieldStyle(.roundedBorder)
               }
 
-              Button(action: { showPassword.toggle() }) {
-                Image(systemName: showPassword ? "eye.slash" : "eye")
-                  .foregroundColor(.secondary)
-              }
+               Button(action: { showPassword.toggle() }, label: {
+                 Image(systemName: showPassword ? "eye.slash" : "eye")
+                   .foregroundColor(.secondary)
+               })
             }
           }
         }
@@ -66,9 +66,10 @@ struct AddServerView: View {
           Button("Cancel", action: onCancel)
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Save") {
+          Button("Save", action: {
             onSave(serverConfig)
-          }
+          })
+        }
           .disabled(!serverConfig.isValid)
         }
       }

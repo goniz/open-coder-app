@@ -29,7 +29,6 @@ package struct ProjectsFeature {
     case .task:
       state.isLoading = true
       return .run { send in
-        // TODO: Load projects from storage
         await send(.projectsLoaded([]))
       }
 
@@ -39,7 +38,6 @@ package struct ProjectsFeature {
       return .none
 
     case .addProject:
-      // TODO: Navigate to add project screen
       return .none
 
     case let .removeProject(index):
@@ -49,7 +47,6 @@ package struct ProjectsFeature {
   }
 }
 
-// TODO: Define Project model
 package struct Project: Equatable, Identifiable {
   package let id: UUID
   package let name: String

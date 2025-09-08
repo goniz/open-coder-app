@@ -8,7 +8,7 @@ import Crypto
 package struct SSHClient {
   package static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-    
+
     do {
       let bootstrap = ClientBootstrap(group: eventLoopGroup)
         .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
@@ -21,10 +21,10 @@ package struct SSHClient {
           )
           return channel.pipeline.addHandler(sshHandler)
         }
-      
+
       let port = config.port > 0 ? config.port : 22
       let channel = try await bootstrap.connect(host: config.host, port: port).get()
-      
+
       do {
         // Wait a bit for connection establishment and auth
         try await Task.sleep(nanoseconds: 2_000_000_000)
@@ -33,7 +33,7 @@ package struct SSHClient {
         try? await channel.close()
         throw error
       }
-      
+
       try await eventLoopGroup.shutdownGracefully()
     } catch {
       try await eventLoopGroup.shutdownGracefully()
@@ -44,18 +44,29 @@ package struct SSHClient {
 
 private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate {
   private let config: Models.SSHServerConfiguration
-  
+
   init(config: Models.SSHServerConfiguration) {
     self.config = config
   }
-  
-  func nextAuthenticationType(availableMethods: NIOSSHAvailableUserAuthenticationMethods, nextChallengePromise: EventLoopPromise<NIOSSHUserAuthenticationOffer?>) {
+
+  func nextAuthenticationType(
+    availableMethods: NIOSSHAvailableUserAuthenticationMethods,
+    nextChallengePromise: EventLoopPromise<NIOSSHUserAuthenticationOffer?>
+  ) {
     if config.useKeyAuthentication {
       // Key authentication is not fully implemented yet
-      nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("Key authentication is not yet implemented. Please use password authentication."))
+      nextChallengePromise.fail(
+        SSHConnectionError.keyAuthenticationFailed(
+          "Key authentication is not yet implemented. Please use password authentication."
+        )
+      )
     } else {
       if availableMethods.contains(.password) {
-        let offer = NIOSSHUserAuthenticationOffer(username: config.username, serviceName: "", offer: .password(.init(password: config.password)))
+        let offer = NIOSSHUserAuthenticationOffer(
+          username: config.username,
+          serviceName: "",
+          offer: .password(.init(password: config.password))
+        )
         nextChallengePromise.succeed(offer)
       } else {
         nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
@@ -77,7 +88,7 @@ package enum SSHConnectionError: Error, LocalizedError {
   case passwordAuthNotAvailable
   case privateKeyPathEmpty
   case keyAuthenticationFailed(String)
-  
+
   package var errorDescription: String? {
     switch self {
     case .publicKeyAuthNotAvailable:

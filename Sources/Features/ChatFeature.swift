@@ -35,7 +35,6 @@ package struct ChatFeature {
     case .task:
       state.isLoading = true
       return .run { send in
-        // TODO: Load chat history
         await send(.binding(.set(\.isLoading, false)))
       }
 
@@ -45,7 +44,6 @@ package struct ChatFeature {
       state.messages.append(message)
       state.currentMessage = ""
       return .run { send in
-        // TODO: Send message to server and handle response
         await send(.messageSent(message))
       }
 

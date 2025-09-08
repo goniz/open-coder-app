@@ -38,14 +38,14 @@ package struct AppFeature {
 
     case .home:
       return .none
-      
+
     case .onboarding(.skipOnboarding), .onboarding(.completeOnboarding):
       state.showOnboarding = false
       return .none
-      
+
     case .onboarding:
       return .none
-      
+
     case .dismissOnboarding:
       state.showOnboarding = false
       return .none

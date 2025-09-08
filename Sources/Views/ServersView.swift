@@ -19,9 +19,9 @@ struct ServersView: View {
       .navigationTitle("Servers")
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
-          Button(action: { store.send(.addServer) }) {
+          Button(action: { store.send(.addServer) }, label: {
             Image(systemName: "plus")
-          }
+          })
         }
       }
       .sheet(isPresented: Binding(
@@ -55,14 +55,14 @@ struct ServersView: View {
         .foregroundColor(.secondary)
         .multilineTextAlignment(.center)
 
-      Button(action: { store.send(.addServer) }) {
+      Button(action: { store.send(.addServer) }, label: {
         Text("Add Server")
           .font(.headline)
           .foregroundColor(.white)
           .padding()
           .background(Color.accentColor)
           .cornerRadius(8)
-      }
+      })
     }
     .padding()
   }
@@ -135,7 +135,7 @@ struct ServerRowView: View {
         Text("Connected")
           .font(.caption)
           .foregroundColor(.green)
-      case .error(_):
+      case .error:
         Circle()
           .fill(Color.red)
           .frame(width: 8, height: 8)

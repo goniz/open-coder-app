@@ -4,19 +4,19 @@ import SwiftUI
 
 struct OnboardingView: View {
   @Bindable var store: StoreOf<OnboardingFeature>
-  
+
   init(store: StoreOf<OnboardingFeature>) {
     self.store = store
   }
-  
+
   var body: some View {
     NavigationView {
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           headerSection
-          
+
           serverConfigurationForm
-          
+
           actionButtons
         }
         .padding(24)
@@ -24,50 +24,50 @@ struct OnboardingView: View {
       .navigationTitle("Welcome to OpenCoder")
     }
   }
-  
+
   private var headerSection: some View {
     VStack(alignment: .leading, spacing: 12) {
       Image(systemName: "terminal.fill")
         .font(.system(size: 48))
         .foregroundColor(.accentColor)
-      
+
       Text("Connect to your server")
         .font(.title2)
         .fontWeight(.semibold)
-      
+
       Text("Configure your first SSH server connection to get started coding remotely.")
         .font(.body)
         .foregroundColor(.secondary)
     }
   }
-  
+
   private var serverConfigurationForm: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text("Server Configuration")
         .font(.headline)
-      
+
       VStack(spacing: 12) {
         TextField("Server Name", text: $store.serverConfiguration.name)
           .textFieldStyle(.roundedBorder)
-        
+
         TextField("Host", text: $store.serverConfiguration.host)
           .textFieldStyle(.roundedBorder)
           .disableAutocorrection(true)
-        
+
         HStack {
           TextField("Port", value: $store.serverConfiguration.port, format: .number)
             .textFieldStyle(.roundedBorder)
-          
+
           Spacer()
         }
-        
+
         TextField("Username", text: $store.serverConfiguration.username)
           .textFieldStyle(.roundedBorder)
           .disableAutocorrection(true)
-        
+
         authenticationSection
       }
-      
+
       if let error = store.connectionError {
         Text(error)
           .foregroundColor(.red)
@@ -75,17 +75,17 @@ struct OnboardingView: View {
       }
     }
   }
-  
+
   private var authenticationSection: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
         Text("Authentication Method")
           .font(.subheadline)
           .fontWeight(.medium)
-        
+
         Spacer()
-        
-        Button(action: { store.send(.toggleAuthenticationMethod) }) {
+
+        Button(action: { store.send(.toggleAuthenticationMethod) }, label: {
           Text(store.serverConfiguration.useKeyAuthentication ? "SSH Key" : "Password")
             .font(.caption)
             .padding(.horizontal, 8)
@@ -93,9 +93,10 @@ struct OnboardingView: View {
             .background(Color.accentColor.opacity(0.1))
             .foregroundColor(.accentColor)
             .cornerRadius(4)
+        })
         }
       }
-      
+
       if store.serverConfiguration.useKeyAuthentication {
         TextField("Private Key Path", text: $store.serverConfiguration.privateKeyPath)
           .textFieldStyle(.roundedBorder)
@@ -110,19 +111,19 @@ struct OnboardingView: View {
             SecureField("Password", text: $store.serverConfiguration.password)
               .textFieldStyle(.roundedBorder)
           }
-          
-          Button(action: { store.send(.togglePasswordVisibility) }) {
+
+          Button(action: { store.send(.togglePasswordVisibility) }, label: {
             Image(systemName: store.showPassword ? "eye.slash" : "eye")
               .foregroundColor(.secondary)
-          }
+          })
         }
       }
     }
   }
-  
+
   private var actionButtons: some View {
     VStack(spacing: 12) {
-      Button(action: { store.send(.connectButtonTapped) }) {
+      Button(action: { store.send(.connectButtonTapped) }, label: {
         HStack {
           if store.isConnecting {
             ProgressView()
@@ -131,7 +132,7 @@ struct OnboardingView: View {
           } else {
             Image(systemName: "network")
           }
-          
+
           Text(store.isConnecting ? "Connecting..." : "Test Connection")
         }
         .font(.headline)
@@ -146,12 +147,12 @@ struct OnboardingView: View {
         .cornerRadius(8)
       }
       .disabled(!store.serverConfiguration.isValid || store.isConnecting)
-      
-      Button(action: { store.send(.skipOnboarding) }) {
+
+      Button(action: { store.send(.skipOnboarding) }, label: {
         Text("Skip for now")
           .font(.subheadline)
           .foregroundColor(.secondary)
-      }
+      })
     }
   }
 }

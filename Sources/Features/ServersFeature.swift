@@ -52,61 +52,89 @@ package struct ServersFeature {
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
-      state.isLoading = true
-      return .run { send in
-        let servers = loadServersFromStorage()
-        await send(.serversLoaded(servers))
-      }
-
+      return handleTask(state: &state)
     case let .serversLoaded(servers):
-      state.servers = servers
-      state.isLoading = false
-      return .none
-
+      return handleServersLoaded(state: &state, servers: servers)
     case .addServer:
-      state.isAddingServer = true
-      return .none
-
+      return handleAddServer(state: &state)
     case let .addServerCompleted(config):
-      let serverState = ServerState(configuration: config)
-      state.servers.append(serverState)
-      state.isAddingServer = false
-      saveServersToStorage(state.servers)
-      return .none
-
+      return handleAddServerCompleted(state: &state, config: config)
     case let .testConnection(id):
-      guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
-      state.servers[index].connectionState = .connecting
-      let config = state.servers[index].configuration
-
-      return .run { send in
-        do {
-          try await SSHClient.testConnection(config)
-          await send(.connectionSuccess(id))
-        } catch {
-          await send(.connectionFailed(id, error.localizedDescription))
-        }
-      }
-
+      return handleTestConnection(state: &state, id: id)
     case let .connectionSuccess(id):
-      guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
-      state.servers[index].connectionState = .connected
-      return .none
-
+      return handleConnectionSuccess(state: &state, id: id)
     case let .connectionFailed(id, errorMessage):
-      guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
-      state.servers[index].connectionState = .error(errorMessage)
-      return .none
-
+      return handleConnectionFailed(state: &state, id: id, errorMessage: errorMessage)
     case let .removeServer(id):
-      state.servers.removeAll { $0.id == id }
-      saveServersToStorage(state.servers)
-      return .none
-
+      return handleRemoveServer(state: &state, id: id)
     case .dismissAddServer:
-      state.isAddingServer = false
-      return .none
+      return handleDismissAddServer(state: &state)
     }
+  }
+
+  private func handleTask(state: inout State) -> Effect<Action> {
+    state.isLoading = true
+    return .run { send in
+      let servers = loadServersFromStorage()
+      await send(.serversLoaded(servers))
+    }
+  }
+
+  private func handleServersLoaded(state: inout State, servers: [ServerState]) -> Effect<Action> {
+    state.servers = servers
+    state.isLoading = false
+    return .none
+  }
+
+  private func handleAddServer(state: inout State) -> Effect<Action> {
+    state.isAddingServer = true
+    return .none
+  }
+
+  private func handleAddServerCompleted(state: inout State, config: SSHServerConfiguration) -> Effect<Action> {
+    let serverState = ServerState(configuration: config)
+    state.servers.append(serverState)
+    state.isAddingServer = false
+    saveServersToStorage(state.servers)
+    return .none
+  }
+
+  private func handleTestConnection(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
+    state.servers[index].connectionState = .connecting
+    let config = state.servers[index].configuration
+
+    return .run { send in
+      do {
+        try await SSHClient.testConnection(config)
+        await send(.connectionSuccess(id))
+      } catch {
+        await send(.connectionFailed(id, error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleConnectionSuccess(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
+    state.servers[index].connectionState = .connected
+    return .none
+  }
+
+  private func handleConnectionFailed(state: inout State, id: ServerState.ID, errorMessage: String) -> Effect<Action> {
+    guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
+    state.servers[index].connectionState = .error(errorMessage)
+    return .none
+  }
+
+  private func handleRemoveServer(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    state.servers.removeAll { $0.id == id }
+    saveServersToStorage(state.servers)
+    return .none
+  }
+
+  private func handleDismissAddServer(state: inout State) -> Effect<Action> {
+    state.isAddingServer = false
+    return .none
   }
 
   private func loadServersFromStorage() -> [ServerState] {
