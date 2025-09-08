@@ -53,6 +53,7 @@ let dependencyClients = SingleTargetLibrary(
     dependencies.targetDependency,
     dependenciesMacros.targetDependency,
     models.targetDependency,
+    swiftNIOSSH.targetDependency,
   ]
 )
 let features = SingleTargetLibrary(
