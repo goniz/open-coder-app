@@ -10,10 +10,16 @@ package struct AppView: View {
   }
 
   package var body: some View {
-    HomeView(store: store.scope(state: \.home, action: \.home))
-      .task {
-        await store.send(.task).finish()
+    Group {
+      if store.showOnboarding {
+        OnboardingView(store: store.scope(state: \.onboarding, action: \.onboarding))
+      } else {
+        HomeView(store: store.scope(state: \.home, action: \.home))
       }
+    }
+    .task {
+      await store.send(.task).finish()
+    }
   }
 }
 

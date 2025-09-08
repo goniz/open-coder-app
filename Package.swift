@@ -61,6 +61,7 @@ let features = SingleTargetLibrary(
     tca.targetDependency,
     models.targetDependency,
     dependencyClients.targetDependency,
+    swiftNIOSSH.targetDependency,
   ]
 )
 let views = SingleTargetLibrary(
