@@ -69,7 +69,6 @@ struct AddServerView: View {
           Button("Save", action: {
             onSave(serverConfig)
           })
-        }
           .disabled(!serverConfig.isValid)
         }
       }

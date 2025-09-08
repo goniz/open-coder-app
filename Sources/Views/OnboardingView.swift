@@ -85,7 +85,7 @@ struct OnboardingView: View {
 
         Spacer()
 
-        Button(action: { store.send(.toggleAuthenticationMethod) }, label: {
+        Button(action: { store.send(.toggleAuthenticationMethod) }) {
           Text(store.serverConfiguration.useKeyAuthentication ? "SSH Key" : "Password")
             .font(.caption)
             .padding(.horizontal, 8)
@@ -93,9 +93,7 @@ struct OnboardingView: View {
             .background(Color.accentColor.opacity(0.1))
             .foregroundColor(.accentColor)
             .cornerRadius(4)
-        })
         }
-      }
 
       if store.serverConfiguration.useKeyAuthentication {
         TextField("Private Key Path", text: $store.serverConfiguration.privateKeyPath)
@@ -112,18 +110,19 @@ struct OnboardingView: View {
               .textFieldStyle(.roundedBorder)
           }
 
-          Button(action: { store.send(.togglePasswordVisibility) }, label: {
+          Button(action: { store.send(.togglePasswordVisibility) }) {
             Image(systemName: store.showPassword ? "eye.slash" : "eye")
               .foregroundColor(.secondary)
-          })
+          }
         }
       }
     }
   }
+  }
 
   private var actionButtons: some View {
     VStack(spacing: 12) {
-      Button(action: { store.send(.connectButtonTapped) }, label: {
+      Button(action: { store.send(.connectButtonTapped) }) {
         HStack {
           if store.isConnecting {
             ProgressView()
@@ -146,13 +145,12 @@ struct OnboardingView: View {
         )
         .cornerRadius(8)
       }
-      .disabled(!store.serverConfiguration.isValid || store.isConnecting)
 
-      Button(action: { store.send(.skipOnboarding) }, label: {
+      Button(action: { store.send(.skipOnboarding) }) {
         Text("Skip for now")
           .font(.subheadline)
           .foregroundColor(.secondary)
-      })
+      }
     }
   }
 }
