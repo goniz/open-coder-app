@@ -10,7 +10,7 @@ struct HomeView: View {
   }
 
   var body: some View {
-    Text("Home", bundle: .module)
+    Text("Home", bundle: Bundle.module)
       .task {
         await store.send(.task).finish()
       }
