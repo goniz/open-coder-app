@@ -31,6 +31,14 @@ Push a new beta build to TestFlight
 
 Build development IPA for distribution
 
+### ios screenshots
+
+```sh
+[bundle exec] fastlane ios screenshots
+```
+
+Generate screenshots for development
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
