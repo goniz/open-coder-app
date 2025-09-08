@@ -33,6 +33,13 @@ let customDump = SourceControlDependency(
   ),
   productName: "CustomDump"
 )
+let swiftNIOSSH = SourceControlDependency(
+  package: .package(
+    url: "https://github.com/apple/swift-nio-ssh",
+    from: "0.11.0"
+  ),
+  productName: "NIOSSH"
+)
 
 // MARK: - Modules. Ordered by dependency hierarchy.
 
@@ -105,6 +112,7 @@ let package = Package(
     tca.package,
     swiftDependencies,
     customDump.package,
+    swiftNIOSSH.package,
   ],
   targets: [
     dependencyClients.target,
