@@ -112,4 +112,3 @@ package struct OnboardingFeature {
     }
   }
 }
-}
