@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6C8CDCFD2E69D9200080AE37 /* OpenCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* OpenCoder */; };
+		6C8CDCFD2E69D9200080AE37 /* OpenCoderLib in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C8CDCFD2E69D9200080AE37 /* OpenCoder in Frameworks */,
+				6C8CDCFD2E69D9200080AE37 /* OpenCoderLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,7 +78,7 @@
 			);
 			name = OpenCoder;
 			packageProductDependencies = (
-				6C8CDCFC2E69D9200080AE37 /* OpenCoder */,
+				6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */,
 			);
 			productName = OpenCoder;
 			productReference = 6C8CDCC62E69D7BF0080AE37 /* Name.app */;
@@ -358,9 +358,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6C8CDCFC2E69D9200080AE37 /* OpenCoder */ = {
+		6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = OpenCoder;
+			productName = OpenCoderLib;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
