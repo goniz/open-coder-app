@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import DependencyClients
+import Foundation
 import Models
 
 @Reducer
@@ -77,6 +78,7 @@ package struct OnboardingFeature {
 
     case .connectionSuccess:
       state.isConnecting = false
+      saveServerConfiguration(state.serverConfiguration)
       return .run { send in
         await send(.completeOnboarding)
       }
@@ -110,6 +112,34 @@ package struct OnboardingFeature {
       throw ConnectionError(error.localizedDescription)
     } catch {
       throw ConnectionError("Connection failed: \(error.localizedDescription)")
+    }
+  }
+
+  private func saveServerConfiguration(_ config: SSHServerConfiguration) {
+    guard let data = UserDefaults.standard.data(forKey: "savedServers") else {
+      saveNewServerConfiguration(config)
+      return
+    }
+    
+    do {
+      var existingConfigs = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+      if !existingConfigs.contains(where: { $0.host == config.host && $0.username == config.username && $0.port == config.port }) {
+        existingConfigs.append(config)
+        let updatedData = try JSONEncoder().encode(existingConfigs)
+        UserDefaults.standard.set(updatedData, forKey: "savedServers")
+      }
+    } catch {
+      print("Failed to update saved servers: \(error)")
+      saveNewServerConfiguration(config)
+    }
+  }
+  
+  private func saveNewServerConfiguration(_ config: SSHServerConfiguration) {
+    do {
+      let data = try JSONEncoder().encode([config])
+      UserDefaults.standard.set(data, forKey: "savedServers")
+    } catch {
+      print("Failed to save server configuration: \(error)")
     }
   }
 }

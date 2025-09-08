@@ -85,15 +85,18 @@ struct OnboardingView: View {
 
         Spacer()
 
-        Button(action: { store.send(.toggleAuthenticationMethod) }) {
-          Text(store.serverConfiguration.useKeyAuthentication ? "SSH Key" : "Password")
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.accentColor.opacity(0.1))
-            .foregroundColor(.accentColor)
-            .cornerRadius(4)
-        }
+        Button(
+          action: { store.send(.toggleAuthenticationMethod) },
+          label: {
+            Text(store.serverConfiguration.useKeyAuthentication ? "SSH Key" : "Password")
+              .font(.caption)
+              .padding(.horizontal, 8)
+              .padding(.vertical, 4)
+              .background(Color.accentColor.opacity(0.1))
+              .foregroundColor(.accentColor)
+              .cornerRadius(4)
+          }
+        )
 
       if store.serverConfiguration.useKeyAuthentication {
         TextField("Private Key Path", text: $store.serverConfiguration.privateKeyPath)
@@ -110,10 +113,13 @@ struct OnboardingView: View {
               .textFieldStyle(.roundedBorder)
           }
 
-          Button(action: { store.send(.togglePasswordVisibility) }) {
-            Image(systemName: store.showPassword ? "eye.slash" : "eye")
-              .foregroundColor(.secondary)
-          }
+          Button(
+            action: { store.send(.togglePasswordVisibility) },
+            label: {
+              Image(systemName: store.showPassword ? "eye.slash" : "eye")
+                .foregroundColor(.secondary)
+            }
+          )
         }
       }
     }
@@ -122,35 +128,41 @@ struct OnboardingView: View {
 
   private var actionButtons: some View {
     VStack(spacing: 12) {
-      Button(action: { store.send(.connectButtonTapped) }) {
-        HStack {
-          if store.isConnecting {
-            ProgressView()
-              .scaleEffect(0.8)
-              .tint(.white)
-          } else {
-            Image(systemName: "network")
+      Button(
+        action: { store.send(.connectButtonTapped) },
+        label: {
+          HStack {
+            if store.isConnecting {
+              ProgressView()
+                .scaleEffect(0.8)
+                .tint(.white)
+            } else {
+              Image(systemName: "network")
+            }
+
+            Text(store.isConnecting ? "Connecting..." : "Test Connection")
           }
-
-          Text(store.isConnecting ? "Connecting..." : "Test Connection")
+          .font(.headline)
+          .foregroundColor(.white)
+          .frame(maxWidth: .infinity)
+          .frame(height: 50)
+          .background(
+            store.serverConfiguration.isValid && !store.isConnecting
+              ? Color.accentColor
+              : Color.gray
+          )
+          .cornerRadius(8)
         }
-        .font(.headline)
-        .foregroundColor(.white)
-        .frame(maxWidth: .infinity)
-        .frame(height: 50)
-        .background(
-          store.serverConfiguration.isValid && !store.isConnecting
-            ? Color.accentColor
-            : Color.gray
-        )
-        .cornerRadius(8)
-      }
+      )
 
-      Button(action: { store.send(.skipOnboarding) }) {
-        Text("Skip for now")
-          .font(.subheadline)
-          .foregroundColor(.secondary)
-      }
+      Button(
+        action: { store.send(.skipOnboarding) },
+        label: {
+          Text("Skip for now")
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+        }
+      )
     }
   }
 }

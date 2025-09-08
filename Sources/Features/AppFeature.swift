@@ -41,7 +41,7 @@ package struct AppFeature {
 
     case .onboarding(.skipOnboarding), .onboarding(.completeOnboarding):
       state.showOnboarding = false
-      return .none
+      return .send(.home(.servers(.task)))
 
     case .onboarding:
       return .none
