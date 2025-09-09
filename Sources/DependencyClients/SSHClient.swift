@@ -19,10 +19,10 @@ package struct SSHClient {
             allocator: channel.allocator,
             inboundChildChannelInitializer: nil
           )
-          // NIOSSHHandler's Sendable conformance is explicitly unavailable by design
-          // This usage is safe within the EventLoop's single-threaded context
-          // WARNING: NIOSSHHandler Sendable conformance warning is expected and can be ignored
-          return channel.pipeline.addHandler(sshHandler)
+          // Use the official Apple pattern from NIOSSHServer example to avoid Sendable conformance issues
+          return channel.eventLoop.makeCompletedFuture {
+            try channel.pipeline.syncOperations.addHandler(sshHandler)
+          }
         }
 
       let port = config.port > 0 ? config.port : 22
