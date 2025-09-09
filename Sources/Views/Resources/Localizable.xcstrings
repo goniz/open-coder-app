@@ -1,7 +1,78 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@@%@:%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@@%2$@:%3$lld"
+          }
+        }
+      }
+    },
+    "Add Project" : {
+
+    },
+    "Add Server" : {
+
+    },
+    "Add your first SSH server to get started" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Authentication" : {
+
+    },
+    "Authentication Method" : {
+
+    },
+    "Auto Save" : {
+
+    },
+    "Build" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Chat" : {
+
+    },
+    "Configure your first SSH server connection to get started coding remotely." : {
+
+    },
+    "Connect to your server" : {
+
+    },
+    "Connected" : {
+
+    },
+    "Connecting..." : {
+
+    },
+    "Delete" : {
+
+    },
+    "Deploy" : {
+
+    },
+    "Disconnected" : {
+
+    },
+    "Enable Notifications" : {
+
+    },
+    "Error" : {
+
+    },
+    "General" : {
+
+    },
     "Home" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
@@ -10,6 +81,84 @@
           }
         }
       }
+    },
+    "Host" : {
+
+    },
+    "No servers configured" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Password" : {
+
+    },
+    "Port" : {
+
+    },
+    "Private Key Path" : {
+
+    },
+    "Projects" : {
+
+    },
+    "Reset to Defaults" : {
+
+    },
+    "Save" : {
+
+    },
+    "Send" : {
+
+    },
+    "Server Configuration" : {
+
+    },
+    "Server Details" : {
+
+    },
+    "Server Name" : {
+
+    },
+    "Server Name (optional)" : {
+
+    },
+    "Servers" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Skip for now" : {
+
+    },
+    "SSH Key" : {
+
+    },
+    "Start Task" : {
+
+    },
+    "Test" : {
+
+    },
+    "Test Connection" : {
+
+    },
+    "Theme" : {
+
+    },
+    "Type a message..." : {
+
+    },
+    "Use SSH Key" : {
+
+    },
+    "Username" : {
+
+    },
+    "Welcome to OpenCoder" : {
+
     }
   },
   "version" : "1.0"
