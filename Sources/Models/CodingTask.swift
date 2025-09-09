@@ -1,7 +1,7 @@
 import Foundation
 
 package struct CodingTask: Identifiable, Equatable, Codable {
-  package let id = UUID()
+  package let id: UUID
   package var serverID: UUID
   package var name: String
   package var type: TaskType
@@ -30,6 +30,7 @@ package struct CodingTask: Identifiable, Equatable, Codable {
   }
 
   package init(
+    id: UUID = UUID(),
     serverID: UUID,
     name: String,
     type: TaskType,
@@ -37,6 +38,7 @@ package struct CodingTask: Identifiable, Equatable, Codable {
     mockProgressSteps: [ProgressStep] = [],
     estimatedDuration: TimeInterval? = nil
   ) {
+    self.id = id
     self.serverID = serverID
     self.name = name
     self.type = type
