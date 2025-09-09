@@ -174,3 +174,21 @@ Build version 17A5305k
 2025-09-08 15:12:43,125 - INFO - Exporting IPA...
 2025-09-08 15:12:48,355 - ERROR - Export failed: Command '['xcodebuild', '-exportArchive', '-archivePath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/OpenCoder.xcarchive', '-exportPath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/export', '-exportOptionsPlist', '/Users/gzahavy/PersonalProjects/open-coder-app/build/ExportOptions.plist']' returned non-zero exit status 70.
 2025-09-08 15:12:48,355 - ERROR - Build failed: Command '['xcodebuild', '-exportArchive', '-archivePath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/OpenCoder.xcarchive', '-exportPath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/export', '-exportOptionsPlist', '/Users/gzahavy/PersonalProjects/open-coder-app/build/ExportOptions.plist']' returned non-zero exit status 70.
+2025-09-09 15:07:21,369 - INFO - Starting IPA build process...
+2025-09-09 15:07:22,481 - INFO - Xcode version: Xcode 26.0
+Build version 17A5305k
+2025-09-09 15:07:22,481 - INFO - Using workspace: /Users/gzahavy/PersonalProjects/open-coder-app/Xcode/OpenCoder.xcworkspace
+2025-09-09 15:07:22,481 - INFO - Output directory: /Users/gzahavy/PersonalProjects/open-coder-app/build
+2025-09-09 15:07:22,813 - INFO - Available code signing identities:
+2025-09-09 15:07:22,813 - INFO -   1) 478E2F1FCDCCF8222D197531359007269B216C05 "Apple Development: goni1993@gmail.com (Q76QDYVDH9)"
+  2) 5013E0E8F4D510BE4658A185ACBFAFF007EB6B2A "Apple Development: goni1993@gmail.com (Q76QDYVDH9)"
+  3) 49D2AB57F22F8373AFFD19ED6305582E16CF39BE "Apple Development: Goni Zahavy (Q76QDYVDH9)"
+  4) 93D283E70B67F607D25BBC6B585AF610E3E0F7B8 "Apple Distribution: Goni Zahavy (7945JL2ZJ4)"
+  5) 8F4ECB280939B98786A53EE578C73835802FF898 "Apple Development: Goni Zahavy (Q76QDYVDH9)"
+     5 valid identities found
+
+2025-09-09 15:07:22,813 - INFO - Cleaning project...
+2025-09-09 15:07:43,417 - INFO - Project cleaned successfully
+2025-09-09 15:07:43,417 - INFO - Building archive for scheme: OpenCoder
+2025-09-09 15:07:57,549 - ERROR - Archive failed: Command '['xcodebuild', 'archive', '-workspace', '/Users/gzahavy/PersonalProjects/open-coder-app/Xcode/OpenCoder.xcworkspace', '-scheme', 'OpenCoder', '-configuration', 'Release', '-archivePath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/OpenCoder.xcarchive', '-destination', 'generic/platform=iOS', 'CODE_SIGN_STYLE=Automatic', '-allowProvisioningUpdates', '-skipMacroValidation', 'SKIP_MACRO_VALIDATION=YES', 'PROVISIONING_PROFILE_SPECIFIER=', 'CODE_SIGN_ENTITLEMENTS=OpenCoder/OpenCoder.entitlements']' returned non-zero exit status 65.
+2025-09-09 15:07:57,549 - ERROR - Build failed: Command '['xcodebuild', 'archive', '-workspace', '/Users/gzahavy/PersonalProjects/open-coder-app/Xcode/OpenCoder.xcworkspace', '-scheme', 'OpenCoder', '-configuration', 'Release', '-archivePath', '/Users/gzahavy/PersonalProjects/open-coder-app/build/OpenCoder.xcarchive', '-destination', 'generic/platform=iOS', 'CODE_SIGN_STYLE=Automatic', '-allowProvisioningUpdates', '-skipMacroValidation', 'SKIP_MACRO_VALIDATION=YES', 'PROVISIONING_PROFILE_SPECIFIER=', 'CODE_SIGN_ENTITLEMENTS=OpenCoder/OpenCoder.entitlements']' returned non-zero exit status 65.

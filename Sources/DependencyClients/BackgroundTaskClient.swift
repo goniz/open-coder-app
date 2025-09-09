@@ -53,7 +53,7 @@ extension BackgroundTaskClient: DependencyKey {
         using: nil
       ) { task in
         if let refreshTask = task as? BGAppRefreshTask {
-          Task {
+          Task { @MainActor in
             await handleBackgroundTaskMonitoring(refreshTask)
           }
         }
@@ -106,6 +106,7 @@ extension DependencyValues {
 }
 
 #if canImport(UIKit) && !os(macOS)
+@MainActor
 private func handleBackgroundTaskMonitoring(_ task: BGAppRefreshTask) async {
   let request = BGAppRefreshTaskRequest(identifier: "com.opencoder.task-monitor")
   request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
