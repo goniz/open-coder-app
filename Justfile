@@ -15,3 +15,9 @@ beta:
 
 update_caps:
     cd Xcode && fastlane update_capabilities
+
+check_builds:
+    cd Xcode && fastlane check_builds
+
+validate:
+    cd Xcode && xcrun altool --validate-app -f OpenCoder.ipa -t ios --apiKey ZZR4FFP696 --apiIssuer d5f4a2be-8aae-409d-9526-b299f949a6d9

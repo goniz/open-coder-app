@@ -47,6 +47,14 @@ Generate screenshots for development
 
 Update App ID capabilities and regenerate provisioning profiles
 
+### ios check_builds
+
+```sh
+[bundle exec] fastlane ios check_builds
+```
+
+Check TestFlight build processing status
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
