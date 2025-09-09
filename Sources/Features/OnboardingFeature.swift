@@ -78,8 +78,8 @@ package struct OnboardingFeature {
 
     case .connectionSuccess:
       state.isConnecting = false
-      saveServerConfiguration(state.serverConfiguration)
-      return .run { send in
+      return .run { [config = state.serverConfiguration] send in
+        await saveServerConfigurationAsync(config)
         await send(.completeOnboarding)
       }
 
@@ -115,31 +115,35 @@ package struct OnboardingFeature {
     }
   }
 
-  private func saveServerConfiguration(_ config: SSHServerConfiguration) {
-    guard let data = UserDefaults.standard.data(forKey: "savedServers") else {
-      saveNewServerConfiguration(config)
-      return
-    }
-    
-    do {
-      var existingConfigs = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
-      if !existingConfigs.contains(where: { $0.host == config.host && $0.username == config.username && $0.port == config.port }) {
-        existingConfigs.append(config)
-        let updatedData = try JSONEncoder().encode(existingConfigs)
-        UserDefaults.standard.set(updatedData, forKey: "savedServers")
+  private func saveServerConfigurationAsync(_ config: SSHServerConfiguration) async {
+    await Task.detached {
+      guard let data = UserDefaults.standard.data(forKey: "savedServers") else {
+        await saveNewServerConfigurationAsync(config)
+        return
       }
-    } catch {
-      print("Failed to update saved servers: \(error)")
-      saveNewServerConfiguration(config)
-    }
+      
+      do {
+        var existingConfigs = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+        if !existingConfigs.contains(where: { $0.host == config.host && $0.username == config.username && $0.port == config.port }) {
+          existingConfigs.append(config)
+          let updatedData = try JSONEncoder().encode(existingConfigs)
+          UserDefaults.standard.set(updatedData, forKey: "savedServers")
+        }
+      } catch {
+        print("Failed to update saved servers: \(error)")
+        await saveNewServerConfigurationAsync(config)
+      }
+    }.value
   }
   
-  private func saveNewServerConfiguration(_ config: SSHServerConfiguration) {
-    do {
-      let data = try JSONEncoder().encode([config])
-      UserDefaults.standard.set(data, forKey: "savedServers")
-    } catch {
-      print("Failed to save server configuration: \(error)")
-    }
+  private func saveNewServerConfigurationAsync(_ config: SSHServerConfiguration) async {
+    await Task.detached {
+      do {
+        let data = try JSONEncoder().encode([config])
+        UserDefaults.standard.set(data, forKey: "savedServers")
+      } catch {
+        print("Failed to save server configuration: \(error)")
+      }
+    }.value
   }
 }
