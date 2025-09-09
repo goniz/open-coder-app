@@ -4,7 +4,7 @@ import Models
 import Foundation
 
 #if canImport(ActivityKit)
-import ActivityKit
+@preconcurrency import ActivityKit
 #endif
 
 @Reducer
@@ -136,7 +136,7 @@ package struct LiveActivityFeature {
       #if canImport(ActivityKit) && !os(macOS)
       let currentActivity = state.currentActivity
       return .run { _ in
-        await currentActivity?.end(nil, dismissalPolicy: .after(.seconds(5)))
+        await currentActivity?.end(nil, dismissalPolicy: .after(Date().addingTimeInterval(5)))
       }
       #endif
     }

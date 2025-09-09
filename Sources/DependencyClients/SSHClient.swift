@@ -19,7 +19,8 @@ package struct SSHClient {
             allocator: channel.allocator,
             inboundChildChannelInitializer: nil
           )
-          // Suppress Sendable conformance warning - NIOSSHHandler's unavailable Sendable conformance is expected
+          // NIOSSHHandler's Sendable conformance is explicitly unavailable by design
+          // This usage is safe within the EventLoop's single-threaded context
           return channel.pipeline.addHandler(sshHandler)
         }
 

@@ -6,6 +6,16 @@ import ActivityKit
 
 #if canImport(ActivityKit) && !os(macOS)
 package struct CodingTaskAttributes: ActivityAttributes {
+  package var serverName: String
+  package var projectName: String
+  package var taskType: TaskType
+
+  package init(serverName: String, projectName: String, taskType: TaskType) {
+    self.serverName = serverName
+    self.projectName = projectName
+    self.taskType = taskType
+  }
+
   package struct ContentState: Codable, Hashable {
     package var taskName: String
     package var progress: Double

@@ -53,9 +53,7 @@ extension BackgroundTaskClient: DependencyKey {
         using: nil
       ) { task in
         if let refreshTask = task as? BGAppRefreshTask {
-          Task { @MainActor in
-            await handleBackgroundTaskMonitoring(refreshTask)
-          }
+          handleBackgroundTaskMonitoringSync(refreshTask)
         }
       }
     },
@@ -106,8 +104,7 @@ extension DependencyValues {
 }
 
 #if canImport(UIKit) && !os(macOS)
-@MainActor
-private func handleBackgroundTaskMonitoring(_ task: BGAppRefreshTask) async {
+private func handleBackgroundTaskMonitoringSync(_ task: BGAppRefreshTask) {
   let request = BGAppRefreshTaskRequest(identifier: "com.opencoder.task-monitor")
   request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
   try? BGTaskScheduler.shared.submit(request)
