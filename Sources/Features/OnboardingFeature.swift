@@ -67,13 +67,15 @@ package struct OnboardingFeature {
       state.connectionError = nil
 
       return .run { [config = state.serverConfiguration] send in
-        do {
-          try await testSSHConnection(config)
-          await send(.connectionSuccess)
-        } catch {
-          let message = (error as? ConnectionError)?.message ?? error.localizedDescription
-          await send(.connectionFailure(message))
-        }
+        await Task.detached {
+          do {
+            try await testSSHConnection(config)
+            await send(.connectionSuccess)
+          } catch {
+            let message = (error as? ConnectionError)?.message ?? error.localizedDescription
+            await send(.connectionFailure(message))
+          }
+        }.value
       }
 
     case .connectionSuccess:

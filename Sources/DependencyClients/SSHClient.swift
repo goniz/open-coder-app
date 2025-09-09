@@ -2,7 +2,7 @@ import Foundation
 import Models
 import NIOCore
 import NIOPosix
-import NIOSSH
+@preconcurrency import NIOSSH
 import Crypto
 
 package struct SSHClient {
