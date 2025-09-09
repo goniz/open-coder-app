@@ -54,17 +54,8 @@ package struct HomeFeature {
       state.selectedTab = tab
       return .none
 
-    case .servers(.task):
-      return .send(.servers(.task))
-
-    case .projects(.task):
-      return .send(.projects(.task))
-
-    case .chat(.task):
-      return .send(.chat(.task))
-
-    case .settings(.task):
-      return .send(.settings(.task))
+    case .servers(.task), .projects(.task), .chat(.task), .settings(.task):
+      return .none
 
     case .servers, .projects, .chat, .settings:
       return .none
