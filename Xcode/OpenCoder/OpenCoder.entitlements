@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Commented out until App ID capabilities are properly configured -->
+	<!-- Temporarily commented out until App ID capabilities are manually configured in Developer Portal -->
 	<!-- 
 	<key>com.apple.developer.ActivityKit</key>
 	<true/>

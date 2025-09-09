@@ -12,3 +12,6 @@ lint:
 
 beta:
     cd Xcode && fastlane beta
+
+update_caps:
+    cd Xcode && fastlane update_capabilities
