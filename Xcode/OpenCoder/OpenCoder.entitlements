@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<!-- Commented out until App ID capabilities are properly configured -->
+	<!-- 
+	<key>com.apple.developer.ActivityKit</key>
+	<true/>
+	<key>com.apple.developer.background-modes</key>
+	<array>
+		<string>background-app-refresh</string>
+		<string>background-processing</string>
+	</array>
+	-->
+</dict>
 </plist>

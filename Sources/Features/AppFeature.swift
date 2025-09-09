@@ -8,6 +8,7 @@ package struct AppFeature {
   package struct State: Equatable {
     package var home = HomeFeature.State()
     package var onboarding = OnboardingFeature.State()
+    package var liveActivity = LiveActivityFeature.State()
     package var showOnboarding = true
 
     package init() {}
@@ -17,6 +18,7 @@ package struct AppFeature {
     case task
     case home(HomeFeature.Action)
     case onboarding(OnboardingFeature.Action)
+    case liveActivity(LiveActivityFeature.Action)
     case dismissOnboarding
   }
 
@@ -28,6 +30,9 @@ package struct AppFeature {
     }
     Scope(state: \.onboarding, action: \.onboarding) {
       OnboardingFeature()
+    }
+    Scope(state: \.liveActivity, action: \.liveActivity) {
+      LiveActivityFeature()
     }
     Reduce(core)
   }
@@ -48,12 +53,15 @@ package struct AppFeature {
     case .onboarding:
       return .none
 
+    case .liveActivity:
+      return .none
+
     case .dismissOnboarding:
       state.showOnboarding = false
       return .none
     }
   }
-  
+
   private func hasSavedServers() -> Bool {
     guard let data = UserDefaults.standard.data(forKey: "savedServers") else { return false }
     do {

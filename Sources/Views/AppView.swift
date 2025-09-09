@@ -14,7 +14,10 @@ package struct AppView: View {
       if store.showOnboarding {
         OnboardingView(store: store.scope(state: \.onboarding, action: \.onboarding))
       } else {
-        HomeView(store: store.scope(state: \.home, action: \.home))
+        HomeView(
+          store: store.scope(state: \.home, action: \.home),
+          liveActivityStore: store.scope(state: \.liveActivity, action: \.liveActivity)
+        )
       }
     }
     .task {

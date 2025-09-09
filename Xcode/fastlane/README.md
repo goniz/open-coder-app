@@ -39,6 +39,14 @@ Build development IPA for distribution
 
 Generate screenshots for development
 
+### ios update_capabilities
+
+```sh
+[bundle exec] fastlane ios update_capabilities
+```
+
+Update App ID capabilities and regenerate provisioning profiles
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.

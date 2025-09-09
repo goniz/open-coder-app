@@ -1,9 +1,11 @@
 import ComposableArchitecture
 import Features
+import Models
 import SwiftUI
 
 struct ServersView: View {
   @Bindable var store: StoreOf<ServersFeature>
+  var onStartTask: ((CodingTask) -> Void)?
 
   var body: some View {
     NavigationStack {
@@ -73,7 +75,8 @@ struct ServersView: View {
         ServerRowView(
           server: server,
           onTestConnection: { store.send(.testConnection(server.id)) },
-          onDelete: { store.send(.removeServer(server.id)) }
+          onDelete: { store.send(.removeServer(server.id)) },
+          onStartTask: onStartTask
         )
       }
     }
@@ -84,6 +87,9 @@ struct ServerRowView: View {
   let server: ServerState
   let onTestConnection: () -> Void
   let onDelete: () -> Void
+  let onStartTask: ((CodingTask) -> Void)?
+
+  @State private var showingTaskMenu = false
 
   var body: some View {
     HStack {
@@ -98,6 +104,26 @@ struct ServerRowView: View {
       Spacer()
 
       connectionStatusView
+
+      if let onStartTask = onStartTask, server.connectionState == .connected {
+        Button {
+          showingTaskMenu = true
+        } label: {
+          Image(systemName: "play.fill")
+            .foregroundColor(.green)
+        }
+        .confirmationDialog("Start Task", isPresented: $showingTaskMenu) {
+          Button("Build") {
+            onStartTask(CodingTask.mockBuildTask(serverID: server.id))
+          }
+          Button("Test") {
+            onStartTask(CodingTask.mockTestTask(serverID: server.id))
+          }
+          Button("Deploy") {
+            onStartTask(CodingTask.mockDeployTask(serverID: server.id))
+          }
+        }
+      }
 
       Button(action: onTestConnection) {
         Image(systemName: "network")

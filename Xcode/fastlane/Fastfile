@@ -30,14 +30,20 @@ platform :ios do
     get_provisioning_profile(
       app_identifier: "com.goniz.opencoderapp",
       adhoc: false,
-      readonly: false,
-      api_key: api_key
+      api_key: api_key,
+      force: true
     )
     increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
     build_app(
       workspace: "OpenCoder.xcworkspace", 
       scheme: "OpenCoder",
-      export_method: "app-store"
+      export_method: "app-store",
+      export_options: {
+        signingStyle: "automatic"
+      },
+      xcargs: "CODE_SIGN_STYLE=Automatic",
+      skip_package_dependencies_resolution: true,
+      disable_package_automatic_updates: true
     )
     upload_to_testflight(
       api_key: api_key,
@@ -61,8 +67,8 @@ platform :ios do
     get_provisioning_profile(
       app_identifier: "com.goniz.opencoderapp",
       adhoc: true,
-      readonly: false,
-      api_key: api_key
+      api_key: api_key,
+      force: true
     )
 
     increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
@@ -71,7 +77,14 @@ platform :ios do
       scheme: "OpenCoder",
       export_method: "ad-hoc",
       output_name: "OpenCoder-AdHoc",
-      skip_codesigning: false
+      skip_codesigning: false,
+      export_options: {
+        provisioningProfiles: {
+          "com.goniz.opencoderapp" => "com.goniz.opencoderapp AdHoc"
+        },
+        signingStyle: "manual"
+      },
+      xcargs: "CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='com.goniz.opencoderapp AdHoc'"
     )
     puts "✅ Ad Hoc IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
   end
@@ -86,5 +99,29 @@ platform :ios do
       languages: ["en-US"],
       output_directory: "./screenshots"
     )
+  end
+
+  desc "Update App ID capabilities and regenerate provisioning profiles"
+  lane :update_capabilities do
+    api_key = app_store_connect_api_key(
+      key_id: "ZZR4FFP696",
+      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
+      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
+    )
+    
+    # Force regenerate all provisioning profiles
+    get_provisioning_profile(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: false,
+      api_key: api_key,
+      force: true
+    )
+    get_provisioning_profile(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: true,
+      api_key: api_key,
+      force: true
+    )
+    puts "✅ Provisioning profiles updated with new capabilities"
   end
 end

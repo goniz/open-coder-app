@@ -4,9 +4,11 @@ import SwiftUI
 
 struct HomeView: View {
   @Bindable var store: StoreOf<HomeFeature>
+  var liveActivityStore: StoreOf<LiveActivityFeature>?
 
-  init(store: StoreOf<HomeFeature>) {
+  init(store: StoreOf<HomeFeature>, liveActivityStore: StoreOf<LiveActivityFeature>? = nil) {
     self.store = store
+    self.liveActivityStore = liveActivityStore
   }
 
   var body: some View {
@@ -14,11 +16,16 @@ struct HomeView: View {
       get: { store.selectedTab },
       set: { store.send(.tabSelected($0)) }
     )) {
-      ServersView(store: store.scope(state: \.servers, action: \.servers))
-        .tabItem {
-          Label("Servers", systemImage: "server.rack")
+      ServersView(
+        store: store.scope(state: \.servers, action: \.servers),
+        onStartTask: { task in
+          liveActivityStore?.send(.startActivity(task))
         }
-        .tag(HomeFeature.Tab.servers)
+      )
+      .tabItem {
+        Label("Servers", systemImage: "server.rack")
+      }
+      .tag(HomeFeature.Tab.servers)
 
       ProjectsView(store: store.scope(state: \.projects, action: \.projects))
         .tabItem {

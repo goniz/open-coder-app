@@ -8,6 +8,7 @@ package struct SSHServerConfiguration: Equatable, Codable {
   package var password: String
   package var useKeyAuthentication: Bool
   package var privateKeyPath: String
+  package var shouldMaintainConnection: Bool
 
   package init(
     name: String = "",
@@ -16,7 +17,8 @@ package struct SSHServerConfiguration: Equatable, Codable {
     username: String = "",
     password: String = "",
     useKeyAuthentication: Bool = false,
-    privateKeyPath: String = ""
+    privateKeyPath: String = "",
+    shouldMaintainConnection: Bool = false
   ) {
     self.name = name
     self.host = host
@@ -25,6 +27,7 @@ package struct SSHServerConfiguration: Equatable, Codable {
     self.password = password
     self.useKeyAuthentication = useKeyAuthentication
     self.privateKeyPath = privateKeyPath
+    self.shouldMaintainConnection = shouldMaintainConnection
   }
 
   package var isValid: Bool {
