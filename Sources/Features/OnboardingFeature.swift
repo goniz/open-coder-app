@@ -121,10 +121,13 @@ package struct OnboardingFeature {
         await saveNewServerConfigurationAsync(config)
         return
       }
-      
+
       do {
         var existingConfigs = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
-        if !existingConfigs.contains(where: { $0.host == config.host && $0.username == config.username && $0.port == config.port }) {
+        let isDuplicate = existingConfigs.contains { existing in
+          existing.host == config.host && existing.username == config.username && existing.port == config.port
+        }
+        if !isDuplicate {
           existingConfigs.append(config)
           let updatedData = try JSONEncoder().encode(existingConfigs)
           UserDefaults.standard.set(updatedData, forKey: "savedServers")
@@ -135,7 +138,7 @@ package struct OnboardingFeature {
       }
     }.value
   }
-  
+
   private func saveNewServerConfigurationAsync(_ config: SSHServerConfiguration) async {
     await Task.detached {
       do {
