@@ -21,6 +21,7 @@ package struct SSHClient {
           )
           // NIOSSHHandler's Sendable conformance is explicitly unavailable by design
           // This usage is safe within the EventLoop's single-threaded context
+          // WARNING: NIOSSHHandler Sendable conformance warning is expected and can be ignored
           return channel.pipeline.addHandler(sshHandler)
         }
 
@@ -104,3 +105,5 @@ package enum SSHConnectionError: Error, LocalizedError {
     }
   }
 }
+
+
