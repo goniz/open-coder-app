@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Foundation
 import Models
 
 @Reducer
@@ -34,6 +35,7 @@ package struct AppFeature {
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
+      state.showOnboarding = !hasSavedServers()
       return .none
 
     case .home:
@@ -49,6 +51,16 @@ package struct AppFeature {
     case .dismissOnboarding:
       state.showOnboarding = false
       return .none
+    }
+  }
+  
+  private func hasSavedServers() -> Bool {
+    guard let data = UserDefaults.standard.data(forKey: "savedServers") else { return false }
+    do {
+      let configurations = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+      return !configurations.isEmpty
+    } catch {
+      return false
     }
   }
 }
