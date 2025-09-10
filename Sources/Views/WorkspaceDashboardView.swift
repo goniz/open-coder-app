@@ -2,7 +2,11 @@ import ComposableArchitecture
 import Features
 import Models
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
 import AppKit
+#endif
 
 struct WorkspaceDashboardView: View {
     @Bindable var store: StoreOf<WorkspaceDashboardFeature>
@@ -106,7 +110,7 @@ private struct HeaderView: View {
             }
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(.quaternary)
     }
 }
 
@@ -302,7 +306,11 @@ private struct LiveOutputView: View {
 
     private func copyOutput() {
         let text = outputLines.joined(separator: "\n")
+        #if os(iOS)
+        UIPasteboard.general.string = text
+        #elseif os(macOS)
         NSPasteboard.general.setString(text, forType: .string)
+        #endif
     }
 
     private func clearOutput() {
