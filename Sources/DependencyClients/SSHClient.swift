@@ -14,6 +14,7 @@ package protocol SSHClientProtocol: Sendable {
     func testConnection(_ config: Models.SSHServerConfiguration) async throws
     func connect(_ config: Models.SSHServerConfiguration) async throws
     func disconnect() async throws
+    func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws -> [RemoteFileInfo]
 }
 
 package struct SSHPTYSession {
@@ -27,6 +28,25 @@ package struct SSHStream {
     let input: FileHandle
     let output: FileHandle
     let close: () -> Void
+}
+
+package struct RemoteFileInfo: Equatable, Identifiable {
+    package let id = UUID()
+    package let name: String
+    package let path: String
+    package let isDirectory: Bool
+    package let size: Int64
+    package let permissions: String
+    package let lastModified: Date
+    
+    package init(name: String, path: String, isDirectory: Bool, size: Int64 = 0, permissions: String = "", lastModified: Date = Date()) {
+        self.name = name
+        self.path = path
+        self.isDirectory = isDirectory
+        self.size = size
+        self.permissions = permissions
+        self.lastModified = lastModified
+    }
 }
 
 package enum SSHError: LocalizedError, Equatable {
@@ -260,6 +280,54 @@ package struct SSHClient: SSHClientProtocol {
     
     package func disconnect() async throws {
         // Mock implementation
+    }
+    
+    package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws -> [RemoteFileInfo] {
+        let command = "ls -la '\(path)' 2>/dev/null || echo 'Error: Cannot access directory'"
+        let result = try await exec(command, config: config)
+        
+        if result.contains("Error: Cannot access directory") {
+            throw SSHError.commandFailed("Cannot access directory: \(path)")
+        }
+        
+        return parseDirectoryListing(result, basePath: path)
+    }
+    
+    private func parseDirectoryListing(_ output: String, basePath: String) -> [RemoteFileInfo] {
+        let lines = output.components(separatedBy: .newlines)
+        var files: [RemoteFileInfo] = []
+        
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed.hasPrefix("total ") {
+                continue
+            }
+            
+            let components = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            if components.count >= 9 {
+                let permissions = components[0]
+                let isDirectory = permissions.hasPrefix("d")
+                let size = Int64(components[4]) ?? 0
+                let fileName = components[8..<components.count].joined(separator: " ")
+                
+                if fileName == "." || fileName == ".." {
+                    continue
+                }
+                
+                let fullPath = basePath.hasSuffix("/") ? "\(basePath)\(fileName)" : "\(basePath)/\(fileName)"
+                
+                let fileInfo = RemoteFileInfo(
+                    name: fileName,
+                    path: fullPath,
+                    isDirectory: isDirectory,
+                    size: size,
+                    permissions: permissions
+                )
+                files.append(fileInfo)
+            }
+        }
+        
+        return files.sorted { $0.isDirectory && !$1.isDirectory || ($0.isDirectory == $1.isDirectory && $0.name.lowercased() < $1.name.lowercased()) }
     }
 }
 

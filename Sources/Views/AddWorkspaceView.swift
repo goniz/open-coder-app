@@ -14,6 +14,9 @@ struct AddWorkspaceView: View {
 
     @State private var showingServerSelection = false
     @State private var selectedServer: SSHServerConfiguration?
+    @State private var showingPathPicker = false
+    @State private var showingPasswordPrompt = false
+    @State private var tempPassword = ""
 
     var body: some View {
         NavigationStack {
@@ -37,9 +40,21 @@ struct AddWorkspaceView: View {
                         .textContentType(.username)
                         .disabled(selectedServer != nil)
 
-                    TextField("Remote Path", text: $remotePath)
-                        .textContentType(.none)
-                        .placeholder("/home/\(user)/projects/myproject")
+                    HStack {
+                        TextField("Remote Path", text: $remotePath)
+                            .textContentType(.none)
+                            .placeholder("/home/\(user)/projects/myproject")
+                        
+                        Button("Browse") {
+                            if selectedServer != nil {
+                                showingPathPicker = true
+                            } else {
+                                showingPasswordPrompt = true
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(host.isEmpty || user.isEmpty)
+                    }
                 }
 
                 Section("Configuration") {
@@ -108,6 +123,33 @@ struct AddWorkspaceView: View {
                 showingServerSelection = false
             }
         }
+        .sheet(isPresented: $showingPathPicker) {
+            if let config = currentSSHConfig {
+                RemotePathPickerView(
+                    config: config,
+                    onPathSelected: { path in
+                        remotePath = path
+                        showingPathPicker = false
+                    },
+                    onCancel: {
+                        showingPathPicker = false
+                    }
+                )
+            }
+        }
+        .alert("SSH Password Required", isPresented: $showingPasswordPrompt) {
+            SecureField("Password", text: $tempPassword)
+            Button("Cancel", role: .cancel) {
+                tempPassword = ""
+            }
+            Button("Browse") {
+                showingPathPicker = true
+                showingPasswordPrompt = false
+            }
+            .disabled(tempPassword.isEmpty)
+        } message: {
+            Text("Enter the SSH password for \(user)@\(host) to browse remote directories.")
+        }
     }
 
     private var isValid: Bool {
@@ -126,6 +168,20 @@ struct AddWorkspaceView: View {
             remotePath: remotePath,
             idleTTLMinutes: idleTTLMinutes
         )
+    }
+    
+    private var currentSSHConfig: SSHServerConfiguration? {
+        if let selectedServer = selectedServer {
+            return selectedServer
+        } else if !host.isEmpty && !user.isEmpty {
+            return SSHServerConfiguration(
+                host: host,
+                username: user,
+                password: tempPassword,
+                useKeyAuthentication: false
+            )
+        }
+        return nil
     }
 
     private func generateTmuxSessionName() -> String {
