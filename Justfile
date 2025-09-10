@@ -10,6 +10,9 @@ update:
 lint:
     swiftlint Sources
 
+fix:
+    swiftlint Sources --fix
+
 fmt:
     swift-format --in-place --recursive Sources/
 

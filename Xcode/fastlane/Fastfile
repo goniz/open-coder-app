@@ -26,7 +26,9 @@ platform :ios do
       skip_archive: true,
       destination: "generic/platform=iOS Simulator",
       skip_package_dependencies_resolution: true,
-      disable_package_automatic_updates: true
+      disable_package_automatic_updates: true,
+      buildlog_path: "/tmp/gym_logs",
+      silent: true
     )
     puts "✅ Development build completed successfully"
   end

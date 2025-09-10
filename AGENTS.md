@@ -6,6 +6,7 @@
 - Test all: `swift test` or `just test`
 - Test single target: `swift test --filter ModelsTests` or `swift test --filter FeaturesTests.AppFeatureTests`
 - Lint: `swiftlint Sources` or `just lint`
+- **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations where possible
 - Format: `swift-format --in-place --recursive Sources/` or `just fmt`
 - Update packages: `swift package update` or `just update`
 - **Validate all: `just validate`** - Runs build, build-ios, lint, and test in sequence
@@ -19,6 +20,8 @@
 4. All unit tests
 
 This ensures code quality and prevents issues from propagating through the codebase.
+
+**Code Quality**: When `just validate` shows many lint warnings/errors, run `just fix` first to automatically resolve fixable issues, then re-run validation. This saves time and maintains consistent code style.
 
 ## Architecture
 - Modular Swift Package with TCA (The Composable Architecture)
