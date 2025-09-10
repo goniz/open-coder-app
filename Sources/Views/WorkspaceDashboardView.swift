@@ -13,7 +13,7 @@ struct WorkspaceDashboardView: View {
                 HeaderView(workspace: store.workspace, onlineState: .online(port: 8080))
 
                 Picker("Tab", selection: $store.selectedTab.sending(\.tabSelected)) {
-                    ForEach(WorkspaceDashboardFeature.State.Tab.allCases, id: \.self) { tab in
+                    ForEach(WorkspaceDashboardFeature.Tab.allCases, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
                     }
                 }

@@ -85,7 +85,7 @@ package struct WorkspaceDashboardFeature {
         }
     }
 
-    private static func createMockSessions(for workspaceId: String) -> [SessionMeta] {
+    private static func createMockSessions(for workspaceId: UUID) -> [SessionMeta] {
         [
             SessionMeta(
                 id: "1",

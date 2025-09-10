@@ -217,7 +217,6 @@ struct ServerSelectionView: View {
                     }
                 }
             )
-            }
         }
     }
 
