@@ -8,7 +8,7 @@ package struct Workspace: Identifiable, Codable, Equatable {
     package var remotePath: String
     package var tmuxSession: String
     package var idleTTLMinutes: Int
-    
+
     package init(
         id: UUID = UUID(),
         name: String,
@@ -23,10 +23,12 @@ package struct Workspace: Identifiable, Codable, Equatable {
         self.host = host
         self.user = user
         self.remotePath = remotePath
-        self.tmuxSession = tmuxSession.isEmpty ? Self.generateTmuxSessionName(user: user, host: host, path: remotePath) : tmuxSession
+        self.tmuxSession = tmuxSession.isEmpty ?
+            Self.generateTmuxSessionName(user: user, host: host, path: remotePath) :
+            tmuxSession
         self.idleTTLMinutes = idleTTLMinutes
     }
-    
+
     package static func generateTmuxSessionName(user: String, host: String, path: String) -> String {
         let pathHash = String(path.hashValue)
         let shortHash = String(pathHash.prefix(8))
@@ -46,7 +48,7 @@ package enum SpawnPhase: String, CaseIterable {
     case launch = "Launch"
     case health = "Health"
     case attach = "Attach"
-    
+
     package var description: String {
         switch self {
         case .ssh: return "Establishing SSH connection..."
@@ -55,7 +57,7 @@ package enum SpawnPhase: String, CaseIterable {
         case .attach: return "Attaching to session..."
         }
     }
-    
+
     package var progress: Double {
         switch self {
         case .ssh: return 0.25
@@ -72,7 +74,7 @@ package struct SessionMeta: Identifiable, Codable, Equatable {
     package var lastMessagePreview: String
     package var updatedAt: Date
     package var workspaceId: UUID
-    
+
     package init(
         id: String,
         title: String,
@@ -96,7 +98,7 @@ package struct WorkspaceDTO: Codable {
     let remotePath: String
     let tmuxSession: String
     let idleTTLMinutes: Int
-    
+
     init(from workspace: Workspace) {
         self.id = workspace.id
         self.name = workspace.name
@@ -106,7 +108,7 @@ package struct WorkspaceDTO: Codable {
         self.tmuxSession = workspace.tmuxSession
         self.idleTTLMinutes = workspace.idleTTLMinutes
     }
-    
+
     func toWorkspace() -> Workspace {
         Workspace(
             id: id,
@@ -126,7 +128,7 @@ package struct SessionMetaDTO: Codable {
     let lastMessagePreview: String
     let updatedAt: Date
     let workspaceId: UUID
-    
+
     init(from session: SessionMeta) {
         self.id = session.id
         self.title = session.title
@@ -134,7 +136,7 @@ package struct SessionMetaDTO: Codable {
         self.updatedAt = session.updatedAt
         self.workspaceId = session.workspaceId
     }
-    
+
     func toSessionMeta() -> SessionMeta {
         SessionMeta(
             id: id,

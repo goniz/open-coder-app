@@ -35,7 +35,7 @@ package enum SSHError: LocalizedError, Equatable {
     case portCollision(String)
     case spawnTimeout(String)
     case staleLock(String)
-    
+
     package var errorDescription: String? {
         switch self {
         case .connectionFailed(let message):
@@ -58,7 +58,7 @@ package enum SSHError: LocalizedError, Equatable {
 
 package struct SSHClient: SSHClientProtocol {
   package init() {}
-  
+
   package static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
@@ -96,31 +96,31 @@ package struct SSHClient: SSHClientProtocol {
       throw error
     }
   }
-  
+
   package func exec(_ command: String) async throws -> String {
       // Implementation would use actual SSH library (e.g., libssh2, NMSSH, or SwiftSSH)
       // For now, return mock implementation
       return "Command executed: \(command)"
   }
-  
+
   package func openPTY(_ command: String) async throws -> SSHPTYSession {
       // Implementation would open a PTY session
       throw SSHError.connectionFailed("PTY not implemented in mock")
   }
-  
+
   package func openDirectTCPIP(host: String, port: Int) async throws -> SSHStream {
       // Implementation would open direct TCP/IP channel
       throw SSHError.connectionFailed("Direct TCP/IP not implemented in mock")
   }
-  
+
   package func testConnection(_ config: Models.SSHServerConfiguration) async throws {
       try await SSHClient.testConnection(config)
   }
-  
+
   package func connect(_ config: Models.SSHServerConfiguration) async throws {
       try await testConnection(config)
   }
-  
+
   package func disconnect() async throws {
       // Mock implementation
   }
@@ -189,39 +189,39 @@ package enum SSHConnectionError: Error, LocalizedError {
 
 struct TmuxService: Sendable {
     private let sshClient: SSHClientProtocol
-    
+
     init(sshClient: SSHClientProtocol) {
         self.sshClient = sshClient
     }
-    
+
     func hasSession(_ name: String) async throws -> Bool {
         let command = "tmux has-session -t \\(name) 2>/dev/null && echo 'exists' || echo 'not found'"
         let result = try await sshClient.exec(command)
         return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
     }
-    
+
     func newSession(name: String, path: String) async throws {
         let command = "tmux new-session -d -s \\(name) -c \\(path)"
         _ = try await sshClient.exec(command)
     }
-    
+
     func newOrReplaceServerWindow(name: String) async throws {
         let hasExisting = try await hasSession(name)
         if hasExisting {
             let killCommand = "tmux kill-session -t \\(name)"
             _ = try await sshClient.exec(killCommand)
         }
-        
+
         let workspacePath = "$HOME"
         try await newSession(name: name, path: workspacePath)
     }
-    
+
     func listSessions() async throws -> [String] {
         let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
         let result = try await sshClient.exec(command)
         return result.split(separator: "\n").map(String.init)
     }
-    
+
     func killSession(_ name: String) async throws {
         let command = "tmux kill-session -t \\(name) 2>/dev/null || true"
         _ = try await sshClient.exec(command)
@@ -231,56 +231,59 @@ struct TmuxService: Sendable {
 package struct WorkspaceService: Sendable {
     private let sshClient: SSHClientProtocol
     private let tmuxService: TmuxService
-    
+
     package init(sshClient: SSHClientProtocol) {
         self.sshClient = sshClient
         self.tmuxService = TmuxService(sshClient: sshClient)
     }
-    
+
     package struct SpawnResult: Equatable {
         package let port: Int
         package let online: Bool
         package let error: SSHError?
     }
-    
+
     package func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
         // Step 1: Ensure tmux session exists
         let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
         if !sessionExists {
             try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
         }
-        
+
         // Step 2: Check for existing daemon.json
-        let checkCommand = "test -f \\(workspace.remotePath)/.opencode/daemon.json && cat \\(workspace.remotePath)/.opencode/daemon.json || echo '{}'"
+        let daemonPath = "\\(workspace.remotePath)/.opencode/daemon.json"
+        let checkCommand = "test -f \\(daemonPath) && cat \\(daemonPath) || echo '{}'"
         let daemonContent = try await sshClient.exec(checkCommand)
-        
+
         // Parse daemon.json to check for existing port
         let decoder = JSONDecoder()
         if let data = daemonContent.data(using: .utf8),
            let daemonInfo = try? decoder.decode([String: Int].self, from: data),
            let existingPort = daemonInfo["port"] {
-            
+
             // Health probe existing port
             if await healthCheck(port: existingPort, workspace: workspace) {
                 return SpawnResult(port: existingPort, online: true, error: nil)
             }
         }
-        
+
         // Step 3: Spawn opencode server
         let freePort = findFreePort()
-        let spawnCommand = "opencode serve --hostname 127.0.0.1 --port \\(freePort) --print-logs | tee -a \\(workspace.remotePath)/.opencode/live.log"
-        
+        let logPath = "\\(workspace.remotePath)/.opencode/live.log"
+        let spawnCommand = "opencode serve --hostname 127.0.0.1 --port \\(freePort) --print-logs | tee -a \\(logPath)"
+
         // Create daemon.json with port info
         let daemonData = try JSONEncoder().encode(["port": freePort])
         if let daemonJson = String(data: daemonData, encoding: .utf8) {
-            let writeCommand = "mkdir -p \\(workspace.remotePath)/.opencode && echo '\(daemonJson)' > \\(workspace.remotePath)/.opencode/daemon.json"
+            let opencodeDir = "\\(workspace.remotePath)/.opencode"
+            let writeCommand = "mkdir -p \\(opencodeDir) && echo '\(daemonJson)' > \\(opencodeDir)/daemon.json"
             _ = try await sshClient.exec(writeCommand)
         }
-        
+
         // Execute spawn command in tmux window
         let tmuxCommand = "tmux send-keys -t \\(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
         _ = try await sshClient.exec(tmuxCommand)
-        
+
         // Step 4: Wait for health check
         let maxRetries = 30 // 30 seconds timeout
         for _ in 0..<maxRetries {
@@ -289,20 +292,21 @@ package struct WorkspaceService: Sendable {
             }
             try await Task.sleep(for: .seconds(1))
         }
-        
-        return SpawnResult(port: freePort, online: false, error: .spawnTimeout("Failed to start opencode server within timeout"))
+
+        let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
+        return SpawnResult(port: freePort, online: false, error: timeoutError)
     }
-    
+
     private func findFreePort() -> Int {
         // Simple port allocation - in real implementation would check for available ports
         return Int.random(in: 8000..<9000)
     }
-    
+
     private func healthCheck(port: Int, workspace: Models.Workspace) async -> Bool {
         // Mock health check - in real implementation would probe the server
         return port > 0
     }
-    
+
     func getLiveOutputStream(workspace: Models.Workspace) -> AsyncStream<String> {
         let workspacePath = workspace.remotePath
         return AsyncStream { continuation in
@@ -310,12 +314,12 @@ package struct WorkspaceService: Sendable {
                 do {
                     let tailCommand = "tail -n 200 -F \(workspacePath)/.opencode/live.log"
                     let result = try await self.sshClient.exec(tailCommand)
-                    
+
                     let lines = result.split(separator: "\n")
                     for line in lines {
                         continuation.yield(String(line))
                     }
-                    
+
                     continuation.finish()
                 } catch {
                     continuation.finish()
@@ -323,15 +327,16 @@ package struct WorkspaceService: Sendable {
             }
         }
     }
-    
+
     package func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
         // Remove stale daemon.json and lock files
-        let cleanupCommand = "rm -f \\(workspace.remotePath)/.opencode/daemon.json \\(workspace.remotePath)/.opencode/lock"
+        let opencodeDir = "\\(workspace.remotePath)/.opencode"
+        let cleanupCommand = "rm -f \\(opencodeDir)/daemon.json \\(opencodeDir)/lock"
         _ = try await sshClient.exec(cleanupCommand)
-        
+
         // Kill existing tmux session
         try await tmuxService.killSession(workspace.tmuxSession)
-        
+
         // Retry spawn
         return try await attachOrSpawn(workspace: workspace)
     }

@@ -12,10 +12,10 @@ package struct WorkspacesFeature {
         package var isAddingWorkspace = false
         package var selectedWorkspace: WorkspaceState.ID?
         package var showingLiveOutput = false
-        
+
         package init() {}
     }
-    
+
     package struct WorkspaceState: Equatable, Identifiable {
         package let id = UUID()
         package var workspace: Workspace
@@ -23,12 +23,12 @@ package struct WorkspacesFeature {
         package var lastConnectedAt: Date?
         package var sessions: [SessionMeta] = []
         package var isRefreshing = false
-        
+
         package init(workspace: Workspace) {
             self.workspace = workspace
         }
     }
-    
+
     package enum Action: Equatable {
         case task
         case workspacesLoaded([WorkspaceState])
@@ -45,73 +45,102 @@ package struct WorkspacesFeature {
         case cleanAndRetry(WorkspaceState.ID)
         case spawnPhaseUpdated(WorkspaceState.ID, SpawnPhase)
     }
-    
+
     package init() {}
-    
+
     package var body: some ReducerOf<Self> {
         Reduce(core)
     }
-    
+
+    // swiftlint:disable:next cyclomatic_complexity
     package func core(state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .task:
             return handleTask(state: &state)
-            
+
         case let .workspacesLoaded(workspaces):
-            state.workspaces = workspaces
-            state.isLoading = false
-            return .none
-            
+            return handleWorkspacesLoaded(state: &state, workspaces: workspaces)
+
         case .addWorkspace:
-            state.isAddingWorkspace = true
-            return .none
-            
+            return handleAddWorkspace(state: &state)
+
         case let .addWorkspaceCompleted(workspace):
-            let workspaceState = WorkspaceState(workspace: workspace)
-            state.workspaces.append(workspaceState)
-            state.isAddingWorkspace = false
-            saveWorkspacesToStorage(state.workspaces)
-            return .none
-            
+            return handleAddWorkspaceCompleted(state: &state, workspace: workspace)
+
         case let .openWorkspace(id):
             return handleOpenWorkspace(state: &state, id: id)
-            
+
         case let .workspaceOpened(id, result):
             return handleWorkspaceOpened(state: &state, id: id, result: result)
-            
+
         case let .refreshWorkspace(id):
             return handleRefreshWorkspace(state: &state, id: id)
-            
+
         case let .workspaceRefreshed(id, sessions):
             return handleWorkspaceRefreshed(state: &state, id: id, sessions: sessions)
-            
+
         case let .removeWorkspace(id):
-            state.workspaces.removeAll { $0.id == id }
-            saveWorkspacesToStorage(state.workspaces)
-            return .none
-            
+            return handleRemoveWorkspace(state: &state, id: id)
+
         case .dismissAddWorkspace:
-            state.isAddingWorkspace = false
-            return .none
-            
+            return handleDismissAddWorkspace(state: &state)
+
         case let .showLiveOutput(id):
-            state.selectedWorkspace = id
-            state.showingLiveOutput = true
-            return .none
-            
+            return handleShowLiveOutput(state: &state, id: id)
+
         case .hideLiveOutput:
-            state.showingLiveOutput = false
-            state.selectedWorkspace = nil
-            return .none
-            
+            return handleHideLiveOutput(state: &state)
+
         case let .cleanAndRetry(id):
             return handleCleanAndRetry(state: &state, id: id)
-            
+
         case let .spawnPhaseUpdated(id, phase):
             return handleSpawnPhaseUpdated(state: &state, id: id, phase: phase)
         }
     }
-    
+
+    private func handleWorkspacesLoaded(state: inout State, workspaces: [WorkspaceState]) -> Effect<Action> {
+        state.workspaces = workspaces
+        state.isLoading = false
+        return .none
+    }
+
+    private func handleAddWorkspace(state: inout State) -> Effect<Action> {
+        state.isAddingWorkspace = true
+        return .none
+    }
+
+    private func handleAddWorkspaceCompleted(state: inout State, workspace: Workspace) -> Effect<Action> {
+        let workspaceState = WorkspaceState(workspace: workspace)
+        state.workspaces.append(workspaceState)
+        state.isAddingWorkspace = false
+        saveWorkspacesToStorage(state.workspaces)
+        return .none
+    }
+
+    private func handleRemoveWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
+        state.workspaces.removeAll { $0.id == id }
+        saveWorkspacesToStorage(state.workspaces)
+        return .none
+    }
+
+    private func handleDismissAddWorkspace(state: inout State) -> Effect<Action> {
+        state.isAddingWorkspace = false
+        return .none
+    }
+
+    private func handleShowLiveOutput(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
+        state.selectedWorkspace = id
+        state.showingLiveOutput = true
+        return .none
+    }
+
+    private func handleHideLiveOutput(state: inout State) -> Effect<Action> {
+        state.showingLiveOutput = false
+        state.selectedWorkspace = nil
+        return .none
+    }
+
     private func handleTask(state: inout State) -> Effect<Action> {
         state.isLoading = true
         return .run { send in
@@ -120,13 +149,13 @@ package struct WorkspacesFeature {
             await send(.workspacesLoaded(workspaceStates))
         }
     }
-    
+
     private func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        
+
         state.workspaces[index].onlineState = .spawning(phase: .ssh)
         let workspace = state.workspaces[index].workspace
-        
+
         return .run { send in
             do {
                 let sshClient = SSHClient()
@@ -137,15 +166,20 @@ package struct WorkspacesFeature {
                 if let sshError = error as? SSHError {
                     await send(.workspaceOpened(id, .failure(sshError)))
                 } else {
-                    await send(.workspaceOpened(id, .failure(.connectionFailed(error.localizedDescription))))
+                    let errorMessage = error.localizedDescription
+                    await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
                 }
             }
         }
     }
-    
-    private func handleWorkspaceOpened(state: inout State, id: WorkspaceState.ID, result: Result<WorkspaceService.SpawnResult, SSHError>) -> Effect<Action> {
+
+    private func handleWorkspaceOpened(
+        state: inout State,
+        id: WorkspaceState.ID,
+        result: Result<WorkspaceService.SpawnResult, SSHError>
+    ) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        
+
         switch result {
         case .success(let spawnResult):
             if spawnResult.online {
@@ -161,17 +195,17 @@ package struct WorkspacesFeature {
         case .failure(let error):
             state.workspaces[index].onlineState = .error(error.localizedDescription)
         }
-        
+
         return .none
     }
-    
+
     private func handleRefreshWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        guard case .online(_) = state.workspaces[index].onlineState else { return .none }
-        
+        guard case .online = state.workspaces[index].onlineState else { return .none }
+
         state.workspaces[index].isRefreshing = true
         let workspaceId = state.workspaces[index].workspace.id
-        
+
         return .run { send in
             // Mock session fetch - in real implementation would fetch from server
             try await Task.sleep(for: .seconds(1))
@@ -194,22 +228,26 @@ package struct WorkspacesFeature {
             await send(.workspaceRefreshed(id, mockSessions))
         }
     }
-    
-    private func handleWorkspaceRefreshed(state: inout State, id: WorkspaceState.ID, sessions: [SessionMeta]) -> Effect<Action> {
+
+    private func handleWorkspaceRefreshed(
+        state: inout State,
+        id: WorkspaceState.ID,
+        sessions: [SessionMeta]
+    ) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        
+
         state.workspaces[index].sessions = sessions
         state.workspaces[index].isRefreshing = false
-        
+
         return .none
     }
-    
+
     private func handleCleanAndRetry(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        
+
         state.workspaces[index].onlineState = .spawning(phase: .ssh)
         let workspace = state.workspaces[index].workspace
-        
+
         return .run { send in
             do {
                 let sshClient = SSHClient()
@@ -220,20 +258,25 @@ package struct WorkspacesFeature {
                 if let sshError = error as? SSHError {
                     await send(.workspaceOpened(id, .failure(sshError)))
                 } else {
-                    await send(.workspaceOpened(id, .failure(.connectionFailed(error.localizedDescription))))
+                    let errorMessage = error.localizedDescription
+                    await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
                 }
             }
         }
     }
-    
-    private func handleSpawnPhaseUpdated(state: inout State, id: WorkspaceState.ID, phase: SpawnPhase) -> Effect<Action> {
+
+    private func handleSpawnPhaseUpdated(
+        state: inout State,
+        id: WorkspaceState.ID,
+        phase: SpawnPhase
+    ) -> Effect<Action> {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
-        
+
         state.workspaces[index].onlineState = .spawning(phase: phase)
-        
+
         return .none
     }
-    
+
     private func loadWorkspacesFromStorage() -> [Workspace] {
         guard let data = UserDefaults.standard.data(forKey: "savedWorkspaces") else { return [] }
         do {
@@ -244,7 +287,7 @@ package struct WorkspacesFeature {
             return []
         }
     }
-    
+
     private func saveWorkspacesToStorage(_ workspaceStates: [WorkspaceState]) {
         let workspaces = workspaceStates.map { $0.workspace }
         do {

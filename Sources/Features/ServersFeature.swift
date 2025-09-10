@@ -31,6 +31,7 @@ package struct ServerState: Equatable, Identifiable {
 }
 
 @Reducer
+// swiftlint:disable:next type_body_length
 package struct ServersFeature {
   @ObservableState
   package struct State: Equatable {
@@ -88,6 +89,7 @@ package struct ServersFeature {
     }
   }
 
+  // swiftlint:disable:next cyclomatic_complexity
   private func handleServerAction(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
