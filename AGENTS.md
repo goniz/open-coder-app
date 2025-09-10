@@ -5,6 +5,7 @@
 - Test all: `swift test` or `just test`
 - Test single target: `swift test --filter ModelsTests` or `swift test --filter FeaturesTests.AppFeatureTests`
 - Lint: `swiftlint Sources` or `just lint`
+- Format: `swift-format --in-place --recursive Sources/` or `just fmt`
 - Update packages: `swift package update` or `just update`
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
 
