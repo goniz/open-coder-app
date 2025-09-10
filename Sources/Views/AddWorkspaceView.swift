@@ -44,7 +44,7 @@ struct AddWorkspaceView: View {
                         TextField("Remote Path", text: $remotePath)
                             .textContentType(.none)
                             .placeholder("/home/\(user)/projects/myproject")
-                        
+
                         Button("Browse") {
                             if selectedServer != nil {
                                 showingPathPicker = true
@@ -169,7 +169,7 @@ struct AddWorkspaceView: View {
             idleTTLMinutes: idleTTLMinutes
         )
     }
-    
+
     private var currentSSHConfig: SSHServerConfiguration? {
         if let selectedServer = selectedServer {
             return selectedServer
