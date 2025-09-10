@@ -2,6 +2,7 @@
 
 ## Commands
 - Build: `swift build` or `just build`
+- Build iOS app: `just build-ios` (development build without publishing)
 - Test all: `swift test` or `just test`
 - Test single target: `swift test --filter ModelsTests` or `swift test --filter FeaturesTests.AppFeatureTests`
 - Lint: `swiftlint Sources` or `just lint`

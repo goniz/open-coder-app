@@ -81,7 +81,7 @@ struct RemotePathPickerView: View {
       .padding(.horizontal)
     }
     .frame(height: 30)
-    .background(Color(.controlBackgroundColor))
+    .background(Color.gray.opacity(0.1))
   }
 
   private var pathComponents: [(name: String, path: String)] {

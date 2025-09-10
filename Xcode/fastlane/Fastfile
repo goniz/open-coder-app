@@ -16,6 +16,21 @@
 default_platform(:ios)
 
 platform :ios do
+  desc "Build for development without publishing"
+  lane :build do
+    build_app(
+      workspace: "OpenCoder.xcworkspace", 
+      scheme: "OpenCoder",
+      configuration: "Debug",
+      skip_codesigning: true,
+      skip_archive: true,
+      destination: "generic/platform=iOS Simulator",
+      skip_package_dependencies_resolution: true,
+      disable_package_automatic_updates: true
+    )
+    puts "✅ Development build completed successfully"
+  end
+
   desc "Push a new beta build to TestFlight"
   lane :beta do
     api_key = app_store_connect_api_key(
