@@ -8,7 +8,17 @@
 - Lint: `swiftlint Sources` or `just lint`
 - Format: `swift-format --in-place --recursive Sources/` or `just fmt`
 - Update packages: `swift package update` or `just update`
+- **Validate all: `just validate`** - Runs build, build-ios, lint, and test in sequence
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
+
+## Development Workflow
+**IMPORTANT**: Always run `just validate` between development cycles to catch all errors before proceeding. This comprehensive command runs:
+1. Swift package build with warnings as errors
+2. iOS app build for simulator 
+3. SwiftLint checks
+4. All unit tests
+
+This ensures code quality and prevents issues from propagating through the codebase.
 
 ## Architecture
 - Modular Swift Package with TCA (The Composable Architecture)
