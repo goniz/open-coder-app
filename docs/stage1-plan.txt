@@ -1,0 +1,263 @@
+Here’s a tightly scoped, build-ready task list to ship iPhone UI + opencode spawn/attach up to (and including) the Sessions list. Everything beyond the Sessions list (chat thread, repo, terminals, etc.) is out of scope for now.
+
+⸻
+
+Scope Overview
+	•	UI: Workspaces (root), Add Server flow, Create Workspace modal, Workspace Dashboard shell, Sessions tab (list only).
+	•	Runtime: SSH + tmux session management, on-demand spawn/attach of opencode serve --print-logs, local port-forward, health check, and Live Output viewer.
+	•	Local-first: device stores Workspaces & Sessions list; server used only to validate and fetch the remote session list (when available).
+
+⸻
+
+Track A — UI (SwiftUI) to Sessions List
+
+A1. Project & Shell
+	•	Create app target, base NavigationStack, light design system (spacing, type, pills).
+	•	Implement AppRouter and route models.
+
+Definition of done (DoD): App launches to empty Workspaces screen; dark/light supported.
+
+⸻
+
+A2. Workspaces (Root) UI
+	•	WorkspacesView with cards: name, user@host, remote path, state pill (Idle/Spawning/Online/Error).
+	•	Swipe actions: Connect/Disconnect, Open.
+	•	Pull-to-refresh (visual only for now).
+
+DoD: List renders from local mock store; pills reflect ViewState enum.
+
+⸻
+
+A3. Add Server Flow (Stepper)
+	1.	Host/IP & Port
+	2.	Auth (username; key import/generate; optional passphrase)
+	3.	Fingerprint review (placeholder UI)
+	4.	Connection test (stubbed spinner)
+
+DoD: Validated forms; persists a HostRef locally; returns to Workspaces with a new “server” entry.
+
+⸻
+
+A4. Create Workspace Modal
+	•	Path picker field (free-text for now), Idle TTL, log retention.
+	•	Generates deterministic tmux session name preview.
+
+DoD: Persists Workspace locally; shows a card on Workspaces list.
+
+⸻
+
+A5. Workspace Dashboard Shell
+	•	Header with Context Bar (server · path · branch (placeholder) · tunnel state).
+	•	Segmented control: Sessions · Repo · Terminals · Activity (only Sessions enabled now).
+	•	Spawning Overlay component (reusable): steps = SSH → Launch → Health → Attach.
+
+DoD: Navigating into a workspace shows Dashboard with the Sessions tab selected and overlay injectable.
+
+⸻
+
+A6. Sessions List (UI only)
+	•	SessionsListView: list of sessions (title, last message preview, updatedAt).
+	•	Empty state: “No sessions yet”.
+	•	“New Session” button (disabled for now or opens placeholder toast).
+
+DoD: Renders from local store; supports large data (LazyVStack), pull-to-refresh (triggers data reload).
+
+⸻
+
+A7. Live Output Viewer (UI)
+	•	Full-screen monospaced view.
+	•	Controls: Follow/Pause, Copy, Search (client-side), Clear buffer.
+	•	Open via button in Dashboard header.
+
+DoD: Accepts an async line stream provider and renders smoothly to 5–10K lines with virtualized scrolling.
+
+⸻
+
+Track B — Runtime: SSH + tmux + opencode Spawn/Attach
+
+B1. Keychain & Known-Hosts (Foundations)
+	•	Generate/import Ed25519 keys; store securely.
+	•	Local cache of host fingerprints; APIs: add, lookup, verify.
+
+DoD: Unit tests: generate keypair; round-trip storage; in-memory known_hosts compare.
+
+⸻
+
+B2. SSH Client (exec + PTY + direct-tcpip)
+	•	Minimal wrapper exposing:
+	•	exec(_ command: String) (non-PTY)
+	•	openPTY(_ command: String) (for terminals later)
+	•	openDirectTCPIP(host: "127.0.0.1", port: Int) → returns bidirectional stream
+
+DoD: Integration test to run echo hello; error surfaces on bad auth.
+
+⸻
+
+B3. TmuxService (idempotent session ensure)
+	•	hasSession(name), newSession(name, path), newOrReplaceServerWindow(name).
+	•	Deterministic session name: ocw-{user}-{host}-{hash(path)[:8]}.
+
+DoD: Can create/list/kill windows via SSH; unit tests using command stubs.
+
+⸻
+
+B4. Spawn/Attach Orchestrator (WorkspaceService)
+	•	Attach-or-Spawn algorithm:
+	1.	Ensure tmux session.
+	2.	If $CTRL/daemon.json exists → read port → health probe.
+	3.	Else spawn opencode serve --hostname 127.0.0.1 --port <free> --print-logs | tee -a live.log in server window.
+	4.	Wait for health (/config or /app) via temporary direct-tcpip.
+	5.	Establish local port-forward channel for the session.
+	•	Implements Spawning Overlay progress callbacks.
+
+DoD: Method attachOrSpawn(workspace) returns { port, online: true } or typed error; visually drives overlay.
+
+⸻
+
+B5. Live Output Stream (tail -F)
+	•	SSH exec to tail -n 200 -F "$WORKSPACE/.opencode/live.log".
+	•	ANSI-to-AttributedString transformer.
+	•	Client-side redaction (tokens/URLs) toggle.
+
+DoD: UI Live Output viewer displays stream with <200ms perceived latency and survives log rotation.
+
+⸻
+
+B6. Health & Error Handling
+	•	Typed errors: fingerprint mismatch, auth failed, port in use, spawn timeout, stale lock.
+	•	Recovery actions:
+	•	“Clean & Retry” → removes stale daemon.json/lock, restarts window.
+	•	“Choose new port” on port collision.
+	•	Telemetry hooks: spawn p50/p95, failures.
+
+DoD: Simulated errors surface correct banners and recovery CTAs; metrics emitted (console for now).
+
+⸻
+
+Track C — Sessions List Data (Local-first + Server fetch)
+
+C1. Local Store (SQLite/GRDB or Core Data)
+	•	Entities: Workspace, SessionMeta {id, title, lastMessagePreview, updatedAt, workspaceId}.
+	•	DAO methods: upsert/list per workspace.
+
+DoD: Persistence tested; cold app start shows saved sessions.
+
+⸻
+
+C2. OpenAPI Client (thin)
+	•	Fetch OpenAPI /doc later—for now, implement minimal endpoints:
+	•	GET /session → [SessionMetaDTO]
+	•	Transport uses the direct-tcpip tunnel.
+
+DoD: Given a port from B4, fetchSessions() returns decoded DTOs.
+
+⸻
+
+C3. Sync: Sessions List
+	•	On entering a workspace (and after successful attach):
+	•	Fetch remote sessions.
+	•	Merge with local (upsert by id, update timestamps/previews).
+	•	Show optimistic local list immediately; update cells on arrival.
+
+DoD: Sessions list updates within one refresh cycle after spawn; offline shows last local copy.
+
+⸻
+
+Cross-Cutting: Glue & Testing
+
+X1. View Models & State
+	•	WorkspaceVM: exposes state: Idle/Spawning/Online/Error, drives overlay.
+	•	SessionsVM: sessions, isRefreshing, load() that calls attach→fetch.
+
+DoD: No business logic in Views; cancellation on disappear works.
+
+⸻
+
+X2. Integration Tests (Happy Paths)
+	•	Add Server → Create Workspace → Open Workspace
+	•	Spawning overlay progresses and completes.
+	•	Sessions list shows data fetched from a mocked opencode instance (or fixture injected through the HTTP client).
+
+⸻
+
+X3. Error/Recovery Tests
+	•	Bad fingerprint → blocking error sheet.
+	•	Port collision → auto retry with new port.
+	•	Stale daemon.json → “Clean & Retry” path succeeds.
+
+⸻
+
+X4. Performance Checks
+	•	Spawn p95 ≤ 8s on LTE (simulated).
+	•	Sessions list scrolls 120fps on 500 items.
+	•	Live Output handles 10k lines with stable memory.
+
+⸻
+
+Deliverables & Milestones (4–5 short iterations)
+
+Iteration 1 — Foundations
+	•	A1, B1, B2, C1
+Outcome: App shell; local store; SSH basics proven.
+
+Iteration 2 — Workspaces UI + Ensure tmux
+	•	A2, A3, A4, B3
+Outcome: Create servers/workspaces; deterministic tmux sessions.
+
+Iteration 3 — Spawn/Attach + Overlay
+	•	A5, B4, B6
+Outcome: Real spawn/attach from UI with clear progress & errors.
+
+Iteration 4 — Sessions List + Live Output
+	•	A6, C2, C3, B5, A7
+Outcome: Sessions list synced post-spawn; Live Output viewer streaming.
+
+(Optional) Iteration 5 — Hardening
+	•	X2–X4 polish, telemetry, edge-case fixes.
+
+⸻
+
+Minimal Data Models (initial)
+
+struct Workspace: Identifiable, Codable {
+  let id: UUID
+  var name: String
+  var host: String
+  var user: String
+  var remotePath: String
+  var tmuxSession: String
+  var idleTTLMinutes: Int
+}
+
+enum WorkspaceOnlineState { case idle, spawning(phase: SpawnPhase), online(port: Int), error(String) }
+enum SpawnPhase: String { case ssh, launch, health, attach }
+
+struct SessionMeta: Identifiable, Codable {
+  let id: String
+  var title: String
+  var lastMessagePreview: String
+  var updatedAt: Date
+  var workspaceId: UUID
+}
+
+
+⸻
+
+Acceptance Criteria (for this scope)
+	•	From a cold start, a user can:
+	1.	Add a server and create a workspace (no systemd).
+	2.	Open the workspace; the app spawns opencode via tmux and attaches.
+	3.	See a Sessions list populated from the server (or the last local snapshot when offline).
+	4.	Open Live Output and watch stdout streaming in real time.
+	•	Robust error surfaces and recovery actions exist for fingerprint mismatch, auth failure, stale locks, and spawn timeout.
+
+⸻
+
+Known Risks (and immediate mitigations)
+	•	Background suspension during spawn → keep overlay resumable; on foreground, re-run attach-or-spawn.
+	•	CLI/API drift → encapsulate commands/paths; add capability probe before relying on endpoints.
+	•	Large logs → ring buffer + virtualized view; cap lines; “Clear” action.
+
+⸻
+
+This plan keeps the scope laser-focused: you’ll ship Workspaces → Spawn/Attach → Sessions list with real opencode processes under tmux and a clean, resilient UI foundation for the rest.

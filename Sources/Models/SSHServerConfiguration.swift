@@ -1,6 +1,6 @@
 import Foundation
 
-package struct SSHServerConfiguration: Equatable, Codable {
+package struct SSHServerConfiguration: Equatable, Codable, Hashable {
   package var name: String
   package var host: String
   package var port: Int
