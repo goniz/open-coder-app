@@ -10,13 +10,21 @@ let appName = "OpenCoderApp"
 let tca = SourceControlDependency(
   package: .package(
     url: "https://github.com/pointfreeco/swift-composable-architecture",
-    exact: "1.22.2"
+    from: "1.22.2"
   ),
   productName: "ComposableArchitecture"
 )
 let swiftDependencies = Package.Dependency.package(
   url: "https://github.com/pointfreeco/swift-dependencies",
   from: "1.9.4"
+)
+let swiftPerception = Package.Dependency.package(
+  url: "https://github.com/pointfreeco/swift-perception",
+  from: "1.6.0"
+)
+let swiftCasePaths = Package.Dependency.package(
+  url: "https://github.com/pointfreeco/swift-case-paths",
+  from: "1.7.0"
 )
 let dependencies = SourceControlDependency(
   package: swiftDependencies,
@@ -25,6 +33,14 @@ let dependencies = SourceControlDependency(
 let dependenciesMacros = SourceControlDependency(
   package: swiftDependencies,
   productName: "DependenciesMacros"
+)
+let perception = SourceControlDependency(
+  package: swiftPerception,
+  productName: "Perception"
+)
+let casePaths = SourceControlDependency(
+  package: swiftCasePaths,
+  productName: "CasePaths"
 )
 let customDump = SourceControlDependency(
   package: .package(
@@ -113,6 +129,8 @@ let package = Package(
   dependencies: [
     tca.package,
     swiftDependencies,
+    swiftPerception,
+    swiftCasePaths,
     customDump.package,
     swiftNIOSSH.package,
   ],
@@ -169,6 +187,7 @@ struct SingleTargetLibrary {
   var name: String
   var dependencies: [Target.Dependency] = []
   var resources: [Resource]? = nil
+  var plugins: [Target.PluginUsage] = []
 
   var product: Product {
     .library(name: name, targets: [name])
@@ -176,9 +195,9 @@ struct SingleTargetLibrary {
 
   var target: Target {
     if let resources = resources {
-      return .target(name: name, dependencies: dependencies, resources: resources)
+      return .target(name: name, dependencies: dependencies, resources: resources, plugins: plugins)
     } else {
-      return .target(name: name, dependencies: dependencies)
+      return .target(name: name, dependencies: dependencies, plugins: plugins)
     }
   }
 
@@ -188,6 +207,6 @@ struct SingleTargetLibrary {
 
   var testTarget: Target {
     .testTarget(
-      name: name + "Tests", dependencies: [targetDependency, customDump.targetDependency])
+      name: name + "Tests", dependencies: [targetDependency, customDump.targetDependency], plugins: plugins)
   }
 }
