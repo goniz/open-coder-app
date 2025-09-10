@@ -158,8 +158,15 @@ package struct WorkspacesFeature {
 
         return .run { send in
             do {
-                let sshClient = SSHClient()
-                let workspaceService = WorkspaceService(sshClient: sshClient)
+                // For now, we need to get the SSH configuration from somewhere
+                // This is a placeholder - in a real implementation, you'd get this from the server configuration
+                let config = SSHServerConfiguration(
+                    host: workspace.host,
+                    username: workspace.user,
+                    password: "", // This would need to be retrieved from stored credentials
+                    useKeyAuthentication: false
+                )
+                let workspaceService = WorkspaceService(config: config)
                 let result = try await workspaceService.attachOrSpawn(workspace: workspace)
                 await send(.workspaceOpened(id, .success(result)))
             } catch {
@@ -250,8 +257,16 @@ package struct WorkspacesFeature {
 
         return .run { send in
             do {
-                let sshClient = SSHClient()
-                let workspaceService = WorkspaceService(sshClient: sshClient)
+                // Create SSH configuration from workspace data
+                // Note: In a real implementation, you'd need to retrieve the password or key from secure storage
+                let config = SSHServerConfiguration(
+                    host: workspace.host,
+                    port: 22, // Default SSH port
+                    username: workspace.user,
+                    password: "", // This would need to be retrieved from secure storage
+                    useKeyAuthentication: false
+                )
+                let workspaceService = WorkspaceService(config: config)
                 let result = try await workspaceService.cleanAndRetry(workspace: workspace)
                 await send(.workspaceOpened(id, .success(result)))
             } catch {
