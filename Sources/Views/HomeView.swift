@@ -12,10 +12,12 @@ struct HomeView: View {
   }
 
   var body: some View {
-    TabView(selection: Binding(
-      get: { store.selectedTab },
-      set: { store.send(.tabSelected($0)) }
-    )) {
+    TabView(
+      selection: Binding(
+        get: { store.selectedTab },
+        set: { store.send(.tabSelected($0)) }
+      )
+    ) {
       WorkspacesView(
         store: store.scope(state: \.workspaces, action: \.workspaces)
       )

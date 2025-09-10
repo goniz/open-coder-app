@@ -10,6 +10,9 @@ update:
 lint:
     swiftlint Sources
 
+fmt:
+    swift-format --in-place --recursive Sources/
+
 beta:
     cd Xcode && fastlane beta
 

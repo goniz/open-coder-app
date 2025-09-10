@@ -127,7 +127,8 @@ package struct OnboardingFeature {
       do {
         var existingConfigs = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
         let isDuplicate = existingConfigs.contains { existing in
-          existing.host == config.host && existing.username == config.username && existing.port == config.port
+          existing.host == config.host && existing.username == config.username
+            && existing.port == config.port
         }
         if !isDuplicate {
           existingConfigs.append(config)

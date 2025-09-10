@@ -98,32 +98,32 @@ struct OnboardingView: View {
           }
         )
 
-      if store.serverConfiguration.useKeyAuthentication {
-        TextField("Private Key Path", text: $store.serverConfiguration.privateKeyPath)
-          .textFieldStyle(.roundedBorder)
-          .disableAutocorrection(true)
-      } else {
-        HStack {
-          if store.showPassword {
-            TextField("Password", text: $store.serverConfiguration.password)
-              .textFieldStyle(.roundedBorder)
-              .disableAutocorrection(true)
-          } else {
-            SecureField("Password", text: $store.serverConfiguration.password)
-              .textFieldStyle(.roundedBorder)
-          }
-
-          Button(
-            action: { store.send(.togglePasswordVisibility) },
-            label: {
-              Image(systemName: store.showPassword ? "eye.slash" : "eye")
-                .foregroundColor(.secondary)
+        if store.serverConfiguration.useKeyAuthentication {
+          TextField("Private Key Path", text: $store.serverConfiguration.privateKeyPath)
+            .textFieldStyle(.roundedBorder)
+            .disableAutocorrection(true)
+        } else {
+          HStack {
+            if store.showPassword {
+              TextField("Password", text: $store.serverConfiguration.password)
+                .textFieldStyle(.roundedBorder)
+                .disableAutocorrection(true)
+            } else {
+              SecureField("Password", text: $store.serverConfiguration.password)
+                .textFieldStyle(.roundedBorder)
             }
-          )
+
+            Button(
+              action: { store.send(.togglePasswordVisibility) },
+              label: {
+                Image(systemName: store.showPassword ? "eye.slash" : "eye")
+                  .foregroundColor(.secondary)
+              }
+            )
+          }
         }
       }
     }
-  }
   }
 
   private var actionButtons: some View {

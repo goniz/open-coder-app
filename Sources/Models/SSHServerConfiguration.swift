@@ -31,10 +31,12 @@ package struct SSHServerConfiguration: Equatable, Codable, Hashable {
   }
 
   package var isValid: Bool {
-    !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-    !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-    !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-    port > 0 && port <= 65535 &&
-    (useKeyAuthentication ? !privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : !password.isEmpty)
+    !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      && !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && port > 0
+      && port <= 65535
+      && (useKeyAuthentication
+        ? !privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        : !password.isEmpty)
   }
 }
