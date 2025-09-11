@@ -117,7 +117,7 @@ struct AddServerFlowView: View {
   private var canProceedToNextStep: Bool {
     switch currentStep {
     case 1:
-      return !config.name.isEmpty && !config.host.isEmpty
+      return !config.name.isEmpty && !config.host.isEmpty && !config.username.isEmpty
     case 2:
       return config.useKeyAuthentication ? !config.privateKeyPath.isEmpty : !config.password.isEmpty
     case 3:
@@ -190,6 +190,10 @@ struct ServerDetailsStep: View {
         TextField("Username", text: $config.username)
           .textContentType(.username)
           .placeholder("user")
+
+        Text("Username is required")
+          .font(.caption)
+          .foregroundColor(.secondary)
       }
     }
   }

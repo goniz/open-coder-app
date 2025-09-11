@@ -296,7 +296,7 @@ private struct LiveOutputView: View {
       "[2024-01-15 10:30:21] Listening on port 8080...",
       "[2024-01-15 10:30:22] Health check passed",
       "[2024-01-15 10:30:23] Server is online",
-      "[2024-01-15 10:30:24] Ready to accept connections"
+      "[2024-01-15 10:30:24] Ready to accept connections",
     ]
 
     for line in mockLines {
