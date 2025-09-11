@@ -13,6 +13,7 @@ struct AddServerFlowView: View {
   @State private var showingFingerprintAlert = false
   @State private var isTestingConnection = false
   @State private var testResult: TestResult?
+  @State private var passwordInput = ""
 
   enum TestResult {
     case success
@@ -69,7 +70,7 @@ struct AddServerFlowView: View {
       case 1:
         ServerDetailsStep(config: $config)
       case 2:
-        AuthenticationStep(config: $config)
+        AuthenticationStep(config: $config, passwordInput: $passwordInput)
       case 3:
         FingerprintStep(config: config)
       case 4:
@@ -119,7 +120,7 @@ struct AddServerFlowView: View {
     case 1:
       return !config.name.isEmpty && !config.host.isEmpty && !config.username.isEmpty
     case 2:
-      return config.useKeyAuthentication ? !config.privateKeyPath.isEmpty : !config.password.isEmpty
+      return config.useKeyAuthentication ? !config.privateKeyPath.isEmpty : !passwordInput.isEmpty
     case 3:
       return true  // Always allow proceeding from fingerprint step
     default:
@@ -201,6 +202,7 @@ struct ServerDetailsStep: View {
 
 struct AuthenticationStep: View {
   @Binding var config: SSHServerConfiguration
+  @Binding var passwordInput: String
   @State private var showPassword = false
   @State private var showKeyImporter = false
 
@@ -221,12 +223,18 @@ struct AuthenticationStep: View {
         config.privateKeyPath = keyPath
       }
     }
+    .onAppear {
+      passwordInput = config.password
+    }
   }
 
   private var passwordAuthenticationSection: some View {
     Section("Password Authentication") {
-      SecureField("Password", text: $config.password)
+      SecureField("Password", text: $passwordInput)
         .textContentType(.password)
+        .onChange(of: passwordInput) { _, newValue in
+          config.password = newValue
+        }
     }
   }
 
