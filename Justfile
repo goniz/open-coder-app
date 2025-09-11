@@ -36,3 +36,6 @@ devcycle:
     just build && \
     just build-ios && \
     just test
+
+ota-host *args:
+    cd swift-ota-host && swift run swift-ota-host {{args}}
