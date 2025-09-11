@@ -20,6 +20,7 @@ package protocol SSHClientProtocol: Sendable {
   func disconnect() async throws
   func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo]
+  func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String
 }
 
 package struct SSHPTYSession {
@@ -359,6 +360,15 @@ package struct SSHClient: SSHClientProtocol {
     }
 
     return parseDirectoryListing(result, basePath: path)
+  }
+
+  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
+    let command = "echo $HOME"
+    let result = try await exec(command, config: config)
+    let homePath = result.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Fallback to root if HOME is empty (shouldn't happen but safety first)
+    return homePath.isEmpty ? "/" : homePath
   }
 
   private func parseDirectoryListing(_ output: String, basePath: String) -> [RemoteFileInfo] {

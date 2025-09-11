@@ -13,6 +13,7 @@ struct RemotePathPickerView: View {
   @State private var isLoading = false
   @State private var errorMessage: String?
   @State private var pathHistory: [String] = ["/"]
+  @State private var remoteHomeDirectory: String?
 
   private let sshClient = SSHClient()
 
@@ -50,14 +51,20 @@ struct RemotePathPickerView: View {
           }
           .disabled(currentPath == "/")
 
-          Button(action: goHome) {
+          Button {
+            Task {
+              await goHome()
+            }
+          } label: {
             Image(systemName: "house")
           }
+          .disabled(isLoading)
         }
       }
     }
     .task {
-      await loadDirectory(currentPath)
+      // Try to start at home directory, fall back to root if that fails
+      await initializeStartingDirectory()
     }
   }
 
@@ -207,9 +214,42 @@ struct RemotePathPickerView: View {
     navigateToPath(finalPath)
   }
 
-  private func goHome() {
-    let homePath = "/home/\(config.username)"
-    navigateToPath(homePath)
+  private func initializeStartingDirectory() async {
+    do {
+      // Try to get and start at the remote home directory
+      let homePath = try await sshClient.getRemoteHomeDirectory(config: config)
+      await MainActor.run {
+        self.remoteHomeDirectory = homePath
+        self.currentPath = homePath
+        self.pathHistory = [homePath]
+      }
+      await loadDirectory(homePath)
+    } catch {
+      // Fall back to root directory if home can't be determined
+      await loadDirectory(currentPath)
+    }
+  }
+
+  private func goHome() async {
+    // Use cached home directory if available
+    if let cachedHome = remoteHomeDirectory {
+      navigateToPath(cachedHome)
+      return
+    }
+
+    // Fetch remote home directory
+    do {
+      let homePath = try await sshClient.getRemoteHomeDirectory(config: config)
+      await MainActor.run {
+        self.remoteHomeDirectory = homePath
+        navigateToPath(homePath)
+      }
+    } catch {
+      await MainActor.run {
+        // Fallback to root directory if home directory can't be determined
+        navigateToPath("/")
+      }
+    }
   }
 
   private func formatFileSize(_ bytes: Int64) -> String {
