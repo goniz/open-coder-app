@@ -69,40 +69,36 @@ platform :ios do
     )
   end
 
-  desc "Build development IPA for distribution"
-  lane :adhoc do
+  desc "Build preview IPA"
+  lane :preview do
     api_key = app_store_connect_api_key(
       key_id: "ZZR4FFP696",
       issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
       key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
     )
-
-    # Ensure the correct distribution certificate and an Ad Hoc provisioning profile
     get_certificates(
       development: false,
       api_key: api_key
     )
     get_provisioning_profile(
-      app_identifier: "com.goniz.opencoderapp",
+      app_identifier: "com.goniz.opencoderapp.preview",
       adhoc: true,
-      api_key: api_key,
-      force: true
+      api_key: api_key
     )
-
     increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
     build_app(
       workspace: "OpenCoder.xcworkspace", 
       scheme: "OpenCoder",
       export_method: "ad-hoc",
-      output_name: "OpenCoder-AdHoc",
+      output_name: "OpenCoder-Preview",
       export_options: {
         signingStyle: "automatic"
       },
-      xcargs: "CODE_SIGN_STYLE=Automatic",
+      xcargs: "CODE_SIGN_STYLE=Automatic PRODUCT_BUNDLE_IDENTIFIER=com.goniz.opencoderapp.preview",
       skip_package_dependencies_resolution: true,
       disable_package_automatic_updates: true
     )
-    puts "✅ Ad Hoc IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
+    puts "✅ Preview IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
   end
 
   desc "Generate screenshots for development"
@@ -115,30 +111,6 @@ platform :ios do
       languages: ["en-US"],
       output_directory: "./screenshots"
     )
-  end
-
-  desc "Update App ID capabilities and regenerate provisioning profiles"
-  lane :update_capabilities do
-    api_key = app_store_connect_api_key(
-      key_id: "ZZR4FFP696",
-      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
-      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
-    )
-    
-    # Force regenerate all provisioning profiles
-    get_provisioning_profile(
-      app_identifier: "com.goniz.opencoderapp",
-      adhoc: false,
-      api_key: api_key,
-      force: true
-    )
-    get_provisioning_profile(
-      app_identifier: "com.goniz.opencoderapp",
-      adhoc: true,
-      api_key: api_key,
-      force: true
-    )
-    puts "✅ Provisioning profiles updated with new capabilities"
   end
 
   desc "Check TestFlight build processing status"

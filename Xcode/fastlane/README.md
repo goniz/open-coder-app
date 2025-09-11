@@ -31,13 +31,13 @@ Build for development without publishing
 
 Push a new beta build to TestFlight
 
-### ios adhoc
+### ios preview
 
 ```sh
-[bundle exec] fastlane ios adhoc
+[bundle exec] fastlane ios preview
 ```
 
-Build development IPA for distribution
+Build preview IPA
 
 ### ios screenshots
 
@@ -46,14 +46,6 @@ Build development IPA for distribution
 ```
 
 Generate screenshots for development
-
-### ios update_capabilities
-
-```sh
-[bundle exec] fastlane ios update_capabilities
-```
-
-Update App ID capabilities and regenerate provisioning profiles
 
 ### ios check_builds
 

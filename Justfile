@@ -22,17 +22,11 @@ build-ios:
 beta:
     cd Xcode && fastlane beta
 
-adhoc:
-    cd Xcode && fastlane adhoc
-
-update_caps:
-    cd Xcode && fastlane update_capabilities
+preview:
+    cd Xcode && fastlane preview
 
 check_builds:
     cd Xcode && fastlane check_builds
-
-validate-ipa:
-    cd Xcode && xcrun altool --validate-app -f OpenCoder.ipa -t ios --apiKey ZZR4FFP696 --apiIssuer d5f4a2be-8aae-409d-9526-b299f949a6d9
 
 devcycle:
     just lint && \
@@ -43,5 +37,6 @@ devcycle:
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}
 
-adhoc-ota:
-    just adhoc && just ota-host ../Xcode/OpenCoder-AdHoc.ipa
+preview-ota:
+    just preview && just ota-host --ipa ../Xcode/OpenCoder-Preview.ipa
+
