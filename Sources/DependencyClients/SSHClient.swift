@@ -1,4 +1,6 @@
 import Crypto
+import Dependencies
+import DependenciesMacros
 import Foundation
 import Models
 import NIOCore
@@ -250,6 +252,45 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
+  package func execCleanCommand(
+    _ baseCommand: String,
+    config: Models.SSHServerConfiguration
+  ) async throws -> String {
+    // Generate unique markers to isolate command output from bashrc contamination
+    let outputMarker = "OPENCODER_START_\(UUID().uuidString.prefix(8))"
+    let endMarker = "OPENCODER_END"
+
+    // Use sh -c to bypass interactive shell setup (bashrc, bash_profile, etc.)
+    // and wrap output with markers for reliable extraction
+    let wrappedCommand = """
+      sh -c 'echo "\(outputMarker)"; \(baseCommand); echo "\(endMarker)"'
+      """
+
+    let rawOutput = try await exec(wrappedCommand, config: config)
+    return extractCleanOutput(from: rawOutput, startMarker: outputMarker, endMarker: endMarker)
+  }
+
+  package func extractCleanOutput(from output: String, startMarker: String, endMarker: String) -> String {
+    let lines = output.components(separatedBy: .newlines)
+    var capturing = false
+    var cleanLines: [String] = []
+
+    for line in lines {
+      if line.contains(startMarker) {
+        capturing = true
+        continue
+      }
+      if line.contains(endMarker) {
+        break
+      }
+      if capturing {
+        cleanLines.append(line)
+      }
+    }
+
+    return cleanLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
   package func openPTY(_ command: String) async throws -> SSHPTYSession {
     // Implementation would open a PTY session
     throw SSHError.connectionFailed("PTY not implemented in mock")
@@ -352,10 +393,10 @@ package struct SSHClient: SSHClientProtocol {
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo] {
-    let command = "ls -la '\(path)' 2>/dev/null || echo 'Error: Cannot access directory'"
-    let result = try await exec(command, config: config)
+    // Use clean execution to avoid bashrc contamination in ls output
+    let result = try await execCleanCommand("ls -la '\(path)' 2>/dev/null", config: config)
 
-    if result.contains("Error: Cannot access directory") {
+    if result.isEmpty {
       throw SSHError.commandFailed("Cannot access directory: \(path)")
     }
 
@@ -363,12 +404,11 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
-    let command = "echo $HOME"
-    let result = try await exec(command, config: config)
-    let homePath = result.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Use clean execution to avoid bashrc contamination
+    let result = try await execCleanCommand("echo \"$HOME\"", config: config)
 
     // Fallback to root if HOME is empty (shouldn't happen but safety first)
-    return homePath.isEmpty ? "/" : homePath
+    return result.isEmpty ? "/" : result
   }
 
   private func parseDirectoryListing(_ output: String, basePath: String) -> [RemoteFileInfo] {
@@ -746,5 +786,18 @@ package struct WorkspaceService: Sendable {
 
     // Retry spawn
     return try await attachOrSpawn(workspace: workspace)
+  }
+}
+
+// MARK: - Dependency Injection
+
+extension SSHClient: TestDependencyKey {
+  package static let testValue = Self()
+}
+
+extension DependencyValues {
+  package var sshClient: SSHClient {
+    get { self[SSHClient.self] }
+    set { self[SSHClient.self] = newValue }
   }
 }

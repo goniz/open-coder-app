@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "default",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "DependencyClientsTests",
+        "name" : "DependencyClientsTests"
+      }
+    }
+  ],
+  "version" : 1
+}

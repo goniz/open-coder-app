@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Dependencies
 import DependencyClients
 import Models
 import SwiftUI
@@ -15,7 +16,7 @@ struct RemotePathPickerView: View {
   @State private var pathHistory: [String] = ["/"]
   @State private var remoteHomeDirectory: String?
 
-  private let sshClient = SSHClient()
+  @Dependency(\.sshClient) private var sshClient
 
   var body: some View {
     NavigationStack {
@@ -190,7 +191,7 @@ struct RemotePathPickerView: View {
       }
     } catch {
       await MainActor.run {
-        self.errorMessage = error.localizedDescription
+        self.errorMessage = "Failed to load directory '\(path)': \(error.localizedDescription)"
         self.isLoading = false
       }
     }
@@ -226,6 +227,9 @@ struct RemotePathPickerView: View {
       await loadDirectory(homePath)
     } catch {
       // Fall back to root directory if home can't be determined
+      await MainActor.run {
+        self.errorMessage = "Failed to determine home directory (\(error.localizedDescription)). Trying root directory..."
+      }
       await loadDirectory(currentPath)
     }
   }

@@ -136,6 +136,7 @@ let package = Package(
   ],
   targets: [
     dependencyClients.target,
+    dependencyClients.testTarget,
     dependencyClientsLive.target,
     features.target,
     features.testTarget,
