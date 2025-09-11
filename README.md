@@ -1,127 +1,79 @@
-# OpenCoder
+# OpenCoder 🚀
 
-A SwiftUI iOS app for remote development productivity, featuring SSH server management, real-time coding task execution, and Live Activity progress tracking.
+> Your friendly iOS companion for remote development - code, build, and deploy from anywhere!
 
-## Features
+OpenCoder is a SwiftUI app that brings the power of remote development to your iPhone. With SSH server management, real-time task execution, and Live Activity progress tracking, you'll never miss a build status again.
 
-- 🔌 **SSH Server Management**: Connect and manage multiple development servers with persistent connections
-- ⚡ **Remote Task Execution**: Run coding tasks (build, test, deploy, install) on remote servers
-- 📱 **Live Activities**: Real-time progress tracking with iOS 16+ Live Activities and Dynamic Island
-- 💬 **Chat Interface**: Integrated chat for development assistance and task management
-- 📁 **Project Management**: Organize and manage multiple development projects
-- 🔄 **Background Monitoring**: Intelligent connection pooling with battery-efficient background updates
-- 🏗️ **Modular Architecture**: Built with The Composable Architecture (TCA) for scalability
+## ✨ What Makes OpenCoder Special
 
-## Key Capabilities
+- **🔌 Connect Anywhere**: Manage multiple dev servers with secure SSH (password or key-based auth)
+- **⚡ Run Tasks Remotely**: Build, test, deploy, and install - all from your phone
+- **📱 Live Activities**: Track progress right from your Lock Screen and Dynamic Island
+- **💬 Chat Assistant**: Get help and manage tasks through an integrated chat interface
+- **🔋 Battery Friendly**: Smart connection pooling that only stays active when you need it
 
-### Remote Development Workflow
-- Securely connect to development servers via SSH (password or key-based authentication)
-- Execute common development tasks remotely with real-time progress feedback
-- Maintain persistent connections for active tasks, with automatic reconnection for idle servers
+## 🎯 Quick Start
 
-### Live Activity Integration
-- Track build, test, deployment progress directly from your Lock Screen and Dynamic Island
-- Background task monitoring ensures progress updates even when app is backgrounded
-- Battery-efficient connection management that only maintains connections during active tasks
-
-### Developer Experience
-- Modular Swift Package architecture enables fast iteration and testing
-- TDD-friendly reducer testing without full app builds
-- SwiftUI previews for rapid UI development
-
-## Getting Started
-
-### Prerequisites
+### Requirements
 - iOS 17.0+ / macOS 14.0+
 - Xcode 16.0+
 - Swift 6.0+
 
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd open-coder-app
-   ```
-
-2. Install dependencies:
-   ```bash
-   swift package resolve
-   # or
-   just update
-   ```
-
-3. Build and run:
-   ```bash
-   swift build
-   # or 
-   just build
-   ```
-
-### Development Commands
+### Get Up and Running
 
 ```bash
-# Build the project
-swift build
-just build
+# Clone and setup
+git clone <repository-url>
+cd open-coder-app
 
-# Run tests
-swift test
-just test
+# Install dependencies
+swift package resolve  # or: just update
 
-# Run specific test target
-swift test --filter ModelsTests
-swift test --filter FeaturesTests.AppFeatureTests
-
-# Lint code
-swiftlint Sources
-just lint
-
-# Deploy beta build
-just beta
+# Build and run
+swift build           # or: just build
 ```
 
-## Architecture
+### Handy Commands
 
-OpenCoder uses a modular Swift Package structure with clear separation of concerns:
-
+```bash
+just test              # Run all tests
+just lint              # Check code style
+just beta              # Deploy beta build
+swift test --filter ModelsTests  # Run specific tests
 ```
-Models → DependencyClients → Features → Views → OpenCoderLib
-   ↓           ↓                ↓        ↓
-Tests      Tests            Tests    Tests
-```
 
-### Modules
+## 🏗️ Architecture
 
-- **Models**: Core data models (CodingTask, SSHServerConfiguration, etc.)
-- **DependencyClients**: Protocol definitions for external dependencies (SSH, API, Background tasks)
-- **DependencyClientsLive**: Live implementations of dependency clients
-- **Features**: TCA reducers and business logic
-- **Views**: SwiftUI views and UI components
-- **OpenCoderLib**: Main app composition and dependency injection
+Built with [The Composable Architecture (TCA)](https://github.com/pointfreeco/swift-composable-architecture) for rock-solid state management and testability.
 
-### Key Features Implementation
+**Module Structure:**
+- `Models` - Core data types
+- `DependencyClients` - Protocol definitions
+- `Features` - Business logic with TCA reducers
+- `Views` - Beautiful SwiftUI interfaces
+- `OpenCoderLib` - App composition
 
-- **ServersFeature**: SSH connection management with intelligent connection pooling
-- **LiveActivityFeature**: iOS Live Activity integration with background updates
-- **ChatFeature**: Development chat interface with task integration
-- **ProjectsFeature**: Project organization and management
+Each module comes with comprehensive tests, making development fast and reliable!
 
-## Dependencies
+## 🤝 Contributing
 
-- [The Composable Architecture (TCA)](https://github.com/pointfreeco/swift-composable-architecture) - Unidirectional data flow and state management
+We'd love your help! Here's how to contribute:
+
+1. Follow TCA patterns and existing conventions
+2. Write tests for new features
+3. Use SwiftUI previews for rapid UI development
+4. Run `just lint` before committing
+
+## 📦 Key Dependencies
+
+- [TCA](https://github.com/pointfreeco/swift-composable-architecture) - State management
+- [Swift NIO SSH](https://github.com/apple/swift-nio-ssh) - SSH connections
 - [Swift Dependencies](https://github.com/pointfreeco/swift-dependencies) - Dependency injection
-- [Swift NIO SSH](https://github.com/apple/swift-nio-ssh) - SSH client implementation
-- [CustomDump](https://github.com/pointfreeco/swift-custom-dump) - Enhanced testing utilities
 
-## Contributing
+## 📄 License
 
-1. Follow the existing code conventions and TCA patterns
-2. Write tests for new features in the appropriate test modules
-3. Use `package` access modifier for inter-module APIs
-4. Leverage SwiftUI previews and TCA's `TestStore` for rapid development
-5. Run `just lint` before committing changes
+MIT License - see [LICENSE](LICENSE) for details.
 
-## License
+---
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Made with ❤️ for developers who code on the go!
