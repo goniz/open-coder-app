@@ -199,7 +199,8 @@ struct AddWorkspaceView: View {
       host: host,
       user: user,
       remotePath: remotePath,
-      idleTTLMinutes: idleTTLMinutes
+      idleTTLMinutes: idleTTLMinutes,
+      serverID: selectedServer?.id
     )
 
     onSave(workspace)
@@ -257,7 +258,7 @@ struct ServerSelectionView: View {
   }
 
   private var serversList: some View {
-    List(servers, id: \.self) { server in
+    List(servers, id: \.id) { server in
       Button(
         action: {
           onSelect(server)

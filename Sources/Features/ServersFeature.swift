@@ -218,6 +218,11 @@ package struct ServersFeature {
   }
 
   private func handleRemoveServer(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    // Clean up keychain data for the removed server
+    if let serverToRemove = state.servers.first(where: { $0.id == id }) {
+      serverToRemove.configuration.deleteCredentials()
+    }
+
     state.servers.removeAll { $0.id == id }
     saveServersToStorage(state.servers)
     return .none
@@ -232,11 +237,26 @@ package struct ServersFeature {
     guard let data = UserDefaults.standard.data(forKey: "savedServers") else { return [] }
     do {
       let configurations = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+
+      // Migration happens automatically during JSON decoding (see SSHServerConfiguration.init(from:))
+      // but we should re-save to remove any legacy password data from JSON
+      let hasLegacyData = hasLegacyPasswordInJSON(data)
+      if hasLegacyData {
+        print("🔐 Migrating SSH credentials to keychain...")
+        // Re-save without legacy password data
+        saveServersToStorage(configurations.map { ServerState(configuration: $0) })
+      }
+
       return configurations.map { ServerState(configuration: $0) }
     } catch {
       print("Failed to load servers: \(error)")
       return []
     }
+  }
+
+  private func hasLegacyPasswordInJSON(_ data: Data) -> Bool {
+    guard let jsonString = String(data: data, encoding: .utf8) else { return false }
+    return jsonString.contains("\"password\":")
   }
 
   private func saveServersToStorage(_ servers: [ServerState]) {

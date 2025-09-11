@@ -162,18 +162,15 @@ package struct WorkspacesFeature {
 
     return .run { send in
       do {
-        // For now, we need to get the SSH configuration from somewhere
-        // This is a placeholder - in a real implementation, you'd get this from the server configuration
-        let config = SSHServerConfiguration(
-          host: workspace.host,
-          username: workspace.user,
-          password: "",  // This would need to be retrieved from stored credentials
-          useKeyAuthentication: false
-        )
+        // Get SSH configuration from linked server
+        guard let config = loadSSHConfigForWorkspace(workspace) else {
+          let errorMessage = "No SSH server configuration found for this workspace. Please associate this workspace with a server."
+          await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
+          return
+        }
 
         // Log the connection attempt for debugging
-        print("🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host)")
-        print("⚠️  WARNING: Using empty SSH credentials - connection will fail!")
+        print("🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.attachOrSpawn(workspace: workspace)
@@ -270,19 +267,15 @@ package struct WorkspacesFeature {
 
     return .run { send in
       do {
-        // Create SSH configuration from workspace data
-        // Note: In a real implementation, you'd need to retrieve the password or key from secure storage
-        let config = SSHServerConfiguration(
-          host: workspace.host,
-          port: 22,  // Default SSH port
-          username: workspace.user,
-          password: "",  // This would need to be retrieved from secure storage
-          useKeyAuthentication: false
-        )
+        // Get SSH configuration from linked server
+        guard let config = loadSSHConfigForWorkspace(workspace) else {
+          let errorMessage = "No SSH server configuration found for this workspace. Please associate this workspace with a server."
+          await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
+          return
+        }
 
         // Log the retry attempt for debugging
-        print("🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host)")
-        print("⚠️  WARNING: Using empty SSH credentials - connection will fail!")
+        print("🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.cleanAndRetry(workspace: workspace)
@@ -331,6 +324,35 @@ package struct WorkspacesFeature {
       UserDefaults.standard.set(data, forKey: "savedWorkspaces")
     } catch {
       print("Failed to save workspaces: \(error)")
+    }
+  }
+
+  private func loadSSHConfigForWorkspace(_ workspace: Workspace) -> SSHServerConfiguration? {
+    // If workspace has a linked server ID, load that server configuration
+    if let serverID = workspace.serverID {
+      return loadServerConfiguration(by: serverID)
+    }
+
+    // Fallback: try to find a server with matching host and username
+    let servers = loadAllServerConfigurations()
+    return servers.first { server in
+      server.host == workspace.host && server.username == workspace.user
+    }
+  }
+
+  private func loadServerConfiguration(by id: UUID) -> SSHServerConfiguration? {
+    let servers = loadAllServerConfigurations()
+    return servers.first { $0.id == id }
+  }
+
+  private func loadAllServerConfigurations() -> [SSHServerConfiguration] {
+    guard let data = UserDefaults.standard.data(forKey: "savedServers") else { return [] }
+    do {
+      let servers = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+      return servers
+    } catch {
+      print("Failed to load server configurations: \(error)")
+      return []
     }
   }
 }
