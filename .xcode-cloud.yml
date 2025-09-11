@@ -1,0 +1,65 @@
+version: 1
+
+workflows:
+  # TestFlight deployment workflow
+  main-deploy:
+    name: "Deploy to TestFlight"
+    description: "Build, test, and deploy to TestFlight on main branch"
+    
+    # Trigger only on main branch pushes
+    trigger:
+      branches:
+        include:
+          - main
+    
+    environment:
+      xcode_version: "26-beta"
+      ios_version: "26.0"
+      
+    steps:
+      - name: "Build and Deploy to TestFlight"
+        script: |
+          echo "🚀 Building and deploying to TestFlight..."
+          cd Xcode
+          fastlane beta
+          
+    archive:
+      scheme: "OpenCoder"
+      destination: "generic/platform=iOS"
+      export_method: "app-store"
+      
+    # Post-archive actions
+    post_archive:
+      - upload_to_testflight: true
+        groups:
+          - "Internal Testing"
+        beta_review_info:
+          contact_email: "goni1993@gmail.com"
+          contact_first_name: "Developer"
+          contact_last_name: "Team"
+          
+# Global settings
+settings:
+  # Enable clean builds for consistent results
+  clean_build: true
+  
+  # Code signing configuration
+  code_signing:
+    automatic: true
+    
+  # CI Scripts configuration (now in scripts/ directory)
+  ci_scripts:
+    post_clone: "scripts/ci_post_clone.sh"
+    pre_xcodebuild: "scripts/ci_pre_xcodebuild.sh"
+    
+  # Notification settings
+  notifications:
+    email:
+      - "goni1993@gmail.com"
+      
+  # Environment variables
+  environment_variables:
+    - name: "CI"
+      value: "true"
+    - name: "XCODE_CLOUD"
+      value: "true"
