@@ -175,8 +175,7 @@ package struct ServersFeature {
   }
 
   private func handleAddServerCompleted(state: inout State, config: SSHServerConfiguration)
-    -> Effect<Action>
-  {
+    -> Effect<Action> {
     let serverState = ServerState(configuration: config)
     state.servers.append(serverState)
     state.isAddingServer = false
@@ -212,8 +211,7 @@ package struct ServersFeature {
   }
 
   private func handleConnectionFailed(state: inout State, id: ServerState.ID, errorMessage: String)
-    -> Effect<Action>
-  {
+    -> Effect<Action> {
     guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
     state.servers[index].connectionState = .error(errorMessage)
     return .none
@@ -315,8 +313,7 @@ package struct ServersFeature {
     }
   }
 
-  private func handleStopTaskMonitoring(state: inout State, taskID: CodingTask.ID) -> Effect<Action>
-  {
+  private func handleStopTaskMonitoring(state: inout State, taskID: CodingTask.ID) -> Effect<Action> {
     guard let task = state.activeTasks[taskID] else { return .none }
 
     state.activeTasks.removeValue(forKey: taskID)

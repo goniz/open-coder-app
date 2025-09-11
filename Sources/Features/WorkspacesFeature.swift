@@ -170,14 +170,22 @@ package struct WorkspacesFeature {
           password: "",  // This would need to be retrieved from stored credentials
           useKeyAuthentication: false
         )
+
+        // Log the connection attempt for debugging
+        print("🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host)")
+        print("⚠️  WARNING: Using empty SSH credentials - connection will fail!")
+
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.attachOrSpawn(workspace: workspace)
         await send(.workspaceOpened(id, .success(result)))
       } catch {
+        // Log the error for debugging
+        print("❌ SSH connection failed: \(error.localizedDescription)")
+
         if let sshError = error as? SSHError {
           await send(.workspaceOpened(id, .failure(sshError)))
         } else {
-          let errorMessage = error.localizedDescription
+          let errorMessage = "SSH connection failed: \(error.localizedDescription). Check that SSH credentials are configured for this server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
         }
       }
@@ -235,7 +243,7 @@ package struct WorkspacesFeature {
           lastMessagePreview: "Fixed SSH connection issue",
           updatedAt: Date().addingTimeInterval(-300),
           workspaceId: workspaceId
-        ),
+        )
       ]
       await send(.workspaceRefreshed(id, mockSessions))
     }
@@ -271,14 +279,22 @@ package struct WorkspacesFeature {
           password: "",  // This would need to be retrieved from secure storage
           useKeyAuthentication: false
         )
+
+        // Log the retry attempt for debugging
+        print("🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host)")
+        print("⚠️  WARNING: Using empty SSH credentials - connection will fail!")
+
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.cleanAndRetry(workspace: workspace)
         await send(.workspaceOpened(id, .success(result)))
       } catch {
+        // Log the error for debugging
+        print("❌ SSH retry failed: \(error.localizedDescription)")
+
         if let sshError = error as? SSHError {
           await send(.workspaceOpened(id, .failure(sshError)))
         } else {
-          let errorMessage = error.localizedDescription
+          let errorMessage = "SSH connection failed: \(error.localizedDescription). Check that SSH credentials are configured for this server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
         }
       }

@@ -142,8 +142,7 @@ package struct SSHClient: SSHClientProtocol {
       "exec() requires SSH configuration. Use exec(command:config:) instead.")
   }
 
-  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String
-  {
+  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
     do {
@@ -321,8 +320,7 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
-    -> [RemoteFileInfo]
-  {
+    -> [RemoteFileInfo] {
     let command = "ls -la '\(path)' 2>/dev/null || echo 'Error: Cannot access directory'"
     let result = try await exec(command, config: config)
 
@@ -375,8 +373,7 @@ package struct SSHClient: SSHClientProtocol {
   }
 }
 
-private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable
-{
+private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
   private let config: Models.SSHServerConfiguration
 
   init(config: Models.SSHServerConfiguration) {
@@ -410,10 +407,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
 }
 
 private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationDelegate, @unchecked
-  Sendable
-{
-  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>)
-  {
+  Sendable {
+  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
     // For demo purposes, accept all host keys
     // In production, you should implement proper host key validation
     validationCompletePromise.succeed(())
@@ -518,8 +513,7 @@ package struct WorkspaceService: Sendable {
     let decoder = JSONDecoder()
     if let data = daemonContent.data(using: .utf8),
       let daemonInfo = try? decoder.decode([String: Int].self, from: data),
-      let existingPort = daemonInfo["port"]
-    {
+      let existingPort = daemonInfo["port"] {
 
       // Health probe existing port
       if await healthCheck(port: existingPort, workspace: workspace) {
@@ -574,8 +568,7 @@ package struct WorkspaceService: Sendable {
     if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
       let match = regex.firstMatch(
         in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
-      let portRange = Range(match.range(at: 1), in: logContent)
-    {
+      let portRange = Range(match.range(at: 1), in: logContent) {
       let portString = String(logContent[portRange])
       if let port = Int(portString) {
         return port

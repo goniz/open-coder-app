@@ -107,7 +107,7 @@ package struct WorkspaceDashboardFeature {
         lastMessagePreview: "Implemented new dashboard UI",
         updatedAt: Date().addingTimeInterval(-600),
         workspaceId: workspaceId
-      ),
+      )
     ]
   }
 }

@@ -48,8 +48,7 @@ struct WorkspacesView: View {
         )
       ) {
         if let workspaceId = store.selectedWorkspace,
-          let workspace = store.workspaces.first(where: { $0.id == workspaceId })
-        {
+          let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
           WorkspaceDashboardView(
             store: .init(
               initialState: .init(
@@ -153,6 +152,10 @@ struct WorkspaceRowView: View {
 
       if !workspaceState.sessions.isEmpty {
         sessionsPreview
+      }
+
+      if case .error(let errorMessage) = workspaceState.onlineState {
+        errorMessageView(errorMessage)
       }
 
       actionButtons
@@ -278,6 +281,29 @@ struct WorkspaceRowView: View {
     let formatter = RelativeDateTimeFormatter()
     formatter.unitsStyle = .abbreviated
     return formatter.localizedString(for: date, relativeTo: Date())
+  }
+
+  private func errorMessageView(_ message: String) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .foregroundColor(.red)
+          .font(.caption)
+        Text("Error Details:")
+          .font(.caption)
+          .fontWeight(.medium)
+          .foregroundColor(.red)
+      }
+
+      Text(message)
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .padding(.vertical, 8)
+    .padding(.horizontal, 12)
+    .background(Color.red.opacity(0.1))
+    .cornerRadius(8)
   }
 }
 
