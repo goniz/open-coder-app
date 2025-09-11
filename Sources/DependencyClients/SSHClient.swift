@@ -169,42 +169,43 @@ package struct SSHClient: SSHClientProtocol {
       let port = config.port > 0 ? config.port : 22
       let channel = try await bootstrap.connect(host: config.host, port: port).get()
 
+      // Wait for SSH connection to be established
+      try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
       // Create a session channel to execute the command
-      let promise = eventLoopGroup.next().makePromise(of: Channel.self)
+      let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
 
-      let sshHandler = NIOSSHHandler(
-        role: .client(
-          .init(
-            userAuthDelegate: userAuthDelegate,
-            serverAuthDelegate: serverAuthDelegate
-          )),
-        allocator: channel.allocator,
-        inboundChildChannelInitializer: nil
-      )
+      // Get the SSH handler from the main channel
+      let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
 
-      sshHandler.createChannel(promise, channelType: .session) { channel, _ in
-        // Set up the channel to handle the command execution
-        return channel.eventLoop.makeSucceededFuture(())
+      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+        // Add command output handler to capture stdout/stderr
+        let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
+        return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
+          // Execute the command
+          let execRequest = SSHChannelRequestEvent.ExecRequest(
+            command: command,
+            wantReply: true
+          )
+
+          let execPromise = childChannel.eventLoop.makePromise(of: Void.self)
+          childChannel.triggerUserOutboundEvent(
+            execRequest,
+            promise: execPromise
+          )
+
+          return execPromise.futureResult.map { _ in
+            // Return success - output will be handled by the handler
+            ()
+          }
+        }
       }
 
-      let sessionChannel = try await promise.futureResult.get()
+      let sessionChannel = try await sessionPromise.futureResult.get()
 
-      // For now, return mock responses based on common commands
-      // In a real implementation, this would execute the command over SSH and capture output
-
-      let result: String
-      if command.contains("tmux has-session") {
-        // Simulate session existence check
-        result = "exists"
-      } else if command.contains("tmux list-sessions") {
-        // Simulate session listing
-        result = "ocw-user-host-12345678\nocw-dev-server-abcdef12"
-      } else if command.contains("test -f") && command.contains("daemon.json") {
-        // Simulate daemon.json check
-        result = "{\"port\": 8080}"
-      } else {
-        // Generic mock response
-        result = "Command executed: \(command)"
+      // Wait for command execution to complete (timeout after 30 seconds)
+      let result = try await withTimeout(seconds: 30) {
+        return try await getCommandOutput(from: sessionChannel)
       }
 
       // Clean up
@@ -216,6 +217,35 @@ package struct SSHClient: SSHClientProtocol {
     } catch {
       try await eventLoopGroup.shutdownGracefully()
       throw error
+    }
+  }
+
+  private func withTimeout<T: Sendable>(seconds: Int, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    return try await withThrowingTaskGroup(of: T.self) { group in
+      group.addTask {
+        try await operation()
+      }
+
+      group.addTask {
+        try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
+        throw SSHError.commandFailed("Command execution timeout")
+      }
+
+      guard let result = try await group.next() else {
+        throw SSHError.commandFailed("No result from command execution")
+      }
+
+      group.cancelAll()
+      return result
+    }
+  }
+
+  private func getCommandOutput(from channel: Channel) async throws -> String {
+    // Try to get the output handler from the channel pipeline
+    if let outputHandler = try? channel.pipeline.syncOperations.handler(type: CommandOutputHandler.self) {
+      return try await outputHandler.waitForOutput()
+    } else {
+      throw SSHError.commandFailed("Output handler not found in channel pipeline")
     }
   }
 
@@ -369,6 +399,97 @@ package struct SSHClient: SSHClientProtocol {
     return files.sorted {
       $0.isDirectory && !$1.isDirectory
         || ($0.isDirectory == $1.isDirectory && $0.name.lowercased() < $1.name.lowercased())
+    }
+  }
+}
+
+private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Sendable {
+  typealias InboundIn = SSHChannelData
+
+  private var outputBuffer = Data()
+  private var errorBuffer = Data()
+  private var isComplete = false
+  private let completionPromise: EventLoopPromise<String>
+
+  var completionFuture: EventLoopFuture<String> {
+    return completionPromise.futureResult
+  }
+
+  init(eventLoop: EventLoop) {
+    self.completionPromise = eventLoop.makePromise(of: String.self)
+  }
+
+  func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+    let channelData = self.unwrapInboundIn(data)
+
+    switch channelData.type {
+    case .channel:
+      // Standard output
+      switch channelData.data {
+      case .byteBuffer(var buffer):
+        if let bytes = buffer.readBytes(length: buffer.readableBytes) {
+          outputBuffer.append(contentsOf: bytes)
+        }
+      case .fileRegion:
+        // File regions aren't expected for command output
+        break
+      }
+    case .stdErr:
+      // Standard error
+      switch channelData.data {
+      case .byteBuffer(var buffer):
+        if let bytes = buffer.readBytes(length: buffer.readableBytes) {
+          errorBuffer.append(contentsOf: bytes)
+        }
+      case .fileRegion:
+        // File regions aren't expected for command output
+        break
+      }
+    default:
+      break
+    }
+  }
+
+  func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+    if let exitStatusEvent = event as? SSHChannelRequestEvent.ExitStatus {
+      if exitStatusEvent.exitStatus == 0 {
+        // Command completed successfully
+        let output = String(data: outputBuffer, encoding: .utf8) ?? ""
+        completionPromise.succeed(output)
+      } else {
+        // Command failed
+        let errorOutput = String(data: errorBuffer, encoding: .utf8) ?? "Command failed with exit code \(exitStatusEvent.exitStatus)"
+        completionPromise.fail(SSHError.commandFailed(errorOutput))
+      }
+      isComplete = true
+    } else if event is ChannelEvent {
+      // Handle channel close events
+      if !isComplete {
+        let output = String(data: outputBuffer, encoding: .utf8) ?? ""
+        if !output.isEmpty {
+          completionPromise.succeed(output)
+        } else {
+          let errorOutput = String(data: errorBuffer, encoding: .utf8) ?? "No output received"
+          completionPromise.fail(SSHError.commandFailed(errorOutput))
+        }
+        isComplete = true
+      }
+    }
+  }
+
+  func waitForOutput() async throws -> String {
+    return try await completionPromise.futureResult.get()
+  }
+
+  func channelInactive(context: ChannelHandlerContext) {
+    if !isComplete {
+      let output = String(data: outputBuffer, encoding: .utf8) ?? ""
+      if !output.isEmpty {
+        completionPromise.succeed(output)
+      } else {
+        completionPromise.fail(SSHError.connectionFailed("Channel closed before command completion"))
+      }
+      isComplete = true
     }
   }
 }
