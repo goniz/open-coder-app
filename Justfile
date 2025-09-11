@@ -22,6 +22,9 @@ build-ios:
 beta:
     cd Xcode && fastlane beta
 
+adhoc:
+    cd Xcode && fastlane adhoc
+
 update_caps:
     cd Xcode && fastlane update_capabilities
 
