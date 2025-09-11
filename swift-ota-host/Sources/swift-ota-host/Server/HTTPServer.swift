@@ -141,6 +141,7 @@ final class HTTPServer: @unchecked Sendable {
     private let ipaInfo: IPAInfo
     private let config: ServerConfig
     private let baseUrl: String
+    private var certificates: CertificateFiles?
     
     init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String) {
         self.ipaInfo = ipaInfo
@@ -149,6 +150,11 @@ final class HTTPServer: @unchecked Sendable {
     }
     
     func start() async throws {
+        // Fetch certificates during startup if HTTPS is enabled
+        if config.useHttps {
+            try await fetchCertificates()
+        }
+        
         let bootstrap = ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
@@ -174,6 +180,37 @@ final class HTTPServer: @unchecked Sendable {
         try await channel?.closeFuture.get()
     }
     
+    private func fetchCertificates() async throws {
+        Logger.info("🔐 Setting up certificates...")
+        
+        let certs: CertificateFiles
+        
+        if config.devMode {
+            certs = try CertificateService.generateSelfSignedCerts()
+        } else {
+            let tailscaleStatus = TailscaleService.getStatus()
+            
+            guard tailscaleStatus.isRunning, let hostname = tailscaleStatus.hostname else {
+                Logger.error("❌ Tailscale not available")
+                throw OTAError.tailscaleNotAvailable
+            }
+            certs = try CertificateService.fetchTailscaleCerts(hostname: hostname)
+        }
+        
+        guard certs.exists else {
+            Logger.error("❌ Certificate setup failed")
+            throw OTAError.certificateGenerationFailed
+        }
+        
+        // Quick validation
+        let certData = try Data(contentsOf: URL(fileURLWithPath: certs.certPath))
+        let keyData = try Data(contentsOf: URL(fileURLWithPath: certs.keyPath))
+        _ = try NIOSSLCertificate(bytes: Array(certData), format: .pem)
+        _ = try NIOSSLPrivateKey(bytes: Array(keyData), format: .pem)
+        
+        self.certificates = certs
+    }
+    
     private func configureHTTP(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline().flatMap {
             channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl))
@@ -181,26 +218,14 @@ final class HTTPServer: @unchecked Sendable {
     }
     
     private func configureHTTPS(channel: Channel) -> EventLoopFuture<Void> {
-        let certs: CertificateFiles
-        
         do {
-            if config.devMode {
-                certs = try CertificateService.generateSelfSignedCerts()
-            } else {
-                let tailscaleStatus = TailscaleService.getStatus()
-                guard tailscaleStatus.isRunning, let hostname = tailscaleStatus.hostname else {
-                    throw OTAError.tailscaleNotAvailable
-                }
-                certs = try CertificateService.fetchTailscaleCerts(hostname: hostname)
-            }
-            
-            guard certs.exists else {
+            guard let certs = self.certificates else {
+                Logger.error("❌ No certificates available")
                 throw OTAError.certificateGenerationFailed
             }
             
             let certData = try Data(contentsOf: URL(fileURLWithPath: certs.certPath))
             let keyData = try Data(contentsOf: URL(fileURLWithPath: certs.keyPath))
-            
             let cert = try NIOSSLCertificate(bytes: Array(certData), format: .pem)
             let key = try NIOSSLPrivateKey(bytes: Array(keyData), format: .pem)
             

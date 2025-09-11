@@ -16,12 +16,25 @@ struct CertificateService {
         let certPath = certsDir.appendingPathComponent("server.crt").path
         let keyPath = certsDir.appendingPathComponent("server.key").path
         
-        Logger.info("Fetching Tailscale TLS certificates...")
+        Logger.info("Fetching Tailscale TLS certificates for hostname: \(hostname)")
         
         let command = "tailscale cert --cert-file \"\(certPath)\" --key-file \"\(keyPath)\" \"\(hostname)\""
-        _ = try ShellService.run(command)
+        
+        do {
+            let output = try ShellService.run(command)
+            Logger.debug("Tailscale cert output: \(output)")
+        } catch {
+            Logger.error("Failed to run tailscale cert command: \(error)")
+            throw error
+        }
         
         let exists = FileManager.default.fileExists(atPath: certPath) && FileManager.default.fileExists(atPath: keyPath)
+        
+        if exists {
+            Logger.info("✅ Tailscale certificates ready")
+        } else {
+            Logger.error("❌ Failed to generate Tailscale certificates")
+        }
         
         return CertificateFiles(
             certPath: certPath,

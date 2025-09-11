@@ -2,7 +2,18 @@ import Foundation
 
 struct TailscaleService {
     static func getStatus() -> TailscaleStatus {
-        guard let output = ShellService.runIgnoringErrors("tailscale status --json") else {
+        // Try common paths for tailscale
+        let tailscalePaths = ["/opt/homebrew/bin/tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale"]
+        var output: String?
+        
+        for path in tailscalePaths {
+            if let result = ShellService.runIgnoringErrors("\(path) status --json") {
+                output = result
+                break
+            }
+        }
+        
+        guard let output = output else {
             Logger.warn("Tailscale not available")
             return TailscaleStatus.notRunning
         }

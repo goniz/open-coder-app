@@ -11,13 +11,48 @@ class OTAHost {
     func start() async throws {
         Logger.debug("Starting OTA Host...")
         
-        // Find IPA files
-        let ipaFiles = try IPAService.findIPAFiles()
-        guard !ipaFiles.isEmpty else {
-            throw OTAError.noIPAFiles
+        // Use custom IPA if specified, otherwise find IPA files
+        let latestIpa: IPAInfo
+        if let customIpaPath = config.customIpaPath {
+            // Use the custom IPA file
+            let url = URL(fileURLWithPath: customIpaPath)
+            
+            guard let attributes = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) else {
+                throw OTAError.invalidIPA
+            }
+            
+            do {
+                let metadata = try IPAService.extractIPAMetadata(from: customIpaPath)
+                latestIpa = IPAInfo(
+                    path: customIpaPath,
+                    bundleId: metadata.bundleId,
+                    version: metadata.version,
+                    displayName: metadata.displayName,
+                    buildNumber: metadata.buildNumber,
+                    size: attributes.fileSize ?? 0,
+                    modifiedTime: attributes.contentModificationDate ?? Date()
+                )
+            } catch {
+                Logger.warn("Failed to extract metadata from custom IPA: \(error)")
+                let fallbackName = url.deletingPathExtension().lastPathComponent
+                latestIpa = IPAInfo(
+                    path: customIpaPath,
+                    bundleId: "com.unknown.\(fallbackName)",
+                    version: "1.0.0",
+                    displayName: fallbackName,
+                    buildNumber: "1",
+                    size: attributes.fileSize ?? 0,
+                    modifiedTime: attributes.contentModificationDate ?? Date()
+                )
+            }
+        } else {
+            // Find IPA files in current directory
+            let ipaFiles = try IPAService.findIPAFiles()
+            guard !ipaFiles.isEmpty else {
+                throw OTAError.noIPAFiles
+            }
+            latestIpa = ipaFiles[0]
         }
-        
-        let latestIpa = ipaFiles[0]
         Logger.info("Using IPA: \(latestIpa.displayName) v\(latestIpa.version)")
         
         // Setup hostname and certificates

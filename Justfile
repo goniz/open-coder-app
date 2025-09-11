@@ -42,3 +42,6 @@ devcycle:
 
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}
+
+adhoc-ota:
+    just adhoc && just ota-host ../Xcode/OpenCoder-AdHoc.ipa

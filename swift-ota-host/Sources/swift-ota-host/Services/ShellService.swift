@@ -7,8 +7,9 @@ struct ShellService {
         process.arguments = ["-c", command]
         
         let pipe = Pipe()
+        let errorPipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = pipe
+        process.standardError = errorPipe
         
         try process.run()
         process.waitUntilExit()
