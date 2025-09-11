@@ -85,7 +85,8 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
       && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && port > 0
       && port <= 65535
       && (useKeyAuthentication
-        ? (privateKeyData != nil || !privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        ? (privateKeyData != nil
+          || !privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         : !password.isEmpty)
   }
 
@@ -101,7 +102,9 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
 
   // MARK: - Migration Support
 
-  package mutating func migrateFromPlainTextCredentials(plainTextPassword: String?, plainTextKeyData: Data?) {
+  package mutating func migrateFromPlainTextCredentials(
+    plainTextPassword: String?, plainTextKeyData: Data?
+  ) {
     if let plainPassword = plainTextPassword, !plainPassword.isEmpty {
       self.password = plainPassword
     }
@@ -141,7 +144,8 @@ extension SSHServerConfiguration: Codable {
 
     // Migration: If there's a legacy password in JSON, migrate it to keychain
     if let legacyPassword = try container.decodeIfPresent(String.self, forKey: .password),
-       !legacyPassword.isEmpty {
+      !legacyPassword.isEmpty
+    {
       // Store in keychain via computed property
       self.password = legacyPassword
     }

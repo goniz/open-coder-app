@@ -164,13 +164,17 @@ package struct WorkspacesFeature {
       do {
         // Get SSH configuration from linked server
         guard let config = loadSSHConfigForWorkspace(workspace) else {
-          let errorMessage = "No SSH server configuration found for this workspace. Please associate this workspace with a server."
+          let errorMessage =
+            "No SSH server configuration found for this workspace. "
+            + "Please associate this workspace with a server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
           return
         }
 
         // Log the connection attempt for debugging
-        print("🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
+        print(
+          "🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host) "
+            + "using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.attachOrSpawn(workspace: workspace)
@@ -182,7 +186,9 @@ package struct WorkspacesFeature {
         if let sshError = error as? SSHError {
           await send(.workspaceOpened(id, .failure(sshError)))
         } else {
-          let errorMessage = "SSH connection failed: \(error.localizedDescription). Check that SSH credentials are configured for this server."
+          let errorMessage =
+            "SSH connection failed: \(error.localizedDescription). "
+            + "Check that SSH credentials are configured for this server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
         }
       }
@@ -240,7 +246,7 @@ package struct WorkspacesFeature {
           lastMessagePreview: "Fixed SSH connection issue",
           updatedAt: Date().addingTimeInterval(-300),
           workspaceId: workspaceId
-        )
+        ),
       ]
       await send(.workspaceRefreshed(id, mockSessions))
     }
@@ -269,13 +275,17 @@ package struct WorkspacesFeature {
       do {
         // Get SSH configuration from linked server
         guard let config = loadSSHConfigForWorkspace(workspace) else {
-          let errorMessage = "No SSH server configuration found for this workspace. Please associate this workspace with a server."
+          let errorMessage =
+            "No SSH server configuration found for this workspace. "
+            + "Please associate this workspace with a server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
           return
         }
 
         // Log the retry attempt for debugging
-        print("🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
+        print(
+          "🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) "
+            + "using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
         let result = try await workspaceService.cleanAndRetry(workspace: workspace)
@@ -287,7 +297,9 @@ package struct WorkspacesFeature {
         if let sshError = error as? SSHError {
           await send(.workspaceOpened(id, .failure(sshError)))
         } else {
-          let errorMessage = "SSH connection failed: \(error.localizedDescription). Check that SSH credentials are configured for this server."
+          let errorMessage =
+            "SSH connection failed: \(error.localizedDescription). "
+            + "Check that SSH credentials are configured for this server."
           await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
         }
       }

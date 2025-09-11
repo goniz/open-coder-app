@@ -48,7 +48,8 @@ struct WorkspacesView: View {
         )
       ) {
         if let workspaceId = store.selectedWorkspace,
-          let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
+          let workspace = store.workspaces.first(where: { $0.id == workspaceId })
+        {
           WorkspaceDashboardView(
             store: .init(
               initialState: .init(

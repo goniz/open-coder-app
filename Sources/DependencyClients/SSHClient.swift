@@ -128,12 +128,28 @@ package struct SSHClient: SSHClientProtocol {
         try await channel.close()
       } catch {
         try? await channel.close()
+
+        // Handle CancellationError specifically
+        if error is CancellationError {
+          throw SSHError.connectionFailed(
+            "SSH connection test was cancelled. This may be due to network issues or server timeout."
+          )
+        }
+
         throw error
       }
 
       try await eventLoopGroup.shutdownGracefully()
     } catch {
       try await eventLoopGroup.shutdownGracefully()
+
+      // Handle CancellationError at the top level too
+      if error is CancellationError {
+        throw SSHError.connectionFailed(
+          "SSH connection test was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
       throw error
     }
   }
@@ -142,10 +158,13 @@ package struct SSHClient: SSHClientProtocol {
     // This is a simplified implementation that creates a new connection for each command
     // In a production implementation, you would want to reuse connections
     throw SSHError.connectionFailed(
-      "exec() requires SSH configuration. Use exec(command:config:) instead.")
+      "exec() requires SSH configuration. Use exec(command:config:) instead."
+    )
   }
 
-  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
+  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String
+  {
+    await AppLogger.shared.log("Executing SSH command: \(command)", level: .debug, category: .ssh)
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
     do {
@@ -173,7 +192,7 @@ package struct SSHClient: SSHClientProtocol {
       let channel = try await bootstrap.connect(host: config.host, port: port).get()
 
       // Wait for SSH connection to be established
-      try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+      try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
 
       // Create a session channel to execute the command
       let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
@@ -216,14 +235,34 @@ package struct SSHClient: SSHClientProtocol {
       try await channel.close().get()
       try await eventLoopGroup.shutdownGracefully()
 
+      await AppLogger.shared.log(
+        "SSH command completed successfully", level: .debug, category: .ssh)
       return result
     } catch {
       try await eventLoopGroup.shutdownGracefully()
+
+      // Handle CancellationError specifically and convert to meaningful SSH error
+      if error is CancellationError {
+        let cancellationError = SSHError.commandFailed(
+          "SSH operation was cancelled. This may be due to network issues, server timeout, or taking too long."
+        )
+        await AppLogger.shared.log(
+          "SSH command cancelled: \(cancellationError.localizedDescription)", level: .error,
+          category: .ssh
+        )
+        throw cancellationError
+      }
+
+      await AppLogger.shared.log(
+        "SSH command failed: \(error.localizedDescription)", level: .error, category: .ssh)
       throw error
     }
   }
 
-  private func withTimeout<T: Sendable>(seconds: Int, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+  private func withTimeout<T: Sendable>(
+    seconds: Int,
+    operation: @escaping @Sendable () async throws -> T
+  ) async throws -> T {
     return try await withThrowingTaskGroup(of: T.self) { group in
       group.addTask {
         try await operation()
@@ -245,7 +284,9 @@ package struct SSHClient: SSHClientProtocol {
 
   private func getCommandOutput(from channel: Channel) async throws -> String {
     // Try to get the output handler from the channel pipeline
-    if let outputHandler = try? channel.pipeline.syncOperations.handler(type: CommandOutputHandler.self) {
+    if let outputHandler = try? channel.pipeline.syncOperations.handler(
+      type: CommandOutputHandler.self)
+    {
       return try await outputHandler.waitForOutput()
     } else {
       throw SSHError.commandFailed("Output handler not found in channel pipeline")
@@ -256,21 +297,34 @@ package struct SSHClient: SSHClientProtocol {
     _ baseCommand: String,
     config: Models.SSHServerConfiguration
   ) async throws -> String {
-    // Generate unique markers to isolate command output from bashrc contamination
-    let outputMarker = "OPENCODER_START_\(UUID().uuidString.prefix(8))"
-    let endMarker = "OPENCODER_END"
+    do {
+      // Generate unique markers to isolate command output from bashrc contamination
+      let outputMarker = "OPENCODER_START_\(UUID().uuidString.prefix(8))"
+      let endMarker = "OPENCODER_END"
 
-    // Use sh -c to bypass interactive shell setup (bashrc, bash_profile, etc.)
-    // and wrap output with markers for reliable extraction
-    let wrappedCommand = """
-      sh -c 'echo "\(outputMarker)"; \(baseCommand); echo "\(endMarker)"'
-      """
+      // Use sh -c to bypass interactive shell setup (bashrc, bash_profile, etc.)
+      // and wrap output with markers for reliable extraction
+      let wrappedCommand = """
+        sh -c 'echo "\(outputMarker)"; \(baseCommand); echo "\(endMarker)"'
+        """
 
-    let rawOutput = try await exec(wrappedCommand, config: config)
-    return extractCleanOutput(from: rawOutput, startMarker: outputMarker, endMarker: endMarker)
+      let rawOutput = try await exec(wrappedCommand, config: config)
+      return extractCleanOutput(from: rawOutput, startMarker: outputMarker, endMarker: endMarker)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Clean command execution was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
+      throw error
+    }
   }
 
-  package func extractCleanOutput(from output: String, startMarker: String, endMarker: String) -> String {
+  package func extractCleanOutput(from output: String, startMarker: String, endMarker: String)
+    -> String
+  {
     let lines = output.components(separatedBy: .newlines)
     var capturing = false
     var cleanLines: [String] = []
@@ -375,12 +429,44 @@ package struct SSHClient: SSHClientProtocol {
         }
       )
     } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.connectionFailed(
+          "SSH direct TCP/IP connection was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
       throw error
     }
   }
 
   package func testConnection(_ config: Models.SSHServerConfiguration) async throws {
-    try await SSHClient.testConnection(config)
+    await AppLogger.shared.log(
+      "Testing SSH connection to \(config.host):\(config.port)", level: .info, category: .ssh)
+    do {
+      try await SSHClient.testConnection(config)
+      await AppLogger.shared.log(
+        "SSH connection test successful to \(config.host)", level: .info, category: .ssh)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        let cancellationError = SSHError.connectionFailed(
+          "SSH connection test was cancelled. This may be due to network issues or server timeout.")
+        await AppLogger.shared.log(
+          "SSH connection test cancelled to \(config.host): \(cancellationError.localizedDescription)",
+          level: .error,
+          category: .ssh
+        )
+        throw cancellationError
+      }
+
+      await AppLogger.shared.log(
+        "SSH connection test failed to \(config.host): \(error.localizedDescription)",
+        level: .error,
+        category: .ssh
+      )
+      throw error
+    }
   }
 
   package func connect(_ config: Models.SSHServerConfiguration) async throws {
@@ -392,23 +478,56 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
-    -> [RemoteFileInfo] {
-    // Use clean execution to avoid bashrc contamination in ls output
-    let result = try await execCleanCommand("ls -la '\(path)' 2>/dev/null", config: config)
+    -> [RemoteFileInfo]
+  {
+    await AppLogger.shared.log("Listing directory: \(path)", level: .info, category: .fileSystem)
 
-    if result.isEmpty {
-      throw SSHError.commandFailed("Cannot access directory: \(path)")
+    do {
+      // Use clean execution to avoid bashrc contamination in ls output
+      let result = try await execCleanCommand("ls -la '\(path)' 2>/dev/null", config: config)
+
+      if result.isEmpty {
+        await AppLogger.shared.log(
+          "Cannot access directory: \(path)", level: .error, category: .fileSystem)
+        throw SSHError.commandFailed("Cannot access directory: \(path)")
+      }
+
+      let files = parseDirectoryListing(result, basePath: path)
+      await AppLogger.shared.log(
+        "Found \(files.count) items in directory: \(path)", level: .info, category: .fileSystem)
+      return files
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        let cancellationError = SSHError.commandFailed(
+          "Directory listing was cancelled. This may be due to network issues or server timeout.")
+        await AppLogger.shared.log(
+          "Directory listing cancelled for path: \(path)", level: .error, category: .fileSystem)
+        throw cancellationError
+      }
+
+      throw error
     }
-
-    return parseDirectoryListing(result, basePath: path)
   }
 
-  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
-    // Use clean execution to avoid bashrc contamination
-    let result = try await execCleanCommand("echo \"$HOME\"", config: config)
+  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String
+  {
+    do {
+      // Use clean execution to avoid bashrc contamination
+      let result = try await execCleanCommand("echo \"$HOME\"", config: config)
 
-    // Fallback to root if HOME is empty (shouldn't happen but safety first)
-    return result.isEmpty ? "/" : result
+      // Fallback to root if HOME is empty (shouldn't happen but safety first)
+      return result.isEmpty ? "/" : result
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Getting home directory was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
+      throw error
+    }
   }
 
   private func parseDirectoryListing(_ output: String, basePath: String) -> [RemoteFileInfo] {
@@ -508,7 +627,9 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         completionPromise.succeed(output)
       } else {
         // Command failed
-        let errorOutput = String(data: errorBuffer, encoding: .utf8) ?? "Command failed with exit code \(exitStatusEvent.exitStatus)"
+        let errorOutput =
+          String(data: errorBuffer, encoding: .utf8)
+          ?? "Command failed with exit code \(exitStatusEvent.exitStatus)"
         completionPromise.fail(SSHError.commandFailed(errorOutput))
       }
       isComplete = true
@@ -537,14 +658,16 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
       if !output.isEmpty {
         completionPromise.succeed(output)
       } else {
-        completionPromise.fail(SSHError.connectionFailed("Channel closed before command completion"))
+        completionPromise.fail(
+          SSHError.connectionFailed("Channel closed before command completion"))
       }
       isComplete = true
     }
   }
 }
 
-private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
+private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable
+{
   private let config: Models.SSHServerConfiguration
 
   init(config: Models.SSHServerConfiguration) {
@@ -578,8 +701,10 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
 }
 
 private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationDelegate, @unchecked
-  Sendable {
-  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
+  Sendable
+{
+  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>)
+  {
     // For demo purposes, accept all host keys
     // In production, you should implement proper host key validation
     validationCompletePromise.succeed(())
@@ -616,36 +741,89 @@ struct TmuxService: Sendable {
   }
 
   func hasSession(_ name: String) async throws -> Bool {
-    let command = "tmux has-session -t \(name) 2>/dev/null && echo 'exists' || echo 'not found'"
-    let result = try await sshClient.exec(command, config: self.config)
-    return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
+    do {
+      let command = "tmux has-session -t \(name) 2>/dev/null && echo 'exists' || echo 'not found'"
+      let result = try await sshClient.exec(command, config: self.config)
+      return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux session check was cancelled. This may be due to network issues or server timeout.")
+      }
+
+      throw error
+    }
   }
 
   func newSession(name: String, path: String) async throws {
-    let command = "tmux new-session -d -s \(name) -c \(path)"
-    _ = try await sshClient.exec(command, config: self.config)
+    do {
+      let command = "tmux new-session -d -s \(name) -c \(path)"
+      _ = try await sshClient.exec(command, config: self.config)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux session creation was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
+      throw error
+    }
   }
 
   func newOrReplaceServerWindow(name: String) async throws {
-    let hasExisting = try await hasSession(name)
-    if hasExisting {
-      let killCommand = "tmux kill-session -t \(name)"
-      _ = try await sshClient.exec(killCommand, config: self.config)
-    }
+    do {
+      let hasExisting = try await hasSession(name)
+      if hasExisting {
+        let killCommand = "tmux kill-session -t \(name)"
+        _ = try await sshClient.exec(killCommand, config: self.config)
+      }
 
-    let workspacePath = "$HOME"
-    try await newSession(name: name, path: workspacePath)
+      let workspacePath = "$HOME"
+      try await newSession(name: name, path: workspacePath)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux server window setup was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
+      throw error
+    }
   }
 
   func listSessions() async throws -> [String] {
-    let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
-    let result = try await sshClient.exec(command, config: self.config)
-    return result.split(separator: "\n").map(String.init)
+    do {
+      let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
+      let result = try await sshClient.exec(command, config: self.config)
+      return result.split(separator: "\n").map(String.init)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux session listing was cancelled. This may be due to network issues or server timeout."
+        )
+      }
+
+      throw error
+    }
   }
 
   func killSession(_ name: String) async throws {
-    let command = "tmux kill-session -t \(name) 2>/dev/null || true"
-    _ = try await sshClient.exec(command, config: self.config)
+    do {
+      let command = "tmux kill-session -t \(name) 2>/dev/null || true"
+      _ = try await sshClient.exec(command, config: self.config)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux session kill was cancelled. This may be due to network issues or server timeout.")
+      }
+
+      throw error
+    }
   }
 }
 
@@ -667,86 +845,163 @@ package struct WorkspaceService: Sendable {
   }
 
   package func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
-    // Step 1: Ensure tmux session exists
-    let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
-    if !sessionExists {
-      try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-    }
+    await AppLogger.shared.log(
+      "Attaching or spawning workspace: \(workspace.name)", level: .info, category: .workspace)
 
-    // Step 2: Check for existing daemon.json
-    let checkCommand = """
-      test -f \(workspace.remotePath)/.opencode/daemon.json && \
-      cat \(workspace.remotePath)/.opencode/daemon.json || echo '{}'
-      """
-    let daemonContent = try await sshClient.exec(checkCommand, config: self.config)
-
-    // Parse daemon.json to check for existing port
-    let decoder = JSONDecoder()
-    if let data = daemonContent.data(using: .utf8),
-      let daemonInfo = try? decoder.decode([String: Int].self, from: data),
-      let existingPort = daemonInfo["port"] {
-
-      // Health probe existing port
-      if await healthCheck(port: existingPort, workspace: workspace) {
-        return SpawnResult(port: existingPort, online: true, error: nil)
+    do {
+      // Step 1: Ensure tmux session exists
+      let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
+      if !sessionExists {
+        await AppLogger.shared.log(
+          "Creating new tmux session: \(workspace.tmuxSession)",
+          level: .info,
+          category: .workspace
+        )
+        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
+      } else {
+        await AppLogger.shared.log(
+          "Using existing tmux session: \(workspace.tmuxSession)",
+          level: .info,
+          category: .workspace
+        )
       }
-    }
 
-    // Step 3: Spawn opencode server with automatic port selection
-    let spawnCommand = """
-      opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
-      tee -a \(workspace.remotePath)/.opencode/live.log
-      """
+      // Step 2: Check for existing daemon.json
+      let checkCommand = """
+        test -f \(workspace.remotePath)/.opencode/daemon.json && \
+        cat \(workspace.remotePath)/.opencode/daemon.json || echo '{}'
+        """
+      let daemonContent = try await sshClient.exec(checkCommand, config: self.config)
 
-    // Execute spawn command in tmux window
-    let tmuxCommand = "tmux send-keys -t \(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
-    _ = try await sshClient.exec(tmuxCommand, config: self.config)
+      // Parse daemon.json to check for existing port
+      let decoder = JSONDecoder()
+      if let data = daemonContent.data(using: .utf8),
+        let daemonInfo = try? decoder.decode([String: Int].self, from: data),
+        let existingPort = daemonInfo["port"]
+      {
 
-    // Step 4: Wait for server to start and parse the assigned port from logs
-    let maxRetries = 30  // 30 seconds timeout
-    for _ in 0..<maxRetries {
-      if let assignedPort = try await parsePortFromLogs(workspace: workspace) {
-        // Create daemon.json with the actual assigned port
-        let daemonData = try JSONEncoder().encode(["port": assignedPort])
-        if let daemonJson = String(data: daemonData, encoding: .utf8) {
-          let writeCommand = """
-            mkdir -p \(workspace.remotePath)/.opencode && \
-            echo '\(daemonJson)' > \(workspace.remotePath)/.opencode/daemon.json
-            """
-          _ = try await sshClient.exec(writeCommand, config: self.config)
-        }
-
-        if await healthCheck(port: assignedPort, workspace: workspace) {
-          return SpawnResult(port: assignedPort, online: true, error: nil)
+        // Health probe existing port
+        await AppLogger.shared.log(
+          "Found existing daemon on port \(existingPort), checking health",
+          level: .info,
+          category: .workspace
+        )
+        if await healthCheck(port: existingPort, workspace: workspace) {
+          await AppLogger.shared.log(
+            "Existing daemon is healthy on port \(existingPort)",
+            level: .info,
+            category: .workspace
+          )
+          return SpawnResult(port: existingPort, online: true, error: nil)
+        } else {
+          await AppLogger.shared.log(
+            "Existing daemon is unhealthy on port \(existingPort), will spawn new instance",
+            level: .warning,
+            category: .workspace
+          )
         }
       }
-      try await Task.sleep(for: .seconds(1))
-    }
 
-    let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
-    return SpawnResult(port: 0, online: false, error: timeoutError)
+      // Step 3: Spawn opencode server with automatic port selection
+      await AppLogger.shared.log(
+        "Spawning opencode server for workspace: \(workspace.name)",
+        level: .info,
+        category: .workspace
+      )
+      let spawnCommand = """
+        opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
+        tee -a \(workspace.remotePath)/.opencode/live.log
+        """
+
+      // Execute spawn command in tmux window
+      let tmuxCommand = "tmux send-keys -t \(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
+      _ = try await sshClient.exec(tmuxCommand, config: self.config)
+
+      // Step 4: Wait for server to start and parse the assigned port from logs
+      let maxRetries = 30  // 30 seconds timeout
+      for _ in 0..<maxRetries {
+        if let assignedPort = try await parsePortFromLogs(workspace: workspace) {
+          // Create daemon.json with the actual assigned port
+          let daemonData = try JSONEncoder().encode(["port": assignedPort])
+          if let daemonJson = String(data: daemonData, encoding: .utf8) {
+            let writeCommand = """
+              mkdir -p \(workspace.remotePath)/.opencode && \
+              echo '\(daemonJson)' > \(workspace.remotePath)/.opencode/daemon.json
+              """
+            _ = try await sshClient.exec(writeCommand, config: self.config)
+          }
+
+          if await healthCheck(port: assignedPort, workspace: workspace) {
+            await AppLogger.shared.log(
+              "OpenCode server started successfully on port \(assignedPort)",
+              level: .info,
+              category: .workspace
+            )
+            return SpawnResult(port: assignedPort, online: true, error: nil)
+          }
+        }
+        try await Task.sleep(for: .seconds(1))
+      }
+
+      await AppLogger.shared.log(
+        "Failed to start opencode server within timeout for workspace: \(workspace.name)",
+        level: .error,
+        category: .workspace
+      )
+      let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
+      return SpawnResult(port: 0, online: false, error: timeoutError)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        let cancellationError = SSHError.spawnTimeout(
+          "Workspace spawn was cancelled. This may be due to network issues or server timeout.")
+        await AppLogger.shared.log(
+          "Workspace spawn cancelled for: \(workspace.name)",
+          level: .error,
+          category: .workspace
+        )
+        return SpawnResult(port: 0, online: false, error: cancellationError)
+      }
+
+      throw error
+    }
   }
 
   private func parsePortFromLogs(workspace: Models.Workspace) async throws -> Int? {
-    // Read the live log to find the assigned port
-    let logPath = "\(workspace.remotePath)/.opencode/live.log"
-    let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
-    let logContent = try await sshClient.exec(command, config: self.config)
+    do {
+      // Read the live log to find the assigned port
+      let logPath = "\(workspace.remotePath)/.opencode/live.log"
+      let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
+      let logContent = try await sshClient.exec(command, config: self.config)
 
-    // Look for opencode server startup pattern: "opencode server listening on http://127.0.0.1:51535"
-    let pattern = #"opencode server listening on http://[^:]+:(\d+)"#
+      // Look for opencode server startup pattern: "opencode server listening on http://127.0.0.1:51535"
+      let pattern = #"opencode server listening on http://[^:]+:(\d+)"#
 
-    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-      let match = regex.firstMatch(
-        in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
-      let portRange = Range(match.range(at: 1), in: logContent) {
-      let portString = String(logContent[portRange])
-      if let port = Int(portString) {
-        return port
+      if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+        let match = regex.firstMatch(
+          in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
+        let portRange = Range(match.range(at: 1), in: logContent)
+      {
+        let portString = String(logContent[portRange])
+        if let port = Int(portString) {
+          return port
+        }
       }
-    }
 
-    return nil
+      return nil
+    } catch {
+      // Handle CancellationError specifically - don't throw, just return nil
+      if error is CancellationError {
+        await AppLogger.shared.log(
+          "Port parsing was cancelled for workspace: \(workspace.name)",
+          level: .warning,
+          category: .workspace
+        )
+        return nil
+      }
+
+      throw error
+    }
   }
 
   private func healthCheck(port: Int, workspace: Models.Workspace) async -> Bool {
@@ -775,17 +1030,34 @@ package struct WorkspaceService: Sendable {
   }
 
   package func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
-    // Remove stale daemon.json and lock files
-    let cleanupCommand = """
-      rm -f \(workspace.remotePath)/.opencode/daemon.json \(workspace.remotePath)/.opencode/lock
-      """
-    _ = try await sshClient.exec(cleanupCommand, config: self.config)
+    do {
+      // Remove stale daemon.json and lock files
+      let cleanupCommand = """
+        rm -f \(workspace.remotePath)/.opencode/daemon.json \(workspace.remotePath)/.opencode/lock
+        """
+      _ = try await sshClient.exec(cleanupCommand, config: self.config)
 
-    // Kill existing tmux session
-    try await tmuxService.killSession(workspace.tmuxSession)
+      // Kill existing tmux session
+      try await tmuxService.killSession(workspace.tmuxSession)
 
-    // Retry spawn
-    return try await attachOrSpawn(workspace: workspace)
+      // Retry spawn
+      return try await attachOrSpawn(workspace: workspace)
+    } catch {
+      // Handle CancellationError specifically
+      if error is CancellationError {
+        let cancellationError = SSHError.spawnTimeout(
+          "Workspace cleanup and retry was cancelled. This may be due to network issues or server timeout."
+        )
+        await AppLogger.shared.log(
+          "Workspace cleanup cancelled for: \(workspace.name)",
+          level: .error,
+          category: .workspace
+        )
+        return SpawnResult(port: 0, online: false, error: cancellationError)
+      }
+
+      throw error
+    }
   }
 }
 

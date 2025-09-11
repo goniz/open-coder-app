@@ -72,7 +72,7 @@ extension CodingTask {
         ProgressStep(progress: 0.3, stepName: "Compiling Swift sources", duration: 15),
         ProgressStep(progress: 0.6, stepName: "Linking frameworks", duration: 8),
         ProgressStep(progress: 0.8, stepName: "Processing resources", duration: 5),
-        ProgressStep(progress: 1.0, stepName: "Build complete", duration: 2)
+        ProgressStep(progress: 1.0, stepName: "Build complete", duration: 2),
       ],
       estimatedDuration: 35
     )
@@ -88,7 +88,7 @@ extension CodingTask {
         ProgressStep(progress: 0.2, stepName: "Setting up test environment", duration: 3),
         ProgressStep(progress: 0.5, stepName: "Running model tests", duration: 10),
         ProgressStep(progress: 0.8, stepName: "Running feature tests", duration: 12),
-        ProgressStep(progress: 1.0, stepName: "All tests passed", duration: 1)
+        ProgressStep(progress: 1.0, stepName: "All tests passed", duration: 1),
       ],
       estimatedDuration: 26
     )
@@ -105,7 +105,7 @@ extension CodingTask {
         ProgressStep(progress: 0.3, stepName: "Building production assets", duration: 20),
         ProgressStep(progress: 0.6, stepName: "Uploading to server", duration: 15),
         ProgressStep(progress: 0.9, stepName: "Running health checks", duration: 8),
-        ProgressStep(progress: 1.0, stepName: "Deployment successful", duration: 2)
+        ProgressStep(progress: 1.0, stepName: "Deployment successful", duration: 2),
       ],
       estimatedDuration: 50
     )

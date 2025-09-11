@@ -228,7 +228,9 @@ struct RemotePathPickerView: View {
     } catch {
       // Fall back to root directory if home can't be determined
       await MainActor.run {
-        self.errorMessage = "Failed to determine home directory (\(error.localizedDescription)). Trying root directory..."
+        self.errorMessage =
+          "Failed to determine home directory (\(error.localizedDescription)). "
+          + "Trying root directory..."
       }
       await loadDirectory(currentPath)
     }
