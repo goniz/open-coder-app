@@ -53,16 +53,16 @@ struct LogsView: View {
     NavigationView {
       ScrollViewReader { proxy in
         ScrollView {
-          LazyVStack(alignment: .leading, spacing: 8) {
+          LazyVStack(alignment: .leading, spacing: 12) {
             ForEach(logger.logEntries) { entry in
               LogEntryView(entry: entry)
                 .id(entry.id)
-                .padding(.horizontal)
             }
           }
-          .padding(.vertical)
+          .padding(.horizontal, 16)
+          .padding(.vertical, 12)
         }
-        .background(Color(Color.RGBColorSpace.sRGB, white: 0.97, opacity: 1))
+        .background(.gray.opacity(0.1))
         .onChange(of: logger.logEntries.count) { _, _ in
           if let lastEntry = logger.logEntries.last {
             withAnimation(.easeOut(duration: 0.3)) {
@@ -75,7 +75,7 @@ struct LogsView: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button("Done") {
-            dismiss()
+            store.send(.toggleLogs)
           }
         }
 
@@ -87,9 +87,6 @@ struct LogsView: View {
         }
       }
     }
-    .onDisappear {
-      store.send(.toggleLogs)
-    }
   }
 }
 
@@ -97,85 +94,43 @@ private struct LogEntryView: View {
   let entry: LogEntry
 
   var body: some View {
-    GeometryReader { geometry in
-      if geometry.size.width < 400 {
-        compactLayout
-      } else {
-        standardLayout
-      }
-    }
-    .fixedSize(horizontal: false, vertical: true)
+    compactLayout
   }
 
   private var compactLayout: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
         Text(entry.formattedTimestamp)
-          .font(.system(.caption, design: .monospaced))
+          .font(.system(.caption2, design: .monospaced))
           .foregroundColor(.secondary)
+          .lineLimit(1)
 
         Text(entry.level.rawValue)
-          .font(.system(.caption, design: .monospaced))
-          .foregroundColor(colorForLevel(entry.level))
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
-          .background(colorForLevel(entry.level).opacity(0.1))
-          .cornerRadius(4)
-
-        Text("[\(entry.category.rawValue)]")
-          .font(.system(.caption, design: .monospaced))
-          .foregroundColor(.secondary)
-
-        Spacer()
-      }
-
-      Text(entry.message)
-        .font(.system(.callout, design: .monospaced))
-        .foregroundColor(.primary)
-        .multilineTextAlignment(.leading)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-    .padding(.vertical, 8)
-    .padding(.horizontal, 12)
-    .background(Color.secondary.opacity(0.1))
-    .cornerRadius(8)
-  }
-
-  private var standardLayout: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 12) {
-        Text(entry.formattedTimestamp)
-          .font(.system(.caption, design: .monospaced))
-          .foregroundColor(.secondary)
-          .frame(width: 80, alignment: .leading)
-
-        Text(entry.level.rawValue)
-          .font(.system(.caption, design: .monospaced))
+          .font(.system(.caption2, design: .monospaced, weight: .medium))
           .foregroundColor(colorForLevel(entry.level))
           .padding(.horizontal, 8)
-          .padding(.vertical, 2)
-          .background(colorForLevel(entry.level).opacity(0.1))
-          .cornerRadius(4)
-          .frame(width: 80, alignment: .leading)
+          .padding(.vertical, 3)
+          .background(colorForLevel(entry.level).opacity(0.15))
+          .clipShape(RoundedRectangle(cornerRadius: 6))
 
         Text("[\(entry.category.rawValue)]")
-          .font(.system(.caption, design: .monospaced))
+          .font(.system(.caption2, design: .monospaced))
           .foregroundColor(.secondary)
-          .frame(width: 100, alignment: .leading)
+          .lineLimit(1)
 
         Spacer()
       }
 
       Text(entry.message)
-        .font(.system(.callout, design: .monospaced))
+        .font(.system(.footnote, design: .monospaced))
         .foregroundColor(.primary)
         .multilineTextAlignment(.leading)
-        .fixedSize(horizontal: false, vertical: true)
+        .lineLimit(nil)
     }
-    .padding(.vertical, 8)
-    .padding(.horizontal, 12)
-    .background(Color.secondary.opacity(0.1))
-    .cornerRadius(8)
+    .padding(.vertical, 12)
+    .padding(.horizontal, 16)
+    .background(.gray.opacity(0.15))
+    .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
   private func colorForLevel(_ level: LogLevel) -> Color {

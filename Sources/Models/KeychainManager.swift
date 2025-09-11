@@ -36,7 +36,7 @@ package struct KeychainManager {
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
       kSecAttrAccount as String: "ssh-password-\(serverID)",
-      kSecValueData as String: passwordData,
+      kSecValueData as String: passwordData
     ]
 
     let status = SecItemAdd(query as CFDictionary, nil)
@@ -58,7 +58,7 @@ package struct KeychainManager {
       kSecAttrService as String: service,
       kSecAttrAccount as String: "ssh-password-\(serverID)",
       kSecReturnData as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne,
+      kSecMatchLimit as String: kSecMatchLimitOne
     ]
 
     var result: CFTypeRef?
@@ -85,7 +85,7 @@ package struct KeychainManager {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
-      kSecAttrAccount as String: "ssh-password-\(serverID)",
+      kSecAttrAccount as String: "ssh-password-\(serverID)"
     ]
 
     let attributes: [String: Any] = [
@@ -103,7 +103,7 @@ package struct KeychainManager {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
-      kSecAttrAccount as String: "ssh-password-\(serverID)",
+      kSecAttrAccount as String: "ssh-password-\(serverID)"
     ]
 
     let status = SecItemDelete(query as CFDictionary)
@@ -123,7 +123,7 @@ package struct KeychainManager {
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
       kSecAttrAccount as String: "ssh-privatekey-\(serverID)",
-      kSecValueData as String: privateKeyData,
+      kSecValueData as String: privateKeyData
     ]
 
     let status = SecItemAdd(query as CFDictionary, nil)
@@ -145,7 +145,7 @@ package struct KeychainManager {
       kSecAttrService as String: service,
       kSecAttrAccount as String: "ssh-privatekey-\(serverID)",
       kSecReturnData as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne,
+      kSecMatchLimit as String: kSecMatchLimitOne
     ]
 
     var result: CFTypeRef?
@@ -168,7 +168,7 @@ package struct KeychainManager {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
-      kSecAttrAccount as String: "ssh-privatekey-\(serverID)",
+      kSecAttrAccount as String: "ssh-privatekey-\(serverID)"
     ]
 
     let attributes: [String: Any] = [
@@ -186,7 +186,7 @@ package struct KeychainManager {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
-      kSecAttrAccount as String: "ssh-privatekey-\(serverID)",
+      kSecAttrAccount as String: "ssh-privatekey-\(serverID)"
     ]
 
     let status = SecItemDelete(query as CFDictionary)

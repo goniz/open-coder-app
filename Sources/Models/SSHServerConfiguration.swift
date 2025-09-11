@@ -144,8 +144,7 @@ extension SSHServerConfiguration: Codable {
 
     // Migration: If there's a legacy password in JSON, migrate it to keychain
     if let legacyPassword = try container.decodeIfPresent(String.self, forKey: .password),
-      !legacyPassword.isEmpty
-    {
+      !legacyPassword.isEmpty {
       // Store in keychain via computed property
       self.password = legacyPassword
     }
