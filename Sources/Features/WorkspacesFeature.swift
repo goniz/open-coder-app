@@ -4,6 +4,7 @@ import Foundation
 import Models
 
 @Reducer
+// swiftlint:disable:next type_body_length
 package struct WorkspacesFeature {
   @ObservableState
   package struct State: Equatable {
@@ -246,7 +247,7 @@ package struct WorkspacesFeature {
           lastMessagePreview: "Fixed SSH connection issue",
           updatedAt: Date().addingTimeInterval(-300),
           workspaceId: workspaceId
-        ),
+        )
       ]
       await send(.workspaceRefreshed(id, mockSessions))
     }

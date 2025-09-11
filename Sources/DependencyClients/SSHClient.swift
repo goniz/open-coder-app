@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Crypto
 import Dependencies
 import DependenciesMacros
@@ -93,6 +94,7 @@ package enum SSHError: LocalizedError, Equatable {
   }
 }
 
+// swiftlint:disable:next type_body_length
 package struct SSHClient: SSHClientProtocol {
   package init() {}
 
@@ -162,8 +164,8 @@ package struct SSHClient: SSHClientProtocol {
     )
   }
 
-  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String
-  {
+  // swiftlint:disable:next function_body_length
+  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
     await AppLogger.shared.log("Executing SSH command: \(command)", level: .debug, category: .ssh)
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
@@ -230,9 +232,9 @@ package struct SSHClient: SSHClientProtocol {
         return try await getCommandOutput(from: sessionChannel)
       }
 
-      // Clean up
-      try await sessionChannel.close().get()
-      try await channel.close().get()
+      // Clean up in reverse order to avoid channel errors
+      try await channel.close().get()        // Close main channel first
+      try await sessionChannel.close().get() // Then session channel
       try await eventLoopGroup.shutdownGracefully()
 
       await AppLogger.shared.log(
@@ -285,8 +287,7 @@ package struct SSHClient: SSHClientProtocol {
   private func getCommandOutput(from channel: Channel) async throws -> String {
     // Try to get the output handler from the channel pipeline
     if let outputHandler = try? channel.pipeline.syncOperations.handler(
-      type: CommandOutputHandler.self)
-    {
+      type: CommandOutputHandler.self) {
       return try await outputHandler.waitForOutput()
     } else {
       throw SSHError.commandFailed("Output handler not found in channel pipeline")
@@ -323,8 +324,7 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func extractCleanOutput(from output: String, startMarker: String, endMarker: String)
-    -> String
-  {
+    -> String {
     let lines = output.components(separatedBy: .newlines)
     var capturing = false
     var cleanLines: [String] = []
@@ -355,6 +355,7 @@ package struct SSHClient: SSHClientProtocol {
     throw SSHError.connectionFailed("Direct TCP/IP not implemented in mock")
   }
 
+  // swiftlint:disable:next function_body_length
   package func openDirectTCPIP(
     host: String,
     port: Int,
@@ -478,8 +479,7 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
-    -> [RemoteFileInfo]
-  {
+    -> [RemoteFileInfo] {
     await AppLogger.shared.log("Listing directory: \(path)", level: .info, category: .fileSystem)
 
     do {
@@ -510,8 +510,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String
-  {
+  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
     do {
       // Use clean execution to avoid bashrc contamination
       let result = try await execCleanCommand("echo \"$HOME\"", config: config)
@@ -666,8 +665,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 }
 
-private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable
-{
+private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
   private let config: Models.SSHServerConfiguration
 
   init(config: Models.SSHServerConfiguration) {
@@ -701,10 +699,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
 }
 
 private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationDelegate, @unchecked
-  Sendable
-{
-  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>)
-  {
+  Sendable {
+  func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
     // For demo purposes, accept all host keys
     // In production, you should implement proper host key validation
     validationCompletePromise.succeed(())
@@ -734,17 +730,21 @@ package enum SSHConnectionError: Error, LocalizedError {
 struct TmuxService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let sshClient: SSHClient
+  private let connectionManager: SSHConnectionManager
 
   init(config: Models.SSHServerConfiguration) {
     self.config = config
     self.sshClient = SSHClient()
+    self.connectionManager = SSHConnectionManager(config: config)
   }
 
   func hasSession(_ name: String) async throws -> Bool {
     do {
-      let command = "tmux has-session -t \(name) 2>/dev/null && echo 'exists' || echo 'not found'"
-      let result = try await sshClient.exec(command, config: self.config)
-      return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
+      return try await connectionManager.withConnection { connection in
+        let command = "tmux has-session -t \(name) 2>/dev/null && echo 'exists' || echo 'not found'"
+        let result = try await connection.exec(command)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -758,8 +758,10 @@ struct TmuxService: Sendable {
 
   func newSession(name: String, path: String) async throws {
     do {
-      let command = "tmux new-session -d -s \(name) -c \(path)"
-      _ = try await sshClient.exec(command, config: self.config)
+      try await connectionManager.withConnection { connection in
+        let command = "tmux new-session -d -s \(name) -c \(path)"
+        _ = try await connection.exec(command)
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -774,14 +776,16 @@ struct TmuxService: Sendable {
 
   func newOrReplaceServerWindow(name: String) async throws {
     do {
-      let hasExisting = try await hasSession(name)
-      if hasExisting {
-        let killCommand = "tmux kill-session -t \(name)"
-        _ = try await sshClient.exec(killCommand, config: self.config)
-      }
+      try await connectionManager.withConnection { connection in
+        let hasExisting = try await hasSession(name)
+        if hasExisting {
+          let killCommand = "tmux kill-session -t \(name)"
+          _ = try await connection.exec(killCommand)
+        }
 
-      let workspacePath = "$HOME"
-      try await newSession(name: name, path: workspacePath)
+        let workspacePath = "$HOME"
+        try await newSession(name: name, path: workspacePath)
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -796,9 +800,11 @@ struct TmuxService: Sendable {
 
   func listSessions() async throws -> [String] {
     do {
-      let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
-      let result = try await sshClient.exec(command, config: self.config)
-      return result.split(separator: "\n").map(String.init)
+      return try await connectionManager.withConnection { connection in
+        let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
+        let result = try await connection.exec(command)
+        return result.split(separator: "\n").map(String.init)
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -813,8 +819,10 @@ struct TmuxService: Sendable {
 
   func killSession(_ name: String) async throws {
     do {
-      let command = "tmux kill-session -t \(name) 2>/dev/null || true"
-      _ = try await sshClient.exec(command, config: self.config)
+      try await connectionManager.withConnection { connection in
+        let command = "tmux kill-session -t \(name) 2>/dev/null || true"
+        _ = try await connection.exec(command)
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -831,11 +839,13 @@ package struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let tmuxService: TmuxService
   private let sshClient: SSHClient
+  private let connectionManager: SSHConnectionManager
 
   package init(config: Models.SSHServerConfiguration) {
     self.config = config
     self.sshClient = SSHClient()
     self.tmuxService = TmuxService(config: config)
+    self.connectionManager = SSHConnectionManager(config: config)
   }
 
   package struct SpawnResult: Equatable {
@@ -844,112 +854,115 @@ package struct WorkspaceService: Sendable {
     package let error: SSHError?
   }
 
+  // swiftlint:disable:next function_body_length
   package func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
     await AppLogger.shared.log(
       "Attaching or spawning workspace: \(workspace.name)", level: .info, category: .workspace)
 
     do {
-      // Step 1: Ensure tmux session exists
-      let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
-      if !sessionExists {
-        await AppLogger.shared.log(
-          "Creating new tmux session: \(workspace.tmuxSession)",
-          level: .info,
-          category: .workspace
-        )
-        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-      } else {
-        await AppLogger.shared.log(
-          "Using existing tmux session: \(workspace.tmuxSession)",
-          level: .info,
-          category: .workspace
-        )
-      }
-
-      // Step 2: Check for existing daemon.json
-      let checkCommand = """
-        test -f \(workspace.remotePath)/.opencode/daemon.json && \
-        cat \(workspace.remotePath)/.opencode/daemon.json || echo '{}'
-        """
-      let daemonContent = try await sshClient.exec(checkCommand, config: self.config)
-
-      // Parse daemon.json to check for existing port
-      let decoder = JSONDecoder()
-      if let data = daemonContent.data(using: .utf8),
-        let daemonInfo = try? decoder.decode([String: Int].self, from: data),
-        let existingPort = daemonInfo["port"]
-      {
-
-        // Health probe existing port
-        await AppLogger.shared.log(
-          "Found existing daemon on port \(existingPort), checking health",
-          level: .info,
-          category: .workspace
-        )
-        if await healthCheck(port: existingPort, workspace: workspace) {
+      // Use connection manager for all SSH operations to reuse the same connection
+      return try await connectionManager.withConnection { connection in
+        // Step 1: Ensure tmux session exists
+        let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
+        if !sessionExists {
           await AppLogger.shared.log(
-            "Existing daemon is healthy on port \(existingPort)",
+            "Creating new tmux session: \(workspace.tmuxSession)",
             level: .info,
             category: .workspace
           )
-          return SpawnResult(port: existingPort, online: true, error: nil)
+          try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
         } else {
           await AppLogger.shared.log(
-            "Existing daemon is unhealthy on port \(existingPort), will spawn new instance",
-            level: .warning,
+            "Using existing tmux session: \(workspace.tmuxSession)",
+            level: .info,
             category: .workspace
           )
         }
-      }
 
-      // Step 3: Spawn opencode server with automatic port selection
-      await AppLogger.shared.log(
-        "Spawning opencode server for workspace: \(workspace.name)",
-        level: .info,
-        category: .workspace
-      )
-      let spawnCommand = """
-        opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
-        tee -a \(workspace.remotePath)/.opencode/live.log
-        """
+        // Step 2: Check for existing daemon.json using the same connection
+        let checkCommand = """
+          test -f \(workspace.remotePath)/.opencode/daemon.json && \
+          cat \(workspace.remotePath)/.opencode/daemon.json || echo '{}'
+          """
+        let daemonContent = try await connection.exec(checkCommand)
 
-      // Execute spawn command in tmux window
-      let tmuxCommand = "tmux send-keys -t \(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
-      _ = try await sshClient.exec(tmuxCommand, config: self.config)
+        // Parse daemon.json to check for existing port
+        let decoder = JSONDecoder()
+        if let data = daemonContent.data(using: .utf8),
+          let daemonInfo = try? decoder.decode([String: Int].self, from: data),
+          let existingPort = daemonInfo["port"] {
 
-      // Step 4: Wait for server to start and parse the assigned port from logs
-      let maxRetries = 30  // 30 seconds timeout
-      for _ in 0..<maxRetries {
-        if let assignedPort = try await parsePortFromLogs(workspace: workspace) {
-          // Create daemon.json with the actual assigned port
-          let daemonData = try JSONEncoder().encode(["port": assignedPort])
-          if let daemonJson = String(data: daemonData, encoding: .utf8) {
-            let writeCommand = """
-              mkdir -p \(workspace.remotePath)/.opencode && \
-              echo '\(daemonJson)' > \(workspace.remotePath)/.opencode/daemon.json
-              """
-            _ = try await sshClient.exec(writeCommand, config: self.config)
-          }
-
-          if await healthCheck(port: assignedPort, workspace: workspace) {
+          // Health probe existing port
+          await AppLogger.shared.log(
+            "Found existing daemon on port \(existingPort), checking health",
+            level: .info,
+            category: .workspace
+          )
+          if await healthCheck(port: existingPort, workspace: workspace) {
             await AppLogger.shared.log(
-              "OpenCode server started successfully on port \(assignedPort)",
+              "Existing daemon is healthy on port \(existingPort)",
               level: .info,
               category: .workspace
             )
-            return SpawnResult(port: assignedPort, online: true, error: nil)
+            return SpawnResult(port: existingPort, online: true, error: nil)
+          } else {
+            await AppLogger.shared.log(
+              "Existing daemon is unhealthy on port \(existingPort), will spawn new instance",
+              level: .warning,
+              category: .workspace
+            )
           }
         }
-        try await Task.sleep(for: .seconds(1))
-      }
 
-      await AppLogger.shared.log(
-        "Failed to start opencode server within timeout for workspace: \(workspace.name)",
-        level: .error,
-        category: .workspace
-      )
-      let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
-      return SpawnResult(port: 0, online: false, error: timeoutError)
+        // Step 3: Spawn opencode server with automatic port selection
+        await AppLogger.shared.log(
+          "Spawning opencode server for workspace: \(workspace.name)",
+          level: .info,
+          category: .workspace
+        )
+        let spawnCommand = """
+          opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
+          tee -a \(workspace.remotePath)/.opencode/live.log
+          """
+
+        // Execute spawn command in tmux window using the same connection
+        let tmuxCommand = "tmux send-keys -t \(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
+        _ = try await connection.exec(tmuxCommand)
+
+        // Step 4: Wait for server to start and parse the assigned port from logs
+        let maxRetries = 30  // 30 seconds timeout
+        for _ in 0..<maxRetries {
+          if let assignedPort = try await parsePortFromLogs(workspace: workspace, connection: connection) {
+            // Create daemon.json with the actual assigned port
+            let daemonData = try JSONEncoder().encode(["port": assignedPort])
+            if let daemonJson = String(data: daemonData, encoding: .utf8) {
+              let writeCommand = """
+                mkdir -p \(workspace.remotePath)/.opencode && \
+                echo '\(daemonJson)' > \(workspace.remotePath)/.opencode/daemon.json
+                """
+              _ = try await connection.exec(writeCommand)
+            }
+
+            if await healthCheck(port: assignedPort, workspace: workspace) {
+              await AppLogger.shared.log(
+                "OpenCode server started successfully on port \(assignedPort)",
+                level: .info,
+                category: .workspace
+              )
+              return SpawnResult(port: assignedPort, online: true, error: nil)
+            }
+          }
+          try await Task.sleep(for: .seconds(1))
+        }
+
+        await AppLogger.shared.log(
+          "Failed to start opencode server within timeout for workspace: \(workspace.name)",
+          level: .error,
+          category: .workspace
+        )
+        let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
+        return SpawnResult(port: 0, online: false, error: timeoutError)
+      }
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -967,12 +980,12 @@ package struct WorkspaceService: Sendable {
     }
   }
 
-  private func parsePortFromLogs(workspace: Models.Workspace) async throws -> Int? {
+  private func parsePortFromLogs(workspace: Models.Workspace, connection: SSHConnection) async throws -> Int? {
     do {
-      // Read the live log to find the assigned port
+      // Read the live log to find the assigned port using the existing connection
       let logPath = "\(workspace.remotePath)/.opencode/live.log"
       let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
-      let logContent = try await sshClient.exec(command, config: self.config)
+      let logContent = try await connection.exec(command)
 
       // Look for opencode server startup pattern: "opencode server listening on http://127.0.0.1:51535"
       let pattern = #"opencode server listening on http://[^:]+:(\d+)"#
@@ -980,8 +993,7 @@ package struct WorkspaceService: Sendable {
       if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
         let match = regex.firstMatch(
           in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
-        let portRange = Range(match.range(at: 1), in: logContent)
-      {
+        let portRange = Range(match.range(at: 1), in: logContent) {
         let portString = String(logContent[portRange])
         if let port = Int(portString) {
           return port
@@ -1031,14 +1043,17 @@ package struct WorkspaceService: Sendable {
 
   package func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
     do {
-      // Remove stale daemon.json and lock files
-      let cleanupCommand = """
-        rm -f \(workspace.remotePath)/.opencode/daemon.json \(workspace.remotePath)/.opencode/lock
-        """
-      _ = try await sshClient.exec(cleanupCommand, config: self.config)
+      // Use connection manager for cleanup operations too
+      try await connectionManager.withConnection { connection in
+        // Remove stale daemon.json and lock files
+        let cleanupCommand = """
+          rm -f \(workspace.remotePath)/.opencode/daemon.json \(workspace.remotePath)/.opencode/lock
+          """
+        _ = try await connection.exec(cleanupCommand)
 
-      // Kill existing tmux session
-      try await tmuxService.killSession(workspace.tmuxSession)
+        // Kill existing tmux session
+        try await tmuxService.killSession(workspace.tmuxSession)
+      }
 
       // Retry spawn
       return try await attachOrSpawn(workspace: workspace)
@@ -1057,6 +1072,200 @@ package struct WorkspaceService: Sendable {
       }
 
       throw error
+    }
+  }
+}
+
+// MARK: - Connection Management
+
+package actor SSHConnectionManager {
+  private let config: Models.SSHServerConfiguration
+  private var connection: SSHConnection?
+
+  package init(config: Models.SSHServerConfiguration) {
+    self.config = config
+  }
+
+  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T) async throws -> T {
+    return try await withRetry(maxRetries: 3, baseDelay: 1.0) { [self] in
+      if self.connection == nil || !self.connection!.isActive {
+        await AppLogger.shared.log("Creating new SSH connection", level: .debug, category: .ssh)
+        self.connection = try await self.createConnection()
+      }
+
+      return try await operation(self.connection!)
+    }
+  }
+
+  private func withRetry<T>(
+    maxRetries: Int,
+    baseDelay: TimeInterval,
+    operation: @escaping () async throws -> T
+  ) async throws -> T {
+    var lastError: Error?
+
+    for attempt in 0...maxRetries {
+      do {
+        return try await operation()
+      } catch {
+        lastError = error
+
+        // Don't retry on the last attempt
+        if attempt == maxRetries {
+          break
+        }
+
+        // Calculate exponential backoff delay
+        let delay = baseDelay * pow(2.0, Double(attempt))
+        await AppLogger.shared.log(
+          "SSH operation failed (attempt \(attempt + 1)/\(maxRetries + 1)), " +
+          "retrying in \(delay)s: \(error.localizedDescription)",
+          level: .warning,
+          category: .ssh
+        )
+
+        // Reset connection on error to force reconnection
+        if let connection = self.connection {
+          await connection.close()
+          self.connection = nil
+        }
+
+        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+      }
+    }
+
+    throw lastError ?? SSHError.connectionFailed("Operation failed after \(maxRetries + 1) attempts")
+  }
+
+  private func createConnection() async throws -> SSHConnection {
+    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    let userAuthDelegate = SSHUserAuthDelegate(config: config)
+    let serverAuthDelegate = AcceptAllHostKeysDelegate()
+
+    let bootstrap = ClientBootstrap(group: eventLoopGroup)
+      .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+      .channelInitializer { channel in
+        let sshHandler = NIOSSHHandler(
+          role: .client(
+            .init(
+              userAuthDelegate: userAuthDelegate,
+              serverAuthDelegate: serverAuthDelegate
+            )),
+          allocator: channel.allocator,
+          inboundChildChannelInitializer: nil
+        )
+        return channel.eventLoop.makeCompletedFuture {
+          try channel.pipeline.syncOperations.addHandler(sshHandler)
+        }
+      }
+
+    let port = config.port > 0 ? config.port : 22
+    let channel = try await bootstrap.connect(host: config.host, port: port).get()
+
+    // Wait for SSH connection to be established
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
+    return SSHConnection(channel: channel, eventLoopGroup: eventLoopGroup)
+  }
+
+  package func disconnect() async {
+    if let connection = connection {
+      await connection.close()
+      self.connection = nil
+    }
+  }
+}
+
+package struct SSHConnection: Sendable {
+  let channel: Channel
+  let eventLoopGroup: EventLoopGroup
+
+  var isActive: Bool {
+    channel.isActive
+  }
+
+  func close() async {
+    do {
+      try await channel.close().get()
+      try await eventLoopGroup.shutdownGracefully()
+    } catch {
+      // Log but don't throw - cleanup should be best effort
+    }
+  }
+
+  func exec(_ command: String) async throws -> String {
+    // Create a session channel to execute the command
+    let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
+
+    // Get the SSH handler from the main channel
+    let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+
+    sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+      // Add command output handler to capture stdout/stderr
+      let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
+      return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
+        // Execute the command
+        let execRequest = SSHChannelRequestEvent.ExecRequest(
+          command: command,
+          wantReply: true
+        )
+
+        let execPromise = childChannel.eventLoop.makePromise(of: Void.self)
+        childChannel.triggerUserOutboundEvent(
+          execRequest,
+          promise: execPromise
+        )
+
+        return execPromise.futureResult.map { _ in
+          // Return success - output will be handled by the handler
+          ()
+        }
+      }
+    }
+
+    let sessionChannel = try await sessionPromise.futureResult.get()
+
+    // Wait for command execution to complete (timeout after 30 seconds)
+    let result = try await withTimeout(seconds: 30) {
+      return try await getCommandOutput(from: sessionChannel)
+    }
+
+    // Clean up session channel only
+    try await sessionChannel.close().get()
+
+    return result
+  }
+
+  private func withTimeout<T: Sendable>(
+    seconds: Int,
+    operation: @escaping @Sendable () async throws -> T
+  ) async throws -> T {
+    return try await withThrowingTaskGroup(of: T.self) { group in
+      group.addTask {
+        try await operation()
+      }
+
+      group.addTask {
+        try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
+        throw SSHError.commandFailed("Command execution timeout")
+      }
+
+      guard let result = try await group.next() else {
+        throw SSHError.commandFailed("No result from command execution")
+      }
+
+      group.cancelAll()
+      return result
+    }
+  }
+
+  private func getCommandOutput(from channel: Channel) async throws -> String {
+    // Try to get the output handler from the channel pipeline
+    if let outputHandler = try? channel.pipeline.syncOperations.handler(
+      type: CommandOutputHandler.self) {
+      return try await outputHandler.waitForOutput()
+    } else {
+      throw SSHError.commandFailed("Output handler not found in channel pipeline")
     }
   }
 }
