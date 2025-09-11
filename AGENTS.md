@@ -25,6 +25,8 @@ This ensures code quality and prevents issues from propagating through the codeb
 
 **Feature Completion**: When finishing up with a feature request or major bug fix, run `just beta` after a successful `just devcycle` to deploy to TestFlight for testing.
 
+**Git Usage**: NEVER use `git add .` - always add specific paths to avoid committing unwanted files like node_modules. Use `git add <specific-file>` or `git add <directory>` for targeted changes.
+
 ## Architecture
 - Modular Swift Package with TCA (The Composable Architecture)
 - Dependency hierarchy: Models → DependencyClients → Features → Views → OpenCoderLib
