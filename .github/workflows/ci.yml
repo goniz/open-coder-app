@@ -43,6 +43,11 @@ jobs:
     - name: Configure macro package trust
       run: defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
+    - name: Install iOS Simulator Runtime
+      run: |
+        xcodebuild -downloadPlatform iOS
+        xcrun simctl list runtimes
+
     - name: Run Swift Package Build
       run: just build
 
@@ -67,6 +72,11 @@ jobs:
 
     - name: Configure macro package trust
       run: defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
+    - name: Install iOS Simulator Runtime
+      run: |
+        xcodebuild -downloadPlatform iOS
+        xcrun simctl list runtimes
 
     - name: Run Tests
       run: just test
