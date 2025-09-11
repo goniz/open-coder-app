@@ -8,7 +8,7 @@ update:
     swift package update
 
 lint:
-    swiftlint Sources
+    swiftlint Sources --strict
 
 fix:
     swiftlint Sources --fix
@@ -31,8 +31,8 @@ check_builds:
 validate-ipa:
     cd Xcode && xcrun altool --validate-app -f OpenCoder.ipa -t ios --apiKey ZZR4FFP696 --apiIssuer d5f4a2be-8aae-409d-9526-b299f949a6d9
 
-validate:
-    just build
-    just build-ios
-    just lint
+devcycle:
+    just lint && \
+    just build && \
+    just build-ios && \
     just test

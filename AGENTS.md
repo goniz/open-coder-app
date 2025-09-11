@@ -5,23 +5,25 @@
 - Build iOS app: `just build-ios` (development build without publishing)
 - Test all: `swift test` or `just test`
 - Test single target: `swift test --filter ModelsTests` or `swift test --filter FeaturesTests.AppFeatureTests`
-- Lint: `swiftlint Sources` or `just lint`
+- Lint: `swiftlint Sources --strict` or `just lint` (treats warnings as errors)
 - **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations where possible
 - Format: `swift-format --in-place --recursive Sources/` or `just fmt`
 - Update packages: `swift package update` or `just update`
-- **Validate all: `just validate`** - Runs build, build-ios, lint, and test in sequence
+- **Development cycle: `just devcycle`** - Runs lint, build, build-ios, and test in sequence with early exit on failure
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
 
 ## Development Workflow
-**IMPORTANT**: Always run `just validate` between development cycles to catch all errors before proceeding. This comprehensive command runs:
-1. Swift package build with warnings as errors
-2. iOS app build for simulator 
-3. SwiftLint checks
+**IMPORTANT**: Always run `just devcycle` between development cycles to catch all errors before proceeding. This comprehensive command runs:
+1. SwiftLint checks with strict mode (warnings as errors)
+2. Swift package build with warnings as errors
+3. iOS app build for simulator 
 4. All unit tests
 
-This ensures code quality and prevents issues from propagating through the codebase.
+This ensures code quality and prevents issues from propagating through the codebase. The command uses `&&` chaining to exit immediately on any failure.
 
-**Code Quality**: When `just validate` shows many lint warnings/errors, run `just fix` first to automatically resolve fixable issues, then re-run validation. This saves time and maintains consistent code style.
+**Code Quality**: When `just devcycle` shows lint warnings/errors, run `just fix` first to automatically resolve fixable issues, then re-run the development cycle. Always fix all issues raised by `just devcycle` before proceeding with development.
+
+**Feature Completion**: When finishing up with a feature request or major bug fix, run `just beta` after a successful `just devcycle` to deploy to TestFlight for testing.
 
 ## Architecture
 - Modular Swift Package with TCA (The Composable Architecture)
