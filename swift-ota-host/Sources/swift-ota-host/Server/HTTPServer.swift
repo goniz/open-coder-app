@@ -11,6 +11,7 @@ final class HTTPHandler: ChannelInboundHandler {
     private let config: ServerConfig
     private let baseUrl: String
     private let distDir: URL
+    private var pendingRequest: HTTPRequestHead?
     
     init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String) {
         self.ipaInfo = ipaInfo
@@ -24,13 +25,23 @@ final class HTTPHandler: ChannelInboundHandler {
         
         switch request {
         case .head(let header):
-            handleRoute(header.uri, context: context)
-        case .body, .end:
+            self.pendingRequest = header
+        case .body:
+            // For this server, we don't need to handle request bodies
             break
+        case .end:
+            // Request is complete, now we can respond
+            if let header = self.pendingRequest {
+                handleRoute(header.uri, context: context)
+                self.pendingRequest = nil
+            }
         }
     }
     
     private func handleRoute(_ uri: String, context: ChannelHandlerContext) {
+        let clientAddress = context.remoteAddress?.description ?? "unknown"
+        Logger.info("📥 \(clientAddress) - \(uri)")
+        
         switch uri {
         case "/":
             serveInstallPage(context: context)
@@ -53,6 +64,7 @@ final class HTTPHandler: ChannelInboundHandler {
             fileSize: ipaInfo.size.formatFileSize()
         )
         
+        Logger.info("📄 Serving install page")
         sendResponse(context: context, content: html, contentType: "text/html")
     }
     
@@ -64,22 +76,27 @@ final class HTTPHandler: ChannelInboundHandler {
             ipaUrl: "\(baseUrl)/latest.ipa"
         )
         
+        Logger.info("📋 Serving manifest.plist")
         sendResponse(context: context, content: manifest, contentType: "application/xml")
     }
     
     private func serveIPA(context: ChannelHandlerContext) {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: ipaInfo.path)) else {
+            Logger.info("❌ IPA file not found: \(ipaInfo.path)")
             serve404(context: context)
             return
         }
+        
+        Logger.info("📦 Serving IPA file (\(data.count.formatFileSize()))")
         
         if config.once {
             Logger.info("IPA download started, will exit after completion due to --once flag")
         }
         
         sendBinaryResponse(context: context, data: data, contentType: "application/octet-stream") {
+            Logger.info("✅ IPA download completed")
             if self.config.once {
-                Logger.info("IPA download completed, shutting down server...")
+                Logger.info("Shutting down server...")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     exit(0)
                 }
@@ -89,36 +106,47 @@ final class HTTPHandler: ChannelInboundHandler {
     
     private func serve404(context: ChannelHandlerContext) {
         let html = "<html><body><h1>404 Not Found</h1></body></html>"
+        Logger.info("🚫 404 Not Found")
         sendResponse(context: context, content: html, contentType: "text/html", status: .notFound)
     }
     
     private func sendResponse(context: ChannelHandlerContext, content: String, contentType: String, status: HTTPResponseStatus = .ok) {
         let data = content.data(using: .utf8) ?? Data()
         
+        var headers = HTTPHeaders()
+        headers.add(name: "Content-Type", value: contentType)
+        headers.add(name: "Content-Length", value: "\(data.count)")
+        headers.add(name: "Connection", value: "close")
+        
         let head = HTTPResponseHead(
             version: .http1_1,
             status: status,
-            headers: [
-                "Content-Type": contentType,
-                "Content-Length": "\(data.count)"
-            ]
+            headers: headers
         )
         
         context.write(wrapOutboundOut(.head(head)), promise: nil)
         
         let buffer = context.channel.allocator.buffer(bytes: data)
         context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
+        
+        let promise = context.eventLoop.makePromise(of: Void.self)
+        promise.futureResult.whenComplete { _ in
+            context.close(promise: nil)
+        }
+        
+        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: promise)
     }
     
     private func sendBinaryResponse(context: ChannelHandlerContext, data: Data, contentType: String, completion: @escaping () -> Void = {}) {
+        var headers = HTTPHeaders()
+        headers.add(name: "Content-Type", value: contentType)
+        headers.add(name: "Content-Length", value: "\(data.count)")
+        headers.add(name: "Connection", value: "close")
+        
         let head = HTTPResponseHead(
             version: .http1_1,
             status: .ok,
-            headers: [
-                "Content-Type": contentType,
-                "Content-Length": "\(data.count)"
-            ]
+            headers: headers
         )
         
         context.write(wrapOutboundOut(.head(head)), promise: nil)
@@ -129,6 +157,7 @@ final class HTTPHandler: ChannelInboundHandler {
         let promise = context.eventLoop.makePromise(of: Void.self)
         promise.futureResult.whenComplete { _ in
             completion()
+            context.close(promise: nil)
         }
         
         context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: promise)
@@ -150,6 +179,18 @@ final class HTTPServer: @unchecked Sendable {
     }
     
     func start() async throws {
+        // Setup signal handling for graceful shutdown
+        let signalSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+        signalSource.setEventHandler {
+            Logger.info("\n🛑 Received SIGINT, shutting down gracefully...")
+            Task {
+                await self.stop()
+                exit(0)
+            }
+        }
+        signalSource.resume()
+        signal(SIGINT, SIG_IGN) // Ignore default SIGINT handler
+        
         // Fetch certificates during startup if HTTPS is enabled
         if config.useHttps {
             try await fetchCertificates()
@@ -169,15 +210,22 @@ final class HTTPServer: @unchecked Sendable {
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
             .childChannelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
         
-        channel = try await bootstrap.bind(host: "0.0.0.0", port: config.port).get()
+        Logger.info("🔄 Binding to \(config.hostname):\(config.port)...")
         
-        Logger.info("🚀 OTA Server started")
-        Logger.info("📱 App: \(ipaInfo.displayName) v\(ipaInfo.version)")
-        Logger.info("🌐 Install URL: \(baseUrl)/")
-        Logger.info("📋 Direct install: itms-services://?action=download-manifest&url=\(baseUrl)/manifest.plist")
-        Logger.info("⚙️  Mode: \(config.devMode ? "Development" : "Production")")
-        
-        try await channel?.closeFuture.get()
+        do {
+            channel = try await bootstrap.bind(host: config.hostname, port: config.port).get()
+            Logger.info("🚀 OTA Server started successfully")
+            Logger.info("📱 App: \(ipaInfo.displayName) v\(ipaInfo.version)")
+            Logger.info("🌐 Install URL: \(baseUrl)/")
+            Logger.info("📋 Direct install: itms-services://?action=download-manifest&url=\(baseUrl)/manifest.plist")
+            Logger.info("⚙️  Mode: \(config.devMode ? "Development" : "Production")")
+            Logger.info("💡 Press Ctrl+C to stop the server")
+            
+            try await channel?.closeFuture.get()
+        } catch {
+            Logger.error("❌ Failed to bind to \(config.hostname):\(config.port) - \(error)")
+            throw error
+        }
     }
     
     private func fetchCertificates() async throws {
@@ -229,10 +277,11 @@ final class HTTPServer: @unchecked Sendable {
             let cert = try NIOSSLCertificate(bytes: Array(certData), format: .pem)
             let key = try NIOSSLPrivateKey(bytes: Array(keyData), format: .pem)
             
-            let tlsConfig = TLSConfiguration.makeServerConfiguration(
+            var tlsConfig = TLSConfiguration.makeServerConfiguration(
                 certificateChain: [.certificate(cert)],
                 privateKey: .privateKey(key)
             )
+            tlsConfig.applicationProtocols = ["http/1.1"]
             
             let sslContext = try NIOSSLContext(configuration: tlsConfig)
             let sslHandler = NIOSSLServerHandler(context: sslContext)

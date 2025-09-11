@@ -1,7 +1,8 @@
 import ArgumentParser
 import Foundation
 
-struct OTAHostCLI: ParsableCommand {
+@available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
+struct OTAHostCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "swift-ota-host",
         abstract: "iOS App Over-The-Air Distribution Server",
@@ -50,7 +51,7 @@ struct OTAHostCLI: ParsableCommand {
         }
     }
     
-    mutating func run() throws {
+    mutating func run() async throws {
         let config = ServerConfig(
             port: port ?? (dev ? 8443 : 443),
             devMode: dev,
@@ -74,21 +75,9 @@ struct OTAHostCLI: ParsableCommand {
         
         let otaHost = OTAHost(config: config)
         
-        let semaphore = DispatchSemaphore(value: 0)
-        var serverError: Error? = nil
-        
-        Task {
-            do {
-                try await otaHost.start()
-            } catch {
-                serverError = error
-                semaphore.signal()
-            }
-        }
-        
-        semaphore.wait()
-        
-        if let error = serverError {
+        do {
+            try await otaHost.start()
+        } catch {
             Logger.error("Fatal error: \(error.localizedDescription)")
             
             // Print more helpful error messages

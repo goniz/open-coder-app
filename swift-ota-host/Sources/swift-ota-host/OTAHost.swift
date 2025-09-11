@@ -77,9 +77,6 @@ class OTAHost {
         // Start HTTP server
         server = HTTPServer(ipaInfo: latestIpa, config: config, baseUrl: baseUrl)
         
-        // Setup graceful shutdown
-        setupSignalHandlers()
-        
         try await server?.start()
     }
     
@@ -127,36 +124,5 @@ class OTAHost {
         Logger.debug("Generated install.html")
     }
     
-    private func setupSignalHandlers() {
-        let signalQueue = DispatchQueue(label: "signals", qos: .background)
-        
-        signal(SIGINT, SIG_IGN)
-        signal(SIGTERM, SIG_IGN)
-        
-        let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: signalQueue)
-        let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: signalQueue)
-        
-        sigintSource.setEventHandler {
-            Logger.info("Received SIGINT, shutting down...")
-            Task {
-                await self.shutdown()
-            }
-        }
-        
-        sigtermSource.setEventHandler {
-            Logger.info("Received SIGTERM, shutting down...")
-            Task {
-                await self.shutdown()
-            }
-        }
-        
-        sigintSource.resume()
-        sigtermSource.resume()
-    }
-    
-    private func shutdown() async {
-        Logger.info("Shutting down server...")
-        await server?.stop()
-        exit(0)
-    }
+
 }
