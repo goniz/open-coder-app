@@ -49,6 +49,10 @@ jobs:
   ios-build:
     name: iOS Build
     runs-on: macos-15
+    
+    env:
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 60
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: 8
 
     steps:
     - name: Checkout
