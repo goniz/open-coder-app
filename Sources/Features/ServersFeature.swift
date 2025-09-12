@@ -4,7 +4,7 @@ import Foundation
 import Models
 
 #if canImport(UIKit)
-import UIKit
+  import UIKit
 #endif
 
 package enum ConnectionState: Equatable {
@@ -31,6 +31,7 @@ package struct ServerState: Equatable, Identifiable {
 }
 
 @Reducer
+// swiftlint:disable:next type_body_length
 package struct ServersFeature {
   @ObservableState
   package struct State: Equatable {
@@ -42,9 +43,9 @@ package struct ServersFeature {
     package var activeTaskConnections: [ServerState.ID: Date] = [:]
     package var activeTasks: [CodingTask.ID: CodingTask] = [:]
     #if canImport(UIKit) && !os(macOS)
-    package var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+      package var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     #else
-    package var backgroundTaskID: Int = -1
+      package var backgroundTaskID: Int = -1
     #endif
 
     package init() {}
@@ -79,15 +80,18 @@ package struct ServersFeature {
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task, .serversLoaded, .addServer, .addServerCompleted, .testConnection,
-         .connectionSuccess, .connectionFailed, .removeServer, .dismissAddServer, .toggleConnectionPersistence:
+      .connectionSuccess, .connectionFailed, .removeServer, .dismissAddServer,
+      .toggleConnectionPersistence:
       return handleServerAction(state: &state, action: action)
     case .appDidEnterBackground, .appWillEnterForeground, .maintainPersistentConnections:
       return handleConnectionAction(state: &state, action: action)
-    case .startTaskMonitoring, .stopTaskMonitoring, .taskProgressUpdate, .maintainActiveTaskConnections:
+    case .startTaskMonitoring, .stopTaskMonitoring, .taskProgressUpdate,
+      .maintainActiveTaskConnections:
       return handleTaskAction(state: &state, action: action)
     }
   }
 
+  // swiftlint:disable:next cyclomatic_complexity
   private func handleServerAction(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
@@ -155,9 +159,10 @@ package struct ServersFeature {
     state.servers = servers
     state.isLoading = false
 
-    state.persistentConnections = Set(servers.compactMap { server in
-      server.shouldMaintainConnection ? server.id : nil
-    })
+    state.persistentConnections = Set(
+      servers.compactMap { server in
+        server.shouldMaintainConnection ? server.id : nil
+      })
 
     return .run { send in
       await send(.maintainPersistentConnections)
@@ -169,7 +174,8 @@ package struct ServersFeature {
     return .none
   }
 
-  private func handleAddServerCompleted(state: inout State, config: SSHServerConfiguration) -> Effect<Action> {
+  private func handleAddServerCompleted(state: inout State, config: SSHServerConfiguration)
+    -> Effect<Action> {
     let serverState = ServerState(configuration: config)
     state.servers.append(serverState)
     state.isAddingServer = false
@@ -204,13 +210,19 @@ package struct ServersFeature {
     return .none
   }
 
-  private func handleConnectionFailed(state: inout State, id: ServerState.ID, errorMessage: String) -> Effect<Action> {
+  private func handleConnectionFailed(state: inout State, id: ServerState.ID, errorMessage: String)
+    -> Effect<Action> {
     guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
     state.servers[index].connectionState = .error(errorMessage)
     return .none
   }
 
   private func handleRemoveServer(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    // Clean up keychain data for the removed server
+    if let serverToRemove = state.servers.first(where: { $0.id == id }) {
+      serverToRemove.configuration.deleteCredentials()
+    }
+
     state.servers.removeAll { $0.id == id }
     saveServersToStorage(state.servers)
     return .none
@@ -225,11 +237,26 @@ package struct ServersFeature {
     guard let data = UserDefaults.standard.data(forKey: "savedServers") else { return [] }
     do {
       let configurations = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
+
+      // Migration happens automatically during JSON decoding (see SSHServerConfiguration.init(from:))
+      // but we should re-save to remove any legacy password data from JSON
+      let hasLegacyData = hasLegacyPasswordInJSON(data)
+      if hasLegacyData {
+        print("🔐 Migrating SSH credentials to keychain...")
+        // Re-save without legacy password data
+        saveServersToStorage(configurations.map { ServerState(configuration: $0) })
+      }
+
       return configurations.map { ServerState(configuration: $0) }
     } catch {
       print("Failed to load servers: \(error)")
       return []
     }
+  }
+
+  private func hasLegacyPasswordInJSON(_ data: Data) -> Bool {
+    guard let jsonString = String(data: data, encoding: .utf8) else { return false }
+    return jsonString.contains("\"password\":")
   }
 
   private func saveServersToStorage(_ servers: [ServerState]) {
@@ -242,7 +269,9 @@ package struct ServersFeature {
     }
   }
 
-  private func handleToggleConnectionPersistence(state: inout State, id: ServerState.ID) -> Effect<Action> {
+  private func handleToggleConnectionPersistence(state: inout State, id: ServerState.ID) -> Effect<
+    Action
+  > {
     guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
     state.servers[index].shouldMaintainConnection.toggle()
 
@@ -273,7 +302,8 @@ package struct ServersFeature {
   private func handleMaintainPersistentConnections(state: inout State) -> Effect<Action> {
     let reconnectEffects = state.persistentConnections.compactMap { id -> Effect<Action>? in
       guard let serverIndex = state.servers.firstIndex(where: { $0.id == id }),
-            state.servers[serverIndex].connectionState != .connected else { return nil }
+        state.servers[serverIndex].connectionState != .connected
+      else { return nil }
 
       return .run { send in
         await send(.testConnection(id))

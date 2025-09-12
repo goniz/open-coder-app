@@ -1,83 +1,83 @@
 import Foundation
 
 #if canImport(ActivityKit)
-import ActivityKit
+  import ActivityKit
 #endif
 
 #if canImport(ActivityKit) && !os(macOS)
-package struct CodingTaskAttributes: ActivityAttributes {
-  package var serverName: String
-  package var projectName: String
-  package var taskType: TaskType
+  package struct CodingTaskAttributes: ActivityAttributes {
+    package var serverName: String
+    package var projectName: String
+    package var taskType: TaskType
 
-  package init(serverName: String, projectName: String, taskType: TaskType) {
-    self.serverName = serverName
-    self.projectName = projectName
-    self.taskType = taskType
-  }
+    package init(serverName: String, projectName: String, taskType: TaskType) {
+      self.serverName = serverName
+      self.projectName = projectName
+      self.taskType = taskType
+    }
 
-  package struct ContentState: Codable, Hashable {
-    package var taskName: String
-    package var progress: Double
-    package var currentStep: String
-    package var status: TaskStatus
-    package var elapsedTime: TimeInterval
-    package var estimatedTimeRemaining: TimeInterval?
+    package struct ContentState: Codable, Hashable {
+      package var taskName: String
+      package var progress: Double
+      package var currentStep: String
+      package var status: TaskStatus
+      package var elapsedTime: TimeInterval
+      package var estimatedTimeRemaining: TimeInterval?
 
-    package init(
-      taskName: String,
-      progress: Double,
-      currentStep: String,
-      status: TaskStatus,
-      elapsedTime: TimeInterval,
-      estimatedTimeRemaining: TimeInterval? = nil
-    ) {
-      self.taskName = taskName
-      self.progress = progress
-      self.currentStep = currentStep
-      self.status = status
-      self.elapsedTime = elapsedTime
-      self.estimatedTimeRemaining = estimatedTimeRemaining
+      package init(
+        taskName: String,
+        progress: Double,
+        currentStep: String,
+        status: TaskStatus,
+        elapsedTime: TimeInterval,
+        estimatedTimeRemaining: TimeInterval? = nil
+      ) {
+        self.taskName = taskName
+        self.progress = progress
+        self.currentStep = currentStep
+        self.status = status
+        self.elapsedTime = elapsedTime
+        self.estimatedTimeRemaining = estimatedTimeRemaining
+      }
     }
   }
-}
 #else
-package struct CodingTaskAttributes: Codable {
-  package struct ContentState: Codable, Hashable {
-    package var taskName: String
-    package var progress: Double
-    package var currentStep: String
-    package var status: TaskStatus
-    package var elapsedTime: TimeInterval
-    package var estimatedTimeRemaining: TimeInterval?
+  package struct CodingTaskAttributes: Codable {
+    package struct ContentState: Codable, Hashable {
+      package var taskName: String
+      package var progress: Double
+      package var currentStep: String
+      package var status: TaskStatus
+      package var elapsedTime: TimeInterval
+      package var estimatedTimeRemaining: TimeInterval?
 
-    package init(
-      taskName: String,
-      progress: Double,
-      currentStep: String,
-      status: TaskStatus,
-      elapsedTime: TimeInterval,
-      estimatedTimeRemaining: TimeInterval? = nil
-    ) {
-      self.taskName = taskName
-      self.progress = progress
-      self.currentStep = currentStep
-      self.status = status
-      self.elapsedTime = elapsedTime
-      self.estimatedTimeRemaining = estimatedTimeRemaining
+      package init(
+        taskName: String,
+        progress: Double,
+        currentStep: String,
+        status: TaskStatus,
+        elapsedTime: TimeInterval,
+        estimatedTimeRemaining: TimeInterval? = nil
+      ) {
+        self.taskName = taskName
+        self.progress = progress
+        self.currentStep = currentStep
+        self.status = status
+        self.elapsedTime = elapsedTime
+        self.estimatedTimeRemaining = estimatedTimeRemaining
+      }
+    }
+
+    package var serverName: String
+    package var projectName: String
+    package var taskType: TaskType
+
+    package init(serverName: String, projectName: String, taskType: TaskType) {
+      self.serverName = serverName
+      self.projectName = projectName
+      self.taskType = taskType
     }
   }
-
-  package var serverName: String
-  package var projectName: String
-  package var taskType: TaskType
-
-  package init(serverName: String, projectName: String, taskType: TaskType) {
-    self.serverName = serverName
-    self.projectName = projectName
-    self.taskType = taskType
-  }
-}
 #endif
 
 package enum TaskStatus: String, Codable, CaseIterable {

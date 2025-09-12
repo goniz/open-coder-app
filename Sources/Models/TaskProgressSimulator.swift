@@ -22,7 +22,8 @@ package actor TaskProgressSimulator {
       guard isRunning else { break }
 
       let duration = step.duration / 10
-      let progressIncrement = (step.progress - (index > 0 ? task.mockProgressSteps[index - 1].progress : 0.0)) / 10
+      let progressIncrement =
+        (step.progress - (index > 0 ? task.mockProgressSteps[index - 1].progress : 0.0)) / 10
       let baseProgress = index > 0 ? task.mockProgressSteps[index - 1].progress : 0.0
 
       for stepIndex in 0..<10 {

@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Models
 
 @Reducer
 package struct SettingsFeature {
@@ -7,6 +8,7 @@ package struct SettingsFeature {
     package var theme: Theme = .system
     package var notificationsEnabled = true
     package var autoSaveEnabled = true
+    package var showingLogs = false
 
     package init() {}
   }
@@ -15,6 +17,8 @@ package struct SettingsFeature {
     case binding(BindingAction<State>)
     case task
     case resetToDefaults
+    case toggleLogs
+    case clearLogs
   }
 
   package init() {}
@@ -36,6 +40,15 @@ package struct SettingsFeature {
     case .resetToDefaults:
       state = State()
       return .none
+
+    case .toggleLogs:
+      state.showingLogs.toggle()
+      return .none
+
+    case .clearLogs:
+      return .run { _ in
+        await AppLogger.shared.clearLogs()
+      }
     }
   }
 }

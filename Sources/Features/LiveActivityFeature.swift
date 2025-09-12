@@ -1,10 +1,10 @@
 import ComposableArchitecture
 import DependencyClients
-import Models
 import Foundation
+import Models
 
 #if canImport(ActivityKit)
-@preconcurrency import ActivityKit
+  @preconcurrency import ActivityKit
 #endif
 
 @Reducer
@@ -12,17 +12,17 @@ package struct LiveActivityFeature {
   @ObservableState
   package struct State: Equatable {
     #if canImport(ActivityKit) && !os(macOS)
-    package var currentActivity: Activity<CodingTaskAttributes>?
+      package var currentActivity: Activity<CodingTaskAttributes>?
     #endif
     package var isActivityActive = false
     package var monitoringTasks: [CodingTask.ID: CodingTask] = [:]
-    @ObservationStateIgnored package var progressSimulators: [CodingTask.ID: TaskProgressSimulator] = [:]
+    @ObservationStateIgnored package var progressSimulators:
+      [CodingTask.ID: TaskProgressSimulator] = [:]
 
     package init() {}
 
     package static func == (lhs: State, rhs: State) -> Bool {
-      lhs.isActivityActive == rhs.isActivityActive &&
-      lhs.monitoringTasks == rhs.monitoringTasks
+      lhs.isActivityActive == rhs.isActivityActive && lhs.monitoringTasks == rhs.monitoringTasks
     }
   }
 
@@ -51,7 +51,8 @@ package struct LiveActivityFeature {
       case .backgroundRefresh:
         return handleBackgroundRefresh(state: &state)
       case let .taskProgressUpdated(taskID, progress, step, status):
-        return handleTaskProgressUpdated(state: &state, taskID: taskID, progress: progress, step: step, status: status)
+        return handleTaskProgressUpdated(
+          state: &state, taskID: taskID, progress: progress, step: step, status: status)
       case let .simulationCompleted(taskID):
         return handleSimulationCompleted(state: &state, taskID: taskID)
       }
@@ -65,33 +66,33 @@ package struct LiveActivityFeature {
     state.monitoringTasks[task.id] = updatedTask
 
     #if canImport(ActivityKit) && !os(macOS)
-    let attributes = CodingTaskAttributes(
-      serverName: "Development Server",
-      projectName: "OpenCoder",
-      taskType: task.type
-    )
-
-    let contentState = CodingTaskAttributes.ContentState(
-      taskName: task.name,
-      progress: 0.0,
-      currentStep: "Starting...",
-      status: .running,
-      elapsedTime: 0,
-      estimatedTimeRemaining: task.estimatedDuration
-    )
-
-    do {
-      let activity = try Activity<CodingTaskAttributes>.request(
-        attributes: attributes,
-        content: .init(state: contentState, staleDate: nil)
+      let attributes = CodingTaskAttributes(
+        serverName: "Development Server",
+        projectName: "OpenCoder",
+        taskType: task.type
       )
-      state.currentActivity = activity
-      state.isActivityActive = true
-    } catch {
-      print("Failed to start Live Activity: \(error)")
-    }
+
+      let contentState = CodingTaskAttributes.ContentState(
+        taskName: task.name,
+        progress: 0.0,
+        currentStep: "Starting...",
+        status: .running,
+        elapsedTime: 0,
+        estimatedTimeRemaining: task.estimatedDuration
+      )
+
+      do {
+        let activity = try Activity<CodingTaskAttributes>.request(
+          attributes: attributes,
+          content: .init(state: contentState, staleDate: nil)
+        )
+        state.currentActivity = activity
+        state.isActivityActive = true
+      } catch {
+        print("Failed to start Live Activity: \(error)")
+      }
     #else
-    state.isActivityActive = true
+      state.isActivityActive = true
     #endif
 
     let simulator = TaskProgressSimulator()
@@ -108,22 +109,22 @@ package struct LiveActivityFeature {
 
   private func handleUpdateActivity(state: inout State, task: CodingTask) -> Effect<Action> {
     #if canImport(ActivityKit) && !os(macOS)
-    guard let activity = state.currentActivity else { return .none }
+      guard let activity = state.currentActivity else { return .none }
 
-    let contentState = CodingTaskAttributes.ContentState(
-      taskName: task.name,
-      progress: task.progress,
-      currentStep: task.currentStep,
-      status: task.status,
-      elapsedTime: task.elapsedTime,
-      estimatedTimeRemaining: task.estimatedTimeRemaining
-    )
+      let contentState = CodingTaskAttributes.ContentState(
+        taskName: task.name,
+        progress: task.progress,
+        currentStep: task.currentStep,
+        status: task.status,
+        elapsedTime: task.elapsedTime,
+        estimatedTimeRemaining: task.estimatedTimeRemaining
+      )
 
-    return .run { _ in
-      await activity.update(.init(state: contentState, staleDate: nil))
-    }
+      return .run { _ in
+        await activity.update(.init(state: contentState, staleDate: nil))
+      }
     #else
-    return .none
+      return .none
     #endif
   }
 
@@ -134,10 +135,10 @@ package struct LiveActivityFeature {
     if state.monitoringTasks.isEmpty {
       state.isActivityActive = false
       #if canImport(ActivityKit) && !os(macOS)
-      let currentActivity = state.currentActivity
-      return .run { _ in
-        await currentActivity?.end(nil, dismissalPolicy: .after(Date().addingTimeInterval(5)))
-      }
+        let currentActivity = state.currentActivity
+        return .run { _ in
+          await currentActivity?.end(nil, dismissalPolicy: .after(Date().addingTimeInterval(5)))
+        }
       #endif
     }
 
@@ -191,7 +192,9 @@ package struct LiveActivityFeature {
     return updateEffect
   }
 
-  private func handleSimulationCompleted(state: inout State, taskID: CodingTask.ID) -> Effect<Action> {
+  private func handleSimulationCompleted(state: inout State, taskID: CodingTask.ID) -> Effect<
+    Action
+  > {
     return .run { send in
       await send(.stopActivity(taskID))
     }

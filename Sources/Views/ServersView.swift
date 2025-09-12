@@ -21,20 +21,26 @@ struct ServersView: View {
       .navigationTitle("Servers")
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
-          Button(action: { store.send(.addServer) }, label: {
-            Image(systemName: "plus")
-          })
+          Button(
+            action: { store.send(.addServer) },
+            label: {
+              Image(systemName: "plus")
+            })
         }
       }
-      .sheet(isPresented: Binding(
-        get: { store.isAddingServer },
-        set: { if !$0 { store.send(.dismissAddServer) } }
-      )) {
-        AddServerView(onSave: { config in
-          store.send(.addServerCompleted(config))
-        }, onCancel: {
-          store.send(.dismissAddServer)
-        })
+      .sheet(
+        isPresented: Binding(
+          get: { store.isAddingServer },
+          set: { if !$0 { store.send(.dismissAddServer) } }
+        )
+      ) {
+        AddServerView(
+          onSave: { config in
+            store.send(.addServerCompleted(config))
+          },
+          onCancel: {
+            store.send(.dismissAddServer)
+          })
       }
     }
     .task {
@@ -57,14 +63,16 @@ struct ServersView: View {
         .foregroundColor(.secondary)
         .multilineTextAlignment(.center)
 
-      Button(action: { store.send(.addServer) }, label: {
-        Text("Add Server")
-          .font(.headline)
-          .foregroundColor(.white)
-          .padding()
-          .background(Color.accentColor)
-          .cornerRadius(8)
-      })
+      Button(
+        action: { store.send(.addServer) },
+        label: {
+          Text("Add Server")
+            .font(.headline)
+            .foregroundColor(.white)
+            .padding()
+            .background(Color.accentColor)
+            .cornerRadius(8)
+        })
     }
     .padding()
   }
@@ -94,11 +102,15 @@ struct ServerRowView: View {
   var body: some View {
     HStack {
       VStack(alignment: .leading) {
-        Text(server.configuration.name.isEmpty ? server.configuration.host : server.configuration.name)
-          .font(.headline)
-        Text("\(server.configuration.username)@\(server.configuration.host):\(server.configuration.port)")
-          .font(.subheadline)
-          .foregroundColor(.secondary)
+        Text(
+          server.configuration.name.isEmpty ? server.configuration.host : server.configuration.name
+        )
+        .font(.headline)
+        Text(
+          "\(server.configuration.username)@\(server.configuration.host):\(server.configuration.port)"
+        )
+        .font(.subheadline)
+        .foregroundColor(.secondary)
       }
 
       Spacer()

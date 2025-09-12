@@ -12,10 +12,20 @@ struct HomeView: View {
   }
 
   var body: some View {
-    TabView(selection: Binding(
-      get: { store.selectedTab },
-      set: { store.send(.tabSelected($0)) }
-    )) {
+    TabView(
+      selection: Binding(
+        get: { store.selectedTab },
+        set: { store.send(.tabSelected($0)) }
+      )
+    ) {
+      WorkspacesView(
+        store: store.scope(state: \.workspaces, action: \.workspaces)
+      )
+      .tabItem {
+        Label("Workspaces", systemImage: "folder.badge.gear")
+      }
+      .tag(HomeFeature.Tab.workspaces)
+
       ServersView(
         store: store.scope(state: \.servers, action: \.servers),
         onStartTask: { task in
