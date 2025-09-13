@@ -2,6 +2,9 @@ import ComposableArchitecture
 import Features
 import Models
 import SwiftUI
+#if canImport(UIKit)
+  import UIKit
+#endif
 
 struct SettingsView: View {
   @Bindable var store: StoreOf<SettingsFeature>
@@ -95,6 +98,10 @@ private struct LogEntryView: View {
 
   var body: some View {
     compactLayout
+      .contentShape(Rectangle())
+      .onTapGesture {
+        copyToPasteboard(entry.message)
+      }
   }
 
   private var compactLayout: some View {
@@ -140,5 +147,13 @@ private struct LogEntryView: View {
     case .warning: return .orange
     case .error: return .red
     }
+  }
+
+  private func copyToPasteboard(_ text: String) {
+    #if canImport(UIKit)
+      UIPasteboard.general.string = text
+      let generator = UINotificationFeedbackGenerator()
+      generator.notificationOccurred(.success)
+    #endif
   }
 }
