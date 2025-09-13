@@ -190,9 +190,24 @@ struct RemotePathPickerView: View {
         self.isLoading = false
       }
     } catch {
+      let errorString = String(describing: error)
+      let errorMessage: String
+
+      // Provide more helpful error messages
+      if errorString.contains("Permission denied") {
+        errorMessage = "Permission denied: Cannot access '\(path)'"
+      } else if errorString.contains("does not exist") {
+        errorMessage = "Directory does not exist: '\(path)'"
+      } else if errorString.contains("channel closed") || errorString.contains("Channel closed") {
+        errorMessage = "Connection lost. Please try again."
+      } else {
+        errorMessage = "Failed to load directory '\(path)': \(error.localizedDescription)"
+      }
+
       await MainActor.run {
-        self.errorMessage = "Failed to load directory '\(path)': \(error.localizedDescription)"
+        self.errorMessage = errorMessage
         self.isLoading = false
+        // Keep existing files if we have them (don't clear on error)
       }
     }
   }
@@ -226,13 +241,35 @@ struct RemotePathPickerView: View {
       }
       await loadDirectory(homePath)
     } catch {
-      // Fall back to root directory if home can't be determined
+      // Try to fall back to user's home first, then root as last resort
+      let fallbackPath = "/home/\(config.username)"
+
       await MainActor.run {
         self.errorMessage =
           "Failed to determine home directory (\(error.localizedDescription)). "
-          + "Trying root directory..."
+          + "Trying \(fallbackPath)..."
+        self.currentPath = fallbackPath
+        self.pathHistory = [fallbackPath]
       }
-      await loadDirectory(currentPath)
+
+      // Try the fallback path
+      do {
+        let files = try await sshClient.listDirectory(fallbackPath, config: config)
+        await MainActor.run {
+          self.files = files
+          self.isLoading = false
+          self.errorMessage = nil // Clear error if successful
+          self.remoteHomeDirectory = fallbackPath
+        }
+      } catch {
+        // Last resort: try root directory
+        await MainActor.run {
+          self.currentPath = "/"
+          self.pathHistory = ["/"]
+          self.errorMessage = "Could not access home directory, starting at root"
+        }
+        await loadDirectory("/")
+      }
     }
   }
 

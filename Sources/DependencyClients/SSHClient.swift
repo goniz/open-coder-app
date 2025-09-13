@@ -104,6 +104,21 @@ package enum SSHError: LocalizedError, Equatable {
   }
 }
 
+// Helper function to properly escape shell arguments
+private func escapeShellArgument(_ argument: String) -> String {
+  // If the argument contains any special characters, wrap it in single quotes
+  // and escape any single quotes within it
+  let specialChars = CharacterSet(charactersIn: " \t\n\r'\"\\$`;&|()<>*?[]{}!")
+
+  if argument.rangeOfCharacter(from: specialChars) != nil {
+    // Replace single quotes with '\'' (end quote, escaped quote, start quote)
+    let escaped = argument.replacingOccurrences(of: "'", with: "'\"'\"'")
+    return "'\(escaped)'"
+  }
+
+  return argument
+}
+
 // Helper function to extract detailed error information from NIOSSH errors
 private func detailedErrorDescription(_ error: Error) -> String {
   // Try to extract the underlying error from NIOSSH
@@ -369,10 +384,13 @@ package struct SSHClient: SSHClientProtocol {
       let outputMarker = "OPENCODER_START_\(UUID().uuidString.prefix(8))"
       let endMarker = "OPENCODER_END"
 
+      // Properly escape single quotes in the base command for shell execution
+      let escapedCommand = baseCommand.replacingOccurrences(of: "'", with: "'\"'\"'")
+
       // Use sh -c to bypass interactive shell setup (bashrc, bash_profile, etc.)
       // and wrap output with markers for reliable extraction
       let wrappedCommand = """
-        sh -c 'echo "\(outputMarker)"; \(baseCommand); echo "\(endMarker)"'
+        sh -c 'echo "\(outputMarker)"; \(escapedCommand); echo "\(endMarker)"'
         """
 
       let rawOutput = try await exec(wrappedCommand, config: config)
@@ -564,21 +582,21 @@ package struct SSHClient: SSHClientProtocol {
     -> [RemoteFileInfo] {
     await AppLogger.shared.log("Listing directory: \(path)", level: .info, category: .fileSystem)
 
+    // Escape the path properly for shell execution
+    let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
+
     do {
-      // Use clean execution to avoid bashrc contamination in ls output
-      let result = try await execCleanCommand("ls -la '\(path)' 2>/dev/null", config: config)
-
-      if result.isEmpty {
-        await AppLogger.shared.log(
-          "Cannot access directory: \(path)", level: .error, category: .fileSystem)
-        throw SSHError.commandFailed("Cannot access directory: \(path)")
-      }
-
+      let result = try await executeDirectoryCommand(escapedPath, config: config)
       let files = parseDirectoryListing(result, basePath: path)
       await AppLogger.shared.log(
         "Found \(files.count) items in directory: \(path)", level: .info, category: .fileSystem)
       return files
     } catch {
+      // Handle specific SSH channel errors
+      if let retryResult = await handleChannelError(error, path: path, escapedPath: escapedPath, config: config) {
+        return retryResult
+      }
+
       // Handle CancellationError specifically
       if error is CancellationError {
         let cancellationError = SSHError.commandFailed(
@@ -589,6 +607,93 @@ package struct SSHClient: SSHClientProtocol {
       }
 
       throw error
+    }
+  }
+
+  private func executeDirectoryCommand(
+    _ escapedPath: String,
+    config: Models.SSHServerConfiguration
+  ) async throws -> String {
+    // Use clean execution to avoid bashrc contamination in ls output
+    // Use double quotes and escape special characters properly for shell safety
+    let shellSafePath = escapedPath
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "\"", with: "\\\"")
+      .replacingOccurrences(of: "$", with: "\\$")
+      .replacingOccurrences(of: "`", with: "\\`")
+
+    let command = """
+      if [ -r "\(shellSafePath)" ]; then
+        ls -la "\(shellSafePath)" 2>/dev/null
+      elif [ -d "\(shellSafePath)" ]; then
+        echo "Permission denied for directory: \(shellSafePath)"
+        exit 1
+      else
+        echo "Path does not exist or is not a directory: \(shellSafePath)"
+        exit 1
+      fi
+      """
+
+    let result = try await execCleanCommand(command, config: config)
+
+    if result.isEmpty {
+      throw SSHError.commandFailed("Cannot access directory: \(escapedPath)")
+    }
+
+    // Check for error messages in the output
+    if result.contains("Permission denied") {
+      throw SSHError.commandFailed("Permission denied: Cannot access directory \(escapedPath)")
+    }
+
+    if result.contains("Path does not exist") {
+      throw SSHError.commandFailed("Path does not exist or is not a directory: \(escapedPath)")
+    }
+
+    return result
+  }
+
+  private func handleChannelError(
+    _ error: Error,
+    path: String,
+    escapedPath: String,
+    config: Models.SSHServerConfiguration
+  ) async -> [RemoteFileInfo]? {
+    let errorString = String(describing: error)
+    guard errorString.contains("ChannelError") && errorString.contains("error 6") else {
+      return nil
+    }
+
+    // This is the output closed error - retry with a new connection
+    await AppLogger.shared.log(
+      "SSH channel closed during directory listing, retrying with new connection",
+      level: .warning,
+      category: .fileSystem
+    )
+
+    // Force a new connection and retry once
+    do {
+      // Small delay before retry
+      try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+      let retryResult = try await execCleanCommand("ls -la '\(escapedPath)' 2>/dev/null", config: config)
+
+      if retryResult.isEmpty {
+        throw SSHError.commandFailed("Cannot access directory after retry: \(path)")
+      }
+
+      let files = parseDirectoryListing(retryResult, basePath: path)
+      await AppLogger.shared.log(
+        "Retry successful - found \(files.count) items in directory: \(path)",
+        level: .info,
+        category: .fileSystem
+      )
+      return files
+    } catch {
+      await AppLogger.shared.log(
+        "Directory listing retry failed for path: \(path) - \(error.localizedDescription)",
+        level: .error,
+        category: .fileSystem
+      )
+      return nil
     }
   }
 
@@ -873,9 +978,11 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         // If we only have error output, fail with that
         completionPromise.fail(SSHError.commandFailed(errorOutput))
       } else {
-        // No output at all - connection likely failed
+        // No output at all - channel was likely closed prematurely
+        // This is the NIOCore.ChannelError error 6 scenario
         completionPromise.fail(
-          SSHError.connectionFailed("Channel closed before command completion - no output received"))
+          SSHError.connectionFailed(
+            "SSH channel closed unexpectedly - the connection may have been terminated by the server"))
       }
     }
   }
@@ -1011,7 +1118,8 @@ struct TmuxService: Sendable {
   func hasSession(_ name: String) async throws -> Bool {
     do {
       return try await connectionManager.withConnection { connection in
-        let command = "tmux has-session -t \(name) 2>/dev/null && echo 'exists' || echo 'not found'"
+        let escapedName = escapeShellArgument(name)
+        let command = "tmux has-session -t \(escapedName) 2>/dev/null && echo 'exists' || echo 'not found'"
         let result = try await connection.exec(command)
         return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
       }
@@ -1029,7 +1137,9 @@ struct TmuxService: Sendable {
   func newSession(name: String, path: String) async throws {
     do {
       try await connectionManager.withConnection { connection in
-        let command = "tmux new-session -d -s \(name) -c \(path)"
+        let escapedName = escapeShellArgument(name)
+        let escapedPath = escapeShellArgument(path)
+        let command = "tmux new-session -d -s \(escapedName) -c \(escapedPath)"
         _ = try await connection.exec(command)
       }
     } catch {
@@ -1049,7 +1159,8 @@ struct TmuxService: Sendable {
       try await connectionManager.withConnection { connection in
         let hasExisting = try await hasSession(name)
         if hasExisting {
-          let killCommand = "tmux kill-session -t \(name)"
+          let escapedName = escapeShellArgument(name)
+          let killCommand = "tmux kill-session -t \(escapedName)"
           _ = try await connection.exec(killCommand)
         }
 
@@ -1090,7 +1201,8 @@ struct TmuxService: Sendable {
   func killSession(_ name: String) async throws {
     do {
       try await connectionManager.withConnection { connection in
-        let command = "tmux kill-session -t \(name) 2>/dev/null || true"
+        let escapedName = escapeShellArgument(name)
+        let command = "tmux kill-session -t \(escapedName) 2>/dev/null || true"
         _ = try await connection.exec(command)
       }
     } catch {
@@ -1150,9 +1262,10 @@ package struct WorkspaceService: Sendable {
         }
 
         // Step 2: Check for existing daemon.json using the same connection
+        let escapedRemotePath = escapeShellArgument(workspace.remotePath)
         let checkCommand = """
-          test -f \(workspace.remotePath)/.opencode/daemon.json && \
-          cat \(workspace.remotePath)/.opencode/daemon.json || echo '{}'
+          test -f \(escapedRemotePath)/.opencode/daemon.json && \
+          cat \(escapedRemotePath)/.opencode/daemon.json || echo '{}'
           """
         let daemonContent = try await connection.exec(checkCommand)
 
@@ -1192,11 +1305,13 @@ package struct WorkspaceService: Sendable {
         )
         let spawnCommand = """
           opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
-          tee -a \(workspace.remotePath)/.opencode/live.log
+          tee -a \(escapedRemotePath)/.opencode/live.log
           """
 
-        // Execute spawn command in tmux window using the same connection
-        let tmuxCommand = "tmux send-keys -t \(workspace.tmuxSession):0 '\(spawnCommand)' C-m"
+        // Execute spawn command in tmux window using the same connection  
+        let escapedTmuxSession = escapeShellArgument(workspace.tmuxSession)
+        let escapedSpawnCommand = spawnCommand.replacingOccurrences(of: "'", with: "'\"'\"'")
+        let tmuxCommand = "tmux send-keys -t \(escapedTmuxSession):0 '\(escapedSpawnCommand)' C-m"
         _ = try await connection.exec(tmuxCommand)
 
         // Step 4: Wait for server to start and parse the assigned port from logs
@@ -1207,8 +1322,8 @@ package struct WorkspaceService: Sendable {
             let daemonData = try JSONEncoder().encode(["port": assignedPort])
             if let daemonJson = String(data: daemonData, encoding: .utf8) {
               let writeCommand = """
-                mkdir -p \(workspace.remotePath)/.opencode && \
-                echo '\(daemonJson)' > \(workspace.remotePath)/.opencode/daemon.json
+                mkdir -p \(escapedRemotePath)/.opencode && \
+                echo '\(daemonJson)' > \(escapedRemotePath)/.opencode/daemon.json
                 """
               _ = try await connection.exec(writeCommand)
             }
@@ -1253,7 +1368,8 @@ package struct WorkspaceService: Sendable {
   private func parsePortFromLogs(workspace: Models.Workspace, connection: SSHConnection) async throws -> Int? {
     do {
       // Read the live log to find the assigned port using the existing connection
-      let logPath = "\(workspace.remotePath)/.opencode/live.log"
+      let escapedRemotePath = escapeShellArgument(workspace.remotePath)
+      let logPath = "\(escapedRemotePath)/.opencode/live.log"
       let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
       let logContent = try await connection.exec(command)
 
@@ -1316,8 +1432,9 @@ package struct WorkspaceService: Sendable {
       // Use connection manager for cleanup operations too
       try await connectionManager.withConnection { connection in
         // Remove stale daemon.json and lock files
+        let escapedRemotePath = escapeShellArgument(workspace.remotePath)
         let cleanupCommand = """
-          rm -f \(workspace.remotePath)/.opencode/daemon.json \(workspace.remotePath)/.opencode/lock
+          rm -f \(escapedRemotePath)/.opencode/daemon.json \(escapedRemotePath)/.opencode/lock
           """
         _ = try await connection.exec(cleanupCommand)
 
@@ -1357,28 +1474,46 @@ package actor SSHConnectionManager {
   }
 
   package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T) async throws -> T {
-    // Check if we have a valid connection
-    if let existingConnection = self.connection, existingConnection.isActive {
+    // Check if we have a valid and healthy connection
+    if let existingConnection = self.connection, existingConnection.isHealthy {
       do {
         // Try to use the existing connection
         return try await operation(existingConnection)
       } catch {
-        // If the operation fails, reset the connection and retry
-        await AppLogger.shared.log(
-          "Existing connection failed, will create new one: \(detailedErrorDescription(error))",
-          level: .debug,
-          category: .ssh
-        )
+        // Check if it's a channel closed error (NIOCore.ChannelError error 6)
+        let errorString = String(describing: error)
+        let isChannelClosedError = errorString.contains("ChannelError") &&
+                                  (errorString.contains("error 6") ||
+                                   errorString.contains("outputClosed") ||
+                                   errorString.contains("inputClosed"))
+
+        if isChannelClosedError {
+          await AppLogger.shared.log(
+            "SSH channel closed unexpectedly, will create new connection",
+            level: .warning,
+            category: .ssh
+          )
+        } else {
+          await AppLogger.shared.log(
+            "Existing connection failed, will create new one: \(detailedErrorDescription(error))",
+            level: .debug,
+            category: .ssh
+          )
+        }
+
         await existingConnection.close()
         self.connection = nil
       }
     }
 
     // Create new connection with retry logic
-    return try await withRetry(maxRetries: 2, baseDelay: 2.0) { [self] in
-      if self.connection == nil || !self.connection!.isActive {
+    return try await withRetry(maxRetries: 3, baseDelay: 1.0) { [self] in
+      if self.connection == nil || !self.connection!.isHealthy {
         await AppLogger.shared.log("Creating new SSH connection", level: .debug, category: .ssh)
         self.connection = try await self.createConnection()
+
+        // Add a small delay to ensure the connection is fully ready
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
       }
 
       return try await operation(self.connection!)
@@ -1499,6 +1634,12 @@ package struct SSHConnection: Sendable {
     channel.isActive
   }
 
+  /// Check if the channel is healthy and ready for operations
+  var isHealthy: Bool {
+    // A channel is healthy if it's active and writable
+    channel.isActive && channel.isWritable
+  }
+
   func close() async {
     do {
       try await channel.close().get()
@@ -1509,6 +1650,11 @@ package struct SSHConnection: Sendable {
   }
 
   func exec(_ command: String) async throws -> String {
+    // Ensure the connection is healthy before executing
+    guard isHealthy else {
+      throw SSHError.connectionFailed("SSH connection is not healthy - channel is inactive or closing")
+    }
+
     // Create a session channel to execute the command
     let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
 
@@ -1557,8 +1703,17 @@ package struct SSHConnection: Sendable {
       return try await getCommandOutput(from: sessionChannel)
     }
 
-    // Clean up session channel
-    try await sessionChannel.close().get()
+    // Clean up session channel gracefully
+    do {
+      try await sessionChannel.close().get()
+    } catch {
+      // Log but don't fail - channel might already be closed
+      await AppLogger.shared.log(
+        "Session channel cleanup warning: \(error.localizedDescription)",
+        level: .debug,
+        category: .ssh
+      )
+    }
 
     return result
   }
