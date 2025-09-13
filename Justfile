@@ -37,6 +37,6 @@ devcycle:
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}
 
-preview-ota:
-    just preview && just ota-host --ipa ../Xcode/OpenCoder-Preview.ipa
+preview-ota *args:
+    just preview && just ota-host --ipa ../Xcode/OpenCoder-Preview.ipa {{args}}
 
