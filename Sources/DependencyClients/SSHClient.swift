@@ -18,6 +18,281 @@ extension NSLock {
   }
 }
 
+// MARK: - Minimal SFTP client/handler (v3)
+
+private struct SFTPNameEntry: Sendable {
+  let filename: String
+  let longname: String
+  let mode: UInt32?
+  let size: UInt64?
+}
+
+private enum SFTPReadDirResult: Sendable {
+  case names([SFTPNameEntry])
+  case eof
+}
+
+private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
+  typealias InboundIn = SSHChannelData
+
+  // SFTP packet types used
+  private enum PacketType: UInt8 {
+    case initClient = 1
+    case version = 2
+    case close = 4
+    case opendir = 11
+    case readdir = 12
+    case status = 101
+    case handle = 102
+    case name = 104
+  }
+
+  private struct PendingRequest {
+    let promise: EventLoopPromise<(UInt8, ByteBuffer)>
+  }
+
+  private let eventLoop: EventLoop
+  private var nextRequestId: UInt32 = 1
+  private var pending: [UInt32: PendingRequest] = [:]
+  private var versionPromise: EventLoopPromise<UInt32>?
+  private var inboundBuffer = ByteBuffer()
+  private let lock = NSLock()
+
+  init(eventLoop: EventLoop) {
+    self.eventLoop = eventLoop
+  }
+
+  // MARK: Public API (scheduled on event loop)
+
+  func initialize(on channel: Channel, version: UInt32) async throws -> UInt32 {
+    let promise = eventLoop.makePromise(of: UInt32.self)
+    self.versionPromise = promise
+
+    var payload = channel.allocator.buffer(capacity: 4)
+    payload.writeInteger(version, endianness: .big)
+    try await writePacket(on: channel, type: .initClient, requestId: nil, payload: payload)
+    return try await promise.futureResult.get()
+  }
+
+  func openDirectory(on channel: Channel, path: String) async throws -> ByteBuffer {
+    let (reqId, respFuture) = request(on: channel)
+    var payload = channel.allocator.buffer(capacity: 4 + path.utf8.count)
+    writeString(&payload, path)
+    try await writePacket(on: channel, type: .opendir, requestId: reqId, payload: payload)
+
+    let (typeByte, buffer) = try await respFuture.get()
+    guard typeByte == PacketType.handle.rawValue else {
+      // Attempt to parse status for better error
+      if typeByte == PacketType.status.rawValue {
+        let (code, msg) = parseStatus(buffer)
+        throw SSHError.commandFailed("SFTP OPENDIR failed (code: \(code)): \(msg)")
+      }
+      throw SSHError.commandFailed("Unexpected SFTP response for OPENDIR: \(typeByte)")
+    }
+    return buffer
+  }
+
+  func readDirectory(on channel: Channel, handle: ByteBuffer) async throws -> SFTPReadDirResult {
+    let (reqId, respFuture) = request(on: channel)
+    var payload = channel.allocator.buffer(capacity: 4 + handle.readableBytes)
+    writeStringBytes(&payload, handle)
+    try await writePacket(on: channel, type: .readdir, requestId: reqId, payload: payload)
+
+    let (typeByte, mutBuffer) = try await respFuture.get()
+    if typeByte == PacketType.name.rawValue {
+      var buf = mutBuffer
+      let count: UInt32 = buf.readInteger(endianness: .big) ?? 0
+      var results: [SFTPNameEntry] = []
+      results.reserveCapacity(Int(count))
+      for _ in 0..<count {
+        guard let filename = readString(&buf), let longname = readString(&buf) else { break }
+        // Parse minimal attrs to consume buffer and detect dir/size when available
+        let (mode, size) = parseAttrs(&buf)
+        results.append(SFTPNameEntry(filename: filename, longname: longname, mode: mode, size: size))
+      }
+      return .names(results)
+    } else if typeByte == PacketType.status.rawValue {
+      let (code, message) = parseStatus(mutBuffer)
+      if code == 1 { // SSH_FX_EOF
+        return .eof
+      }
+      throw SSHError.commandFailed("SFTP READDIR failed (code: \(code)): \(message)")
+    } else {
+      throw SSHError.commandFailed("Unexpected SFTP response for READDIR: \(typeByte)")
+    }
+  }
+
+  func closeHandle(on channel: Channel, handle: ByteBuffer) async throws {
+    let (reqId, respFuture) = request(on: channel)
+    var payload = channel.allocator.buffer(capacity: 4 + handle.readableBytes)
+    writeStringBytes(&payload, handle)
+    try await writePacket(on: channel, type: .close, requestId: reqId, payload: payload)
+    let (typeByte, buf) = try await respFuture.get()
+    guard typeByte == PacketType.status.rawValue else {
+      throw SSHError.commandFailed("Unexpected SFTP response for CLOSE: \(typeByte)")
+    }
+    let (code, msg) = parseStatus(buf)
+    if code != 0 {
+      throw SSHError.commandFailed("SFTP CLOSE failed (code: \(code)): \(msg)")
+    }
+  }
+
+  // MARK: ChannelInboundHandler
+
+  func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+    let channelData = self.unwrapInboundIn(data)
+    guard case .channel = channelData.type, case let .byteBuffer(buf) = channelData.data else {
+      return
+    }
+
+    // Append to inbound buffer
+    if inboundBuffer.readableBytes == 0 {
+      inboundBuffer = buf
+    } else {
+      var tmp = buf
+      if let bytes = tmp.readBytes(length: tmp.readableBytes) {
+        inboundBuffer.writeBytes(bytes)
+      }
+    }
+
+    // Parse complete packets
+    parsePackets()
+  }
+
+  // MARK: Packet parsing and dispatch
+
+  private func parsePackets() {
+    while true {
+      let savedReaderIndex = inboundBuffer.readerIndex
+      guard let packetLength: UInt32 = inboundBuffer.readInteger(endianness: .big) else {
+        inboundBuffer.moveReaderIndex(to: savedReaderIndex)
+        break
+      }
+      // Need at least length bytes available
+      guard inboundBuffer.readableBytes >= Int(packetLength) else {
+        inboundBuffer.moveReaderIndex(to: savedReaderIndex)
+        break
+      }
+
+      // Read type
+      guard let typeByte: UInt8 = inboundBuffer.readInteger() else { break }
+
+      if typeByte == PacketType.version.rawValue {
+        // VERSION has: uint32 version, followed by extensions (ignored)
+        let version: UInt32 = inboundBuffer.readInteger(endianness: .big) ?? 0
+        versionPromise?.succeed(version)
+        versionPromise = nil
+        // Consume any remaining extension bytes in packet
+        if packetLength > 5 { // type(1) + version(4)
+          _ = inboundBuffer.readSlice(length: Int(packetLength) - 5)
+        }
+        continue
+      }
+
+      // All other packets: uint32 request-id then payload
+      guard let requestId: UInt32 = inboundBuffer.readInteger(endianness: .big) else { break }
+      let payloadLength = Int(packetLength) - 1 - 4
+      let payload = inboundBuffer.readSlice(length: payloadLength) ?? ByteBuffer()
+
+      // Dispatch to waiting promise
+      let entry: PendingRequest? = lock.withLock { pending.removeValue(forKey: requestId) }
+      entry?.promise.succeed((typeByte, payload))
+    }
+  }
+
+  // MARK: Helpers
+
+  private func request(on channel: Channel) -> (UInt32, EventLoopFuture<(UInt8, ByteBuffer)>) {
+    let reqId = lock.withLock { () -> UInt32 in
+      let id = nextRequestId
+      nextRequestId &+= 1
+      return id
+    }
+    let promise = eventLoop.makePromise(of: (UInt8, ByteBuffer).self)
+    lock.withLock { pending[reqId] = PendingRequest(promise: promise) }
+    return (reqId, promise.futureResult)
+  }
+
+  private func writePacket(
+    on channel: Channel,
+    type: PacketType,
+    requestId: UInt32?,
+    payload: ByteBuffer
+  ) async throws {
+    var buffer = channel.allocator.buffer(capacity: 4 + 1 + 4 + payload.readableBytes)
+    // length excludes the length field itself
+    let bodyLength: Int = 1 + (requestId == nil ? 0 : 4) + payload.readableBytes
+    buffer.writeInteger(UInt32(bodyLength), endianness: .big)
+    buffer.writeInteger(type.rawValue)
+    if let id = requestId { buffer.writeInteger(id, endianness: .big) }
+    var payloadCopy = payload
+    if let bytes = payloadCopy.readBytes(length: payloadCopy.readableBytes) {
+      buffer.writeBytes(bytes)
+    }
+
+    try await channel.writeAndFlush(SSHChannelData(type: .channel, data: .byteBuffer(buffer))).get()
+  }
+
+  private func writeString(_ buffer: inout ByteBuffer, _ string: String) {
+    let utf8 = Array(string.utf8)
+    buffer.writeInteger(UInt32(utf8.count), endianness: .big)
+    buffer.writeBytes(utf8)
+  }
+
+  private func writeStringBytes(_ buffer: inout ByteBuffer, _ stringBuffer: ByteBuffer) {
+    var tmp = stringBuffer
+    let count = tmp.readableBytes
+    buffer.writeInteger(UInt32(count), endianness: .big)
+    if let bytes = tmp.readBytes(length: count) {
+      buffer.writeBytes(bytes)
+    }
+  }
+
+  private func readString(_ buffer: inout ByteBuffer) -> String? {
+    guard let len: UInt32 = buffer.readInteger(endianness: .big) else { return nil }
+    guard let bytes = buffer.readBytes(length: Int(len)) else { return nil }
+    return String(bytes: bytes, encoding: .utf8)
+  }
+
+  private func parseStatus(_ buffer: ByteBuffer) -> (code: UInt32, message: String) {
+    var buf = buffer
+    let code: UInt32 = buf.readInteger(endianness: .big) ?? 255
+    let msg = readString(&buf) ?? ""
+    // skip language tag
+    _ = readString(&buf)
+    return (code, msg)
+  }
+
+  private func parseAttrs(_ buffer: inout ByteBuffer) -> (mode: UInt32?, size: UInt64?) {
+    guard let flags: UInt32 = buffer.readInteger(endianness: .big) else { return (nil, nil) }
+    var mode: UInt32?
+    var size: UInt64?
+    if (flags & 0x00000001) != 0 { // size
+      size = buffer.readInteger(endianness: .big)
+    }
+    if (flags & 0x00000002) != 0 { // uid/gid
+      let _: UInt32? = buffer.readInteger(endianness: .big)
+      let _: UInt32? = buffer.readInteger(endianness: .big)
+    }
+    if (flags & 0x00000004) != 0 { // permissions (mode)
+      mode = buffer.readInteger(endianness: .big)
+    }
+    if (flags & 0x00000008) != 0 { // atime/mtime
+      let _: UInt32? = buffer.readInteger(endianness: .big)
+      let _: UInt32? = buffer.readInteger(endianness: .big)
+    }
+    // Skip extended attributes if present (rare)
+    if (flags & 0x80000000) != 0 {
+      let count: UInt32 = buffer.readInteger(endianness: .big) ?? 0
+      for _ in 0..<count {
+        _ = readString(&buffer)
+        _ = readString(&buffer)
+      }
+    }
+    return (mode, size)
+  }
+}
+
 package protocol SSHClientProtocol: Sendable {
   func exec(_ command: String) async throws -> String
   func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String
@@ -580,33 +855,187 @@ package struct SSHClient: SSHClientProtocol {
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo] {
-    await AppLogger.shared.log("Listing directory: \(path)", level: .info, category: .fileSystem)
+    await AppLogger.shared.log("Listing directory via SFTP: \(path)", level: .info, category: .fileSystem)
 
-    // Escape the path properly for shell execution
-    let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
-
+    // Try SFTP first
     do {
-      let result = try await executeDirectoryCommand(escapedPath, config: config)
-      let files = parseDirectoryListing(result, basePath: path)
+      let files = try await sftpListDirectory(path, config: config)
       await AppLogger.shared.log(
-        "Found \(files.count) items in directory: \(path)", level: .info, category: .fileSystem)
+        "SFTP listed \(files.count) items in: \(path)", level: .info, category: .fileSystem)
       return files
     } catch {
-      // Handle specific SSH channel errors
-      if let retryResult = await handleChannelError(error, path: path, escapedPath: escapedPath, config: config) {
-        return retryResult
-      }
+      await AppLogger.shared.log(
+        "SFTP listing failed (\(detailedErrorDescription(error))). Falling back to shell.",
+        level: .warning,
+        category: .fileSystem
+      )
 
-      // Handle CancellationError specifically
-      if error is CancellationError {
-        let cancellationError = SSHError.commandFailed(
-          "Directory listing was cancelled. This may be due to network issues or server timeout.")
+      // Escape the path properly for shell execution
+      let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
+
+      do {
+        let result = try await executeDirectoryCommand(escapedPath, config: config)
+        let files = parseDirectoryListing(result, basePath: path)
         await AppLogger.shared.log(
-          "Directory listing cancelled for path: \(path)", level: .error, category: .fileSystem)
-        throw cancellationError
+          "Shell listed \(files.count) items in directory: \(path)", level: .info, category: .fileSystem)
+        return files
+      } catch {
+        // Handle specific SSH channel errors
+        if let retryResult = await handleChannelError(error, path: path, escapedPath: escapedPath, config: config) {
+          return retryResult
+        }
+
+        // Handle CancellationError specifically
+        if error is CancellationError {
+          let cancellationError = SSHError.commandFailed(
+            "Directory listing was cancelled. This may be due to network issues or server timeout.")
+          await AppLogger.shared.log(
+            "Directory listing cancelled for path: \(path)", level: .error, category: .fileSystem)
+          throw cancellationError
+        }
+
+        throw error
+      }
+    }
+  }
+
+  // MARK: - SFTP directory listing
+
+  // swiftlint:disable:next function_body_length
+  private func sftpListDirectory(
+    _ path: String,
+    config: Models.SSHServerConfiguration
+  ) async throws -> [RemoteFileInfo] {
+    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    var mainChannel: Channel?
+    var sessionChannel: Channel?
+
+    do {
+      let port = config.port > 0 ? config.port : 22
+      let userAuthDelegate = SSHUserAuthDelegate(config: config)
+      let serverAuthDelegate = AcceptAllHostKeysDelegate(host: config.host, port: port)
+
+      let bootstrap = ClientBootstrap(group: eventLoopGroup)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
+        .channelInitializer { channel in
+          let sshHandler = NIOSSHHandler(
+            role: .client(
+              .init(
+                userAuthDelegate: userAuthDelegate,
+                serverAuthDelegate: serverAuthDelegate
+              )),
+            allocator: channel.allocator,
+            inboundChildChannelInitializer: nil
+          )
+          return channel.eventLoop.makeCompletedFuture {
+            try channel.pipeline.syncOperations.addHandler(sshHandler)
+          }
+        }
+
+      mainChannel = try await bootstrap.connect(host: config.host, port: port).get()
+      guard let channel = mainChannel else {
+        throw SSHError.connectionFailed("Failed to establish SSH connection")
       }
 
+      // Wait for SSH connection to be established
+      try await Task.sleep(nanoseconds: 300_000_000)
+
+      // Create a session channel for SFTP subsystem
+      let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
+
+      guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
+        throw SSHError.connectionFailed("SSH handler not found in pipeline")
+      }
+
+      // Prepare SFTP handler
+      var sftpHandlerRef: SFTPHandler?
+      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+        let sftpHandler = SFTPHandler(eventLoop: childChannel.eventLoop)
+        sftpHandlerRef = sftpHandler
+        return childChannel.pipeline.addHandler(sftpHandler)
+      }
+
+      sessionChannel = try await sessionPromise.futureResult.get()
+      guard let sftpChannel = sessionChannel, let sftpHandler = sftpHandlerRef else {
+        throw SSHError.connectionFailed("Failed to create SFTP session channel")
+      }
+
+      // Request SFTP subsystem
+      let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(subsystem: "sftp", wantReply: true)
+      let subsystemPromise = sftpChannel.eventLoop.makePromise(of: Void.self)
+      sftpChannel.triggerUserOutboundEvent(subsystemRequest, promise: subsystemPromise)
+      try await subsystemPromise.futureResult.get()
+
+      // Initialize SFTP (version 3)
+      let serverVersion = try await sftpHandler.initialize(on: sftpChannel, version: 3)
+      await AppLogger.shared.log(
+        "SFTP server version: \(serverVersion)", level: .debug, category: .fileSystem)
+
+      // Open directory
+      let handle = try await sftpHandler.openDirectory(on: sftpChannel, path: path)
+
+      // Read entries until EOF
+      let entries = try await sftpReadAllEntries(handler: sftpHandler, channel: sftpChannel, handle: handle)
+
+      // Close handle
+      try await sftpHandler.closeHandle(on: sftpChannel, handle: handle)
+
+      // Clean up channels
+      try await sftpChannel.close().get()
+      try await channel.close().get()
+      try await eventLoopGroup.shutdownGracefully()
+
+      // Map to RemoteFileInfo
+      let files: [RemoteFileInfo] = entries.compactMap { entry in
+        if entry.filename == "." || entry.filename == ".." { return nil }
+        let fullPath = path.hasSuffix("/") ? "\(path)\(entry.filename)" : "\(path)/\(entry.filename)"
+        let isDir: Bool
+        if let mode = entry.mode {
+          isDir = (mode & 0o170000) == 0o040000 // S_IFDIR
+        } else {
+          isDir = entry.longname.first == "d"
+        }
+        let size = entry.size.map { Int64($0) } ?? 0
+        return RemoteFileInfo(
+          name: entry.filename,
+          path: fullPath,
+          isDirectory: isDir,
+          size: size,
+          permissions: entry.longname
+        )
+      }
+
+      return files.sorted { lhs, rhs in
+        let dirOrder = (lhs.isDirectory && !rhs.isDirectory)
+        let sameType = (lhs.isDirectory == rhs.isDirectory)
+        if dirOrder { return true }
+        if sameType { return lhs.name.lowercased() < rhs.name.lowercased() }
+        return false
+      }
+    } catch {
+      // Clean up on error
+      try? await sessionChannel?.close().get()
+      try? await mainChannel?.close().get()
+      try? await eventLoopGroup.shutdownGracefully()
       throw error
+    }
+  }
+
+  private func sftpReadAllEntries(
+    handler: SFTPHandler,
+    channel: Channel,
+    handle: ByteBuffer
+  ) async throws -> [SFTPNameEntry] {
+    var all: [SFTPNameEntry] = []
+    while true {
+      let result = try await handler.readDirectory(on: channel, handle: handle)
+      switch result {
+      case .names(let batch):
+        all.append(contentsOf: batch)
+      case .eof:
+        return all
+      }
     }
   }
 
