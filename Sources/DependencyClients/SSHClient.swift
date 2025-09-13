@@ -255,22 +255,15 @@ package struct SSHClient: SSHClientProtocol {
         // Add command output handler to capture stdout/stderr
         let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
         return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-          // Execute the command after the channel is ready
-          let execRequest = SSHChannelRequestEvent.ExecRequest(
-            command: command,
-            wantReply: true
-          )
-
-          let execPromise = childChannel.eventLoop.makePromise(of: Void.self)
-          childChannel.triggerUserOutboundEvent(
-            execRequest,
-            promise: execPromise
-          )
-
-          return execPromise.futureResult.map { _ in
-            // Return success - output will be handled by the handler
-            ()
+          // Signal that channel is ready
+          Task {
+            await AppLogger.shared.log(
+              "SSH session channel created and handler attached",
+              level: .debug,
+              category: .ssh
+            )
           }
+          return childChannel.eventLoop.makeSucceededFuture(())
         }
       }
 
@@ -279,6 +272,23 @@ package struct SSHClient: SSHClientProtocol {
       guard let session = sessionChannel else {
         throw SSHError.connectionFailed("Failed to create SSH session channel")
       }
+
+      // Now send the exec request after the channel is established
+      let execRequest = SSHChannelRequestEvent.ExecRequest(
+        command: command,
+        wantReply: true
+      )
+
+      let execPromise = session.eventLoop.makePromise(of: Void.self)
+      session.triggerUserOutboundEvent(execRequest, promise: execPromise)
+
+      // Wait for the exec request to be acknowledged
+      try await execPromise.futureResult.get()
+      await AppLogger.shared.log(
+        "Command exec request sent: \(command.prefix(100))",
+        level: .debug,
+        category: .ssh
+      )
 
       // Wait for command execution to complete (timeout after 30 seconds)
       let result = try await withTimeout(seconds: 30) {
@@ -658,6 +668,13 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
 
   init(eventLoop: EventLoop) {
     self.completionPromise = eventLoop.makePromise(of: String.self)
+    Task {
+      await AppLogger.shared.log(
+        "CommandOutputHandler initialized",
+        level: .debug,
+        category: .ssh
+      )
+    }
   }
 
   func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -665,85 +682,164 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
 
     switch channelData.type {
     case .channel:
-      // Standard output
-      switch channelData.data {
-      case .byteBuffer(var buffer):
-        if let bytes = buffer.readBytes(length: buffer.readableBytes) {
-          lock.withLock {
-            outputBuffer.append(contentsOf: bytes)
-          }
-        }
-      case .fileRegion:
-        // File regions aren't expected for command output
-        break
-      }
+      handleStdoutData(channelData.data)
     case .stdErr:
-      // Standard error
-      switch channelData.data {
-      case .byteBuffer(var buffer):
-        if let bytes = buffer.readBytes(length: buffer.readableBytes) {
-          lock.withLock {
-            errorBuffer.append(contentsOf: bytes)
-          }
-        }
-      case .fileRegion:
-        // File regions aren't expected for command output
-        break
-      }
+      handleStderrData(channelData.data)
     default:
-      break
+      Task {
+        await AppLogger.shared.log(
+          "Received data on unexpected channel type: \(channelData.type)",
+          level: .warning,
+          category: .ssh
+        )
+      }
+    }
+  }
+
+  private func handleStdoutData(_ data: IOData) {
+    switch data {
+    case .byteBuffer(var buffer):
+      if let bytes = buffer.readBytes(length: buffer.readableBytes) {
+        let receivedString = String(bytes: bytes, encoding: .utf8) ?? "<non-UTF8 data>"
+        Task {
+          await AppLogger.shared.log(
+            "Received stdout (\(bytes.count) bytes): \(receivedString.prefix(100))",
+            level: .debug,
+            category: .ssh
+          )
+        }
+        lock.withLock {
+          outputBuffer.append(contentsOf: bytes)
+        }
+      }
+    case .fileRegion:
+      // File regions aren't expected for command output
+      Task {
+        await AppLogger.shared.log(
+          "Received file region on stdout (unexpected)",
+          level: .warning,
+          category: .ssh
+        )
+      }
+    }
+  }
+
+  private func handleStderrData(_ data: IOData) {
+    switch data {
+    case .byteBuffer(var buffer):
+      if let bytes = buffer.readBytes(length: buffer.readableBytes) {
+        let receivedString = String(bytes: bytes, encoding: .utf8) ?? "<non-UTF8 data>"
+        Task {
+          await AppLogger.shared.log(
+            "Received stderr (\(bytes.count) bytes): \(receivedString.prefix(100))",
+            level: .debug,
+            category: .ssh
+          )
+        }
+        lock.withLock {
+          errorBuffer.append(contentsOf: bytes)
+        }
+      }
+    case .fileRegion:
+      // File regions aren't expected for command output
+      Task {
+        await AppLogger.shared.log(
+          "Received file region on stderr (unexpected)",
+          level: .warning,
+          category: .ssh
+        )
+      }
     }
   }
 
   func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
-    // Check and set completion atomically
+    // Log all events for debugging
+    let eventType = String(describing: type(of: event))
+    Task {
+      await AppLogger.shared.log(
+        "CommandOutputHandler received event: \(eventType)",
+        level: .debug,
+        category: .ssh
+      )
+    }
+
+    // Only handle SSH channel request events that indicate command completion
+    if let exitStatusEvent = event as? SSHChannelRequestEvent.ExitStatus {
+      handleExitStatus(exitStatusEvent)
+    } else if let exitSignal = event as? SSHChannelRequestEvent.ExitSignal {
+      handleExitSignal(exitSignal)
+    }
+    // Note: We don't handle generic ChannelEvent here as it's too broad
+    // The channel inactive handler will take care of unexpected closures
+  }
+
+  private func handleExitStatus(_ exitStatusEvent: SSHChannelRequestEvent.ExitStatus) {
     let wasComplete = lock.withLock { () -> Bool in
       if isComplete {
         return true
       }
-      // Check if this event should complete the handler
-      if event is SSHChannelRequestEvent.ExitStatus
-        || event is SSHChannelRequestEvent.ExitSignal
-        || event is ChannelEvent {
-        isComplete = true
-        return false
-      }
+      isComplete = true
       return false
     }
 
     guard !wasComplete else { return }
 
-    if let exitStatusEvent = event as? SSHChannelRequestEvent.ExitStatus {
-      if exitStatusEvent.exitStatus == 0 {
-        // Command completed successfully
-        let output = lock.withLock { String(data: outputBuffer, encoding: .utf8) ?? "" }
-        completionPromise.succeed(output)
-      } else {
-        // Command failed
-        let errorOutput = lock.withLock {
-          String(data: errorBuffer, encoding: .utf8)
-          ?? "Command failed with exit code \(exitStatusEvent.exitStatus)"
-        }
-        completionPromise.fail(SSHError.commandFailed(errorOutput))
-      }
-    } else if event is ChannelEvent {
-      // Handle channel close events
+    if exitStatusEvent.exitStatus == 0 {
+      // Command completed successfully
       let output = lock.withLock { String(data: outputBuffer, encoding: .utf8) ?? "" }
-      if !output.isEmpty {
-        completionPromise.succeed(output)
-      } else {
-        let errorOutput = lock.withLock {
-          String(data: errorBuffer, encoding: .utf8) ?? "No output received"
-        }
-        completionPromise.fail(SSHError.commandFailed(errorOutput))
+      Task {
+        await AppLogger.shared.log(
+          "Command completed with exit code 0, output length: \(output.count)",
+          level: .debug,
+          category: .ssh
+        )
       }
-    } else if event is SSHChannelRequestEvent.ExitSignal {
-      // Command was terminated by signal
+      completionPromise.succeed(output)
+    } else {
+      // Command failed
       let errorOutput = lock.withLock {
-        String(data: errorBuffer, encoding: .utf8) ?? "Command terminated by signal"
+        let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
+        return stderr.isEmpty
+          ? "Command failed with exit code \(exitStatusEvent.exitStatus)"
+          : stderr
+      }
+      Task {
+        await AppLogger.shared.log(
+          "Command failed with exit code \(exitStatusEvent.exitStatus): \(errorOutput)",
+          level: .debug,
+          category: .ssh
+        )
       }
       completionPromise.fail(SSHError.commandFailed(errorOutput))
     }
+  }
+
+  private func handleExitSignal(_ exitSignal: SSHChannelRequestEvent.ExitSignal) {
+    let wasComplete = lock.withLock { () -> Bool in
+      if isComplete {
+        return true
+      }
+      isComplete = true
+      return false
+    }
+
+    guard !wasComplete else { return }
+
+    // Command was terminated by signal
+      let errorOutput = lock.withLock {
+        let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
+        return stderr.isEmpty
+          ? "Command terminated by signal"
+          : "\(stderr) (terminated by signal)"
+      }
+      Task {
+        await AppLogger.shared.log(
+          "Command terminated by signal",
+          level: .debug,
+          category: .ssh
+        )
+      }
+    completionPromise.fail(SSHError.commandFailed(errorOutput))
   }
 
   func waitForOutput() async throws -> String {
@@ -758,12 +854,28 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
     }
 
     if !wasComplete {
+      // Channel closed without receiving exit status
       let output = lock.withLock { String(data: outputBuffer, encoding: .utf8) ?? "" }
+      let errorOutput = lock.withLock { String(data: errorBuffer, encoding: .utf8) ?? "" }
+
+      Task {
+        await AppLogger.shared.log(
+          "Channel closed without exit status. Output length: \(output.count), Error length: \(errorOutput.count)",
+          level: .warning,
+          category: .ssh
+        )
+      }
+
+      // If we have output, consider it successful (some commands don't send exit status)
       if !output.isEmpty {
         completionPromise.succeed(output)
+      } else if !errorOutput.isEmpty {
+        // If we only have error output, fail with that
+        completionPromise.fail(SSHError.commandFailed(errorOutput))
       } else {
+        // No output at all - connection likely failed
         completionPromise.fail(
-          SSHError.connectionFailed("Channel closed before command completion"))
+          SSHError.connectionFailed("Channel closed before command completion - no output received"))
       }
     }
   }
@@ -826,15 +938,15 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
   private static let acceptedHostsLock = NSLock()
   nonisolated(unsafe) private static var acceptedHosts = Set<String>()
   private let hostIdentifier: String
-  
+
   init(host: String = "unknown", port: Int = 22) {
     self.hostIdentifier = "\(host):\(port)"
   }
-  
+
   init() {
     self.hostIdentifier = "unknown:22"
   }
-  
+
   func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
     // WARNING: This accepts all host keys without validation
     // In production, you should:
@@ -850,7 +962,7 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
       }
       return false
     }
-    
+
     if shouldLog {
       Task {
         await AppLogger.shared.log(
@@ -1261,7 +1373,7 @@ package actor SSHConnectionManager {
         self.connection = nil
       }
     }
-    
+
     // Create new connection with retry logic
     return try await withRetry(maxRetries: 2, baseDelay: 2.0) { [self] in
       if self.connection == nil || !self.connection!.isActive {
@@ -1348,12 +1460,12 @@ package actor SSHConnectionManager {
 
       // Wait for SSH connection to be established and verify it's ready
       try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-      
+
       // Verify the connection is actually established by checking channel state
       guard establishedChannel.isActive else {
         throw SSHError.connectionFailed("Channel not active after connection")
       }
-      
+
       await AppLogger.shared.log(
         "SSH connection established successfully to \(config.host):\(port)",
         level: .debug,
@@ -1409,26 +1521,36 @@ package struct SSHConnection: Sendable {
       // Add command output handler to capture stdout/stderr
       let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
       return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-        // Execute the command after the channel is ready
-        let execRequest = SSHChannelRequestEvent.ExecRequest(
-          command: command,
-          wantReply: true
-        )
-
-        let execPromise = childChannel.eventLoop.makePromise(of: Void.self)
-        childChannel.triggerUserOutboundEvent(
-          execRequest,
-          promise: execPromise
-        )
-
-        return execPromise.futureResult.map { _ in
-          // Return success - output will be handled by the handler
-          ()
+        // Signal that channel is ready
+        Task {
+          await AppLogger.shared.log(
+            "SSH session channel created via connection pool and handler attached",
+            level: .debug,
+            category: .ssh
+          )
         }
+        return childChannel.eventLoop.makeSucceededFuture(())
       }
     }
 
     let sessionChannel = try await sessionPromise.futureResult.get()
+
+    // Now send the exec request after the channel is established
+    let execRequest = SSHChannelRequestEvent.ExecRequest(
+      command: command,
+      wantReply: true
+    )
+
+    let execPromise = sessionChannel.eventLoop.makePromise(of: Void.self)
+    sessionChannel.triggerUserOutboundEvent(execRequest, promise: execPromise)
+
+    // Wait for the exec request to be acknowledged
+    try await execPromise.futureResult.get()
+    await AppLogger.shared.log(
+      "Command exec request sent via connection pool: \(command.prefix(100))",
+      level: .debug,
+      category: .ssh
+    )
 
     // Wait for command execution to complete (timeout after 30 seconds)
     let result = try await withTimeout(seconds: 30) {
