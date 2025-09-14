@@ -1350,8 +1350,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
           if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             FileManager.default.fileExists(atPath: config.privateKeyPath) {
             keyData = try Data(contentsOf: URL(fileURLWithPath: config.privateKeyPath))
-          } else if let d = config.privateKeyData {
-            keyData = d
+          } else if let privateKeyData = config.privateKeyData {
+            keyData = privateKeyData
           } else {
             nextChallengePromise.fail(SSHConnectionError.privateKeyPathEmpty)
             return
@@ -1405,7 +1405,10 @@ extension SSHUserAuthDelegate {
       return try parseOpenSSHEd25519Seed(fromPEM: text)
     }
 
-    throw SSHConnectionError.keyAuthenticationFailed("Unsupported private key format (expected 32/64-byte raw or OpenSSH ed25519 key)")
+    throw SSHConnectionError.keyAuthenticationFailed(
+      "Unsupported private key format " +
+      "(expected 32/64-byte raw or OpenSSH ed25519 key)"
+    )
   }
 
   /// Parse an unencrypted OpenSSH ed25519 private key (openssh-key-v1) and return the 32-byte seed.
@@ -1416,31 +1419,36 @@ extension SSHUserAuthDelegate {
         let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start else {
         return Data()
       }
-      let b64 = lines[(start+1)..<end].joined()
-      return Data(base64Encoded: b64) ?? Data()
+      let base64 = lines[(start + 1)..<end].joined()
+      return Data(base64Encoded: base64) ?? Data()
     }
 
-    let d = base64Body(from: pem)
-    if d.isEmpty {
+    let decodedKeyData = base64Body(from: pem)
+    if decodedKeyData.isEmpty {
       throw SSHConnectionError.keyAuthenticationFailed("Invalid OpenSSH key PEM body")
     }
 
-    // Helper readers for binary format (big-endian uint32 + strings)
-    var idx = d.startIndex
+    let privateBlob = try parseOpenSSHPrivateBlob(from: decodedKeyData)
+    return try extractEd25519Seed(fromPrivateBlob: privateBlob)
+  }
+
+  // Parses the outer OpenSSH key envelope and returns the private key blob.
+  private static func parseOpenSSHPrivateBlob(from decodedData: Data) throws -> Data {
+    var index = decodedData.startIndex
     func readUInt32() -> UInt32? {
-      guard d.distance(from: idx, to: d.endIndex) >= 4 else { return nil }
-      let val = d[idx..<(idx+4)].withUnsafeBytes { ptr -> UInt32 in
+      guard decodedData.distance(from: index, to: decodedData.endIndex) >= 4 else { return nil }
+      let value = decodedData[index..<(index + 4)].withUnsafeBytes { ptr -> UInt32 in
         ptr.load(as: UInt32.self).bigEndian
       }
-      idx += 4
-      return val
+      index += 4
+      return value
     }
     func readStringBytes() -> Data? {
-      guard let len = readUInt32() else { return nil }
-      let ilen = Int(len)
-      guard d.distance(from: idx, to: d.endIndex) >= ilen else { return nil }
-      let sub = d[idx..<(idx+ilen)]
-      idx += ilen
+      guard let length = readUInt32() else { return nil }
+      let intLength = Int(length)
+      guard decodedData.distance(from: index, to: decodedData.endIndex) >= intLength else { return nil }
+      let sub = decodedData[index..<(index + intLength)]
+      index += intLength
       return Data(sub)
     }
 
@@ -1449,20 +1457,20 @@ extension SSHUserAuthDelegate {
       throw SSHConnectionError.keyAuthenticationFailed("Not an OpenSSH v1 key")
     }
     // Skip the NUL after magic in the binary format
-    guard idx < d.endIndex, d[idx] == 0 else {
+    guard index < decodedData.endIndex, decodedData[index] == 0 else {
       throw SSHConnectionError.keyAuthenticationFailed("Invalid OpenSSH key header")
     }
-    idx += 1
+    index += 1
 
     // ciphername, kdfname, kdfoptions
-    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfopts = readStringBytes() else {
+    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfOptions = readStringBytes() else {
       throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH key header")
     }
     if String(data: ciphername, encoding: .utf8) != "none" || String(data: kdfname, encoding: .utf8) != "none" {
       throw SSHConnectionError.keyAuthenticationFailed("Encrypted OpenSSH keys are not supported")
     }
-    if !kdfopts.isEmpty {
-      // Should be empty when kdf "none"
+    if !kdfOptions.isEmpty {
+      // Should be empty when kdf "none"; tolerate but ignore.
     }
 
     // number of keys (uint32)
@@ -1471,7 +1479,7 @@ extension SSHUserAuthDelegate {
     }
 
     // public key blob (string)
-    guard let _ = readStringBytes() else {
+    guard readStringBytes() != nil else {
       throw SSHConnectionError.keyAuthenticationFailed("Missing public key blob")
     }
 
@@ -1480,39 +1488,44 @@ extension SSHUserAuthDelegate {
       throw SSHConnectionError.keyAuthenticationFailed("Missing private key blob")
     }
 
-    // Parse private blob: checkint1, checkint2, string keytype, string pub, string priv, string comment, padding
-    let p = privateBlob
-    var pidx = p.startIndex
-    func pReadUInt32() -> UInt32? {
-      guard p.distance(from: pidx, to: p.endIndex) >= 4 else { return nil }
-      let val = p[pidx..<(pidx+4)].withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-      pidx += 4
-      return val
+    return privateBlob
+  }
+
+  // Extracts 32-byte ed25519 seed from the private key blob.
+  private static func extractEd25519Seed(fromPrivateBlob privateBlobData: Data) throws -> Data {
+    let blob = privateBlobData
+    var index = blob.startIndex
+
+    func readUInt32() -> UInt32? {
+      guard blob.distance(from: index, to: blob.endIndex) >= 4 else { return nil }
+      let value = blob[index..<(index + 4)].withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+      index += 4
+      return value
     }
-    func pReadString() -> Data? {
-      guard let len = pReadUInt32() else { return nil }
-      let ilen = Int(len)
-      guard p.distance(from: pidx, to: p.endIndex) >= ilen else { return nil }
-      let sub = p[pidx..<(pidx+ilen)]
-      pidx += ilen
+    func readString() -> Data? {
+      guard let length = readUInt32() else { return nil }
+      let intLength = Int(length)
+      guard blob.distance(from: index, to: blob.endIndex) >= intLength else { return nil }
+      let sub = blob[index..<(index + intLength)]
+      index += intLength
       return Data(sub)
     }
 
-    guard let c1 = pReadUInt32(), let c2 = pReadUInt32(), c1 == c2 else {
+    guard let checkint1 = readUInt32(), let checkint2 = readUInt32(), checkint1 == checkint2 else {
       throw SSHConnectionError.keyAuthenticationFailed("OpenSSH key checkints mismatch")
     }
-    guard let keyType = pReadString(), String(data: keyType, encoding: .utf8) == "ssh-ed25519" else {
+    guard let keyType = readString(), String(data: keyType, encoding: .utf8) == "ssh-ed25519" else {
       throw SSHConnectionError.keyAuthenticationFailed("Only ed25519 OpenSSH keys are supported")
     }
-    guard let _ = pReadString() /* pub */ else {
+    guard readString() != nil /* public part */ else {
       throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH private key (pub)")
     }
-    guard let priv = pReadString() else {
+    guard let privatePart = readString() else {
       throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH private key (priv)")
     }
-    // priv is 64 bytes: 32 seed + 32 pub
-    if priv.count >= 32 {
-      return priv.prefix(32)
+    // privatePart is 64 bytes: 32 seed + 32 pub
+    if privatePart.count >= 32 {
+      return privatePart.prefix(32)
     }
     throw SSHConnectionError.keyAuthenticationFailed("Invalid ed25519 private key length in OpenSSH key")
   }
