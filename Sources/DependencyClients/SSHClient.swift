@@ -857,47 +857,10 @@ package struct SSHClient: SSHClientProtocol {
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo] {
     await AppLogger.shared.log("Listing directory via SFTP: \(path)", level: .info, category: .fileSystem)
-
-    // Try SFTP first
-    do {
-      let files = try await sftpListDirectory(path, config: config)
-      await AppLogger.shared.log(
-        "SFTP listed \(files.count) items in: \(path)", level: .info, category: .fileSystem)
-      return files
-    } catch {
-      await AppLogger.shared.log(
-        "SFTP listing failed (\(detailedErrorDescription(error))). Falling back to shell.",
-        level: .warning,
-        category: .fileSystem
-      )
-
-      // Escape the path properly for shell execution
-      let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
-
-      do {
-        let result = try await executeDirectoryCommand(escapedPath, config: config)
-        let files = parseDirectoryListing(result, basePath: path)
-        await AppLogger.shared.log(
-          "Shell listed \(files.count) items in directory: \(path)", level: .info, category: .fileSystem)
-        return files
-      } catch {
-        // Handle specific SSH channel errors
-        if let retryResult = await handleChannelError(error, path: path, escapedPath: escapedPath, config: config) {
-          return retryResult
-        }
-
-        // Handle CancellationError specifically
-        if error is CancellationError {
-          let cancellationError = SSHError.commandFailed(
-            "Directory listing was cancelled. This may be due to network issues or server timeout.")
-          await AppLogger.shared.log(
-            "Directory listing cancelled for path: \(path)", level: .error, category: .fileSystem)
-          throw cancellationError
-        }
-
-        throw error
-      }
-    }
+    let files = try await sftpListDirectory(path, config: config)
+    await AppLogger.shared.log(
+      "SFTP listed \(files.count) items in: \(path)", level: .info, category: .fileSystem)
+    return files
   }
 
   // MARK: - SFTP directory listing
@@ -1040,92 +1003,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  private func executeDirectoryCommand(
-    _ escapedPath: String,
-    config: Models.SSHServerConfiguration
-  ) async throws -> String {
-    // Use clean execution to avoid bashrc contamination in ls output
-    // Use double quotes and escape special characters properly for shell safety
-    let shellSafePath = escapedPath
-      .replacingOccurrences(of: "\\", with: "\\\\")
-      .replacingOccurrences(of: "\"", with: "\\\"")
-      .replacingOccurrences(of: "$", with: "\\$")
-      .replacingOccurrences(of: "`", with: "\\`")
-
-    let command = """
-      if [ -r "\(shellSafePath)" ]; then
-        ls -la "\(shellSafePath)" 2>/dev/null
-      elif [ -d "\(shellSafePath)" ]; then
-        echo "Permission denied for directory: \(shellSafePath)"
-        exit 1
-      else
-        echo "Path does not exist or is not a directory: \(shellSafePath)"
-        exit 1
-      fi
-      """
-
-    let result = try await execCleanCommand(command, config: config)
-
-    if result.isEmpty {
-      throw SSHError.commandFailed("Cannot access directory: \(escapedPath)")
-    }
-
-    // Check for error messages in the output
-    if result.contains("Permission denied") {
-      throw SSHError.commandFailed("Permission denied: Cannot access directory \(escapedPath)")
-    }
-
-    if result.contains("Path does not exist") {
-      throw SSHError.commandFailed("Path does not exist or is not a directory: \(escapedPath)")
-    }
-
-    return result
-  }
-
-  private func handleChannelError(
-    _ error: Error,
-    path: String,
-    escapedPath: String,
-    config: Models.SSHServerConfiguration
-  ) async -> [RemoteFileInfo]? {
-    let errorString = String(describing: error)
-    guard errorString.contains("ChannelError") && errorString.contains("error 6") else {
-      return nil
-    }
-
-    // This is the output closed error - retry with a new connection
-    await AppLogger.shared.log(
-      "SSH channel closed during directory listing, retrying with new connection",
-      level: .warning,
-      category: .fileSystem
-    )
-
-    // Force a new connection and retry once
-    do {
-      // Small delay before retry
-      try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-      let retryResult = try await execCleanCommand("ls -la '\(escapedPath)' 2>/dev/null", config: config)
-
-      if retryResult.isEmpty {
-        throw SSHError.commandFailed("Cannot access directory after retry: \(path)")
-      }
-
-      let files = parseDirectoryListing(retryResult, basePath: path)
-      await AppLogger.shared.log(
-        "Retry successful - found \(files.count) items in directory: \(path)",
-        level: .info,
-        category: .fileSystem
-      )
-      return files
-    } catch {
-      await AppLogger.shared.log(
-        "Directory listing retry failed for path: \(path) - \(error.localizedDescription)",
-        level: .error,
-        category: .fileSystem
-      )
-      return nil
-    }
-  }
+  // Removed shell fallback for directory listing. All directory operations now use SFTP only.
 
   package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
     do {
@@ -1146,46 +1024,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  private func parseDirectoryListing(_ output: String, basePath: String) -> [RemoteFileInfo] {
-    let lines = output.components(separatedBy: .newlines)
-    var files: [RemoteFileInfo] = []
-
-    for line in lines {
-      let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-      if trimmed.isEmpty || trimmed.hasPrefix("total ") {
-        continue
-      }
-
-      let components = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-      if components.count >= 9 {
-        let permissions = components[0]
-        let isDirectory = permissions.hasPrefix("d")
-        let size = Int64(components[4]) ?? 0
-        let fileName = components[8..<components.count].joined(separator: " ")
-
-        if fileName == "." || fileName == ".." {
-          continue
-        }
-
-        let fullPath =
-          basePath.hasSuffix("/") ? "\(basePath)\(fileName)" : "\(basePath)/\(fileName)"
-
-        let fileInfo = RemoteFileInfo(
-          name: fileName,
-          path: fullPath,
-          isDirectory: isDirectory,
-          size: size,
-          permissions: permissions
-        )
-        files.append(fileInfo)
-      }
-    }
-
-    return files.sorted {
-      $0.isDirectory && !$1.isDirectory
-        || ($0.isDirectory == $1.isDirectory && $0.name.lowercased() < $1.name.lowercased())
-    }
-  }
+  // Removed ls-parsing fallback; SFTP is the single source of directory listings.
 }
 
 private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Sendable {
