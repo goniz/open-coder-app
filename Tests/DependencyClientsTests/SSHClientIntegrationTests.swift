@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import Crypto
 import XCTest
 
 /// Integration test that launches a temporary sshd bound to a random high port
@@ -106,6 +107,23 @@ final class SSHClientIntegrationTests: XCTestCase {
       let pubData = try Data(contentsOf: clientPub)
       try pubData.write(to: authorizedKeys)
       try setPosixPermissions(0o600, for: authorizedKeys)
+
+      // Also append a Crypto-generated Ed25519 public key for NIOSSH client testing
+      let ed25519Key = Curve25519.Signing.PrivateKey()
+      let rawPrivatePath = tmpDir.appendingPathComponent("id_ed25519.raw")
+      try Data(ed25519Key.rawRepresentation).write(to: rawPrivatePath)
+      try setPosixPermissions(0o600, for: rawPrivatePath)
+      let pubLine = makeOpenSSHPublicKeyLine(
+        ed25519PublicRaw: ed25519Key.publicKey.rawRepresentation,
+        comment: "niossh-integration"
+      )
+      if let handle = try? FileHandle(forWritingTo: authorizedKeys) {
+        try handle.seekToEnd()
+        if let data = ("\n" + pubLine + "\n").data(using: .utf8) {
+          try handle.write(contentsOf: data)
+        }
+        try handle.close()
+      }
     } catch {
       XCTFail("Failed to generate keys: \(error)")
       return
@@ -274,6 +292,63 @@ final class SSHClientIntegrationTests: XCTestCase {
     // Teardown - send SIGTERM then SIGKILL if needed (done in defer)
   }
 
+  func testNIOSSHClientExecWhoami() async throws {
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    // Ephemeral workspace and keys
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    let ed25519Key = Curve25519.Signing.PrivateKey()
+    let rawPrivatePath = tmpDir.appendingPathComponent("id_ed25519.raw")
+    try Data(ed25519Key.rawRepresentation).write(to: rawPrivatePath)
+    try setPosixPermissions(0o600, for: rawPrivatePath)
+    let pubLine = makeOpenSSHPublicKeyLine(
+      ed25519PublicRaw: ed25519Key.publicKey.rawRepresentation,
+      comment: "niossh-client"
+    )
+    try (pubLine + "\n").data(using: .utf8)!.write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    guard let mgr = createAndStartSSHD(
+      tmpDir: tmpDir,
+      authorizedKeysPath: authorizedKeys.path,
+      currentUser: currentUser
+    ) else {
+      XCTFail("Failed to launch sshd for NIOSSH client test")
+      return
+    }
+    defer { terminateSSHD(mgr) }
+
+    var config = Models.SSHServerConfiguration(
+      name: "local",
+      host: "localhost",
+      port: mgr.port,
+      username: currentUser,
+      useKeyAuthentication: true,
+      privateKeyPath: rawPrivatePath.path,
+      shouldMaintainConnection: false
+    )
+    config.password = ""
+
+    let client = SSHClient()
+    let output = try await client.execCleanCommand("whoami", config: config)
+    XCTAssertEqual(output.trimmingCharacters(in: .whitespacesAndNewlines), currentUser)
+  }
+
   // MARK: - Helpers
 
   private func setPosixPermissions(_ perms: UInt16, for url: URL) throws {
@@ -386,5 +461,115 @@ final class SSHClientIntegrationTests: XCTestCase {
       kill(mgr.process.processIdentifier, SIGKILL)
       _ = wait(process: mgr.process, timeout: 1)
     }
+  }
+
+  // MARK: - SSHD launcher helper + public key encoding
+
+  private func createAndStartSSHD(tmpDir: URL, authorizedKeysPath: String, currentUser: String) -> ManagedSSHD? {
+    let hostRSA = tmpDir.appendingPathComponent("ssh_host_rsa_key")
+    let hostED25519 = tmpDir.appendingPathComponent("ssh_host_ed25519_key")
+    let pidFile = tmpDir.appendingPathComponent("sshd.pid")
+    let logFile = tmpDir.appendingPathComponent("sshd.log")
+
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "rsa", "-b", "2048", "-f", hostRSA.path, "-N", ""], timeout: 30)
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", hostED25519.path, "-N", ""], timeout: 30)
+    try? setPosixPermissions(0o600, for: hostRSA)
+    try? setPosixPermissions(0o600, for: hostED25519)
+
+    for _ in 0..<10 {
+      let port = Int.random(in: 20000...40000)
+      let config = """
+      Port \(port)
+      Protocol 2
+      HostKey \(hostRSA.path)
+      HostKey \(hostED25519.path)
+
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      ChallengeResponseAuthentication no
+      UsePAM no
+      StrictModes no
+
+      AllowUsers \(currentUser)
+      AuthorizedKeysFile \(authorizedKeysPath)
+
+      Subsystem sftp internal-sftp
+
+      AllowTcpForwarding no
+      X11Forwarding no
+      PermitTunnel no
+      PermitTTY yes
+
+      PidFile \(pidFile.path)
+      LogLevel INFO
+      """
+
+      let configURL = tmpDir.appendingPathComponent("sshd_config")
+      do { try config.data(using: .utf8)!.write(to: configURL) } catch { continue }
+
+      do {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/sshd")
+        proc.arguments = ["-f", configURL.path, "-D", "-e"]
+        proc.currentDirectoryURL = tmpDir
+
+        if FileManager.default.fileExists(atPath: logFile.path) { try? FileManager.default.removeItem(at: logFile) }
+        FileManager.default.createFile(atPath: logFile.path, contents: nil)
+        let logHandle = try FileHandle(forWritingTo: logFile)
+        proc.standardError = logHandle
+        proc.standardOutput = nil
+        try proc.run()
+
+        let ready = waitForSSHDPortOnly(port: port, timeoutSeconds: 10)
+        if ready {
+          return ManagedSSHD(tmpDir: tmpDir, port: port, process: proc, logFile: logFile)
+        } else {
+          proc.terminate()
+          _ = wait(process: proc, timeout: 2)
+          if proc.isRunning { kill(proc.processIdentifier, SIGKILL) }
+        }
+      } catch {
+        continue
+      }
+    }
+
+    return nil
+  }
+
+  private func waitForSSHDPortOnly(port: Int, timeoutSeconds: TimeInterval) -> Bool {
+    let deadline = Date().addingTimeInterval(timeoutSeconds)
+    while Date() < deadline {
+      var ok = false
+      if FileManager.default.fileExists(atPath: "/usr/bin/nc") {
+        let res = run("/usr/bin/nc", ["-z", "localhost", String(port)], timeout: 2)
+        ok = (res.exitCode == 0)
+      } else {
+        let res = run("/bin/bash", ["-lc", "</dev/tcp/127.0.0.1/\(port) >/dev/null 2>&1"], timeout: 2)
+        ok = (res.exitCode == 0)
+      }
+      if ok { return true }
+      Thread.sleep(forTimeInterval: 0.3)
+    }
+    return false
+  }
+
+  private func makeOpenSSHPublicKeyLine(ed25519PublicRaw: Data, comment: String) -> String {
+    // OpenSSH public key format: base64( string "ssh-ed25519"; string key_bytes )
+    var blob = Data()
+    func appendString(_ s: String) {
+      var len = UInt32(s.utf8.count).bigEndian
+      blob.append(UnsafeBufferPointer(start: &len, count: 1))
+      blob.append(s.data(using: .utf8)!)
+    }
+    func appendBytes(_ bytes: Data) {
+      var len = UInt32(bytes.count).bigEndian
+      blob.append(UnsafeBufferPointer(start: &len, count: 1))
+      blob.append(bytes)
+    }
+    appendString("ssh-ed25519")
+    appendBytes(ed25519PublicRaw)
+    let b64 = blob.base64EncodedString()
+    return "ssh-ed25519 \(b64) \(comment)"
   }
 }

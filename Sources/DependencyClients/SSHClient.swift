@@ -1343,14 +1343,35 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
     }
 
     if config.useKeyAuthentication {
-      // Key authentication is not fully implemented yet
       if availableMethods.contains(.publicKey) {
-        // Note: Proper key authentication needs implementation
-        nextChallengePromise.fail(
-          SSHConnectionError.keyAuthenticationFailed(
-            "Key authentication is not yet implemented. Please use password authentication."
+        // Attempt Ed25519 private key authentication using raw private key bytes
+        do {
+          let keyData: Data
+          if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            FileManager.default.fileExists(atPath: config.privateKeyPath) {
+            keyData = try Data(contentsOf: URL(fileURLWithPath: config.privateKeyPath))
+          } else if let d = config.privateKeyData {
+            keyData = d
+          } else {
+            nextChallengePromise.fail(SSHConnectionError.privateKeyPathEmpty)
+            return
+          }
+
+          // Expect Ed25519 raw private key bytes
+          // Construct a Crypto Ed25519 private key from rawRepresentation
+          let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: keyData)
+          let nioKey = NIOSSHPrivateKey(ed25519Key: edKey)
+          let offer = NIOSSHUserAuthenticationOffer(
+            username: config.username,
+            serviceName: "ssh-connection",
+            offer: .privateKey(.init(privateKey: nioKey))
           )
-        )
+          nextChallengePromise.succeed(offer)
+        } catch {
+          nextChallengePromise.fail(
+            SSHConnectionError.keyAuthenticationFailed("\(error)")
+          )
+        }
       } else {
         nextChallengePromise.fail(SSHConnectionError.publicKeyAuthNotAvailable)
       }
