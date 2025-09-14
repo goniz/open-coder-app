@@ -93,9 +93,10 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
 
   func readDirectory(on channel: Channel, handle: ByteBuffer) async throws -> SFTPReadDirResult {
+    // The handle returned by OPENDIR is already a full SFTP "string"
+    // (uint32 length + bytes). Do not wrap it again.
     let (reqId, respFuture) = request(on: channel)
-    var payload = channel.allocator.buffer(capacity: 4 + handle.readableBytes)
-    writeStringBytes(&payload, handle)
+    let payload = handle
     try await writePacket(on: channel, type: .readdir, requestId: reqId, payload: payload)
 
     let (typeByte, mutBuffer) = try await respFuture.get()
@@ -123,9 +124,9 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
 
   func closeHandle(on channel: Channel, handle: ByteBuffer) async throws {
+    // The handle is an SFTP "string" already; send as-is without re-encoding
     let (reqId, respFuture) = request(on: channel)
-    var payload = channel.allocator.buffer(capacity: 4 + handle.readableBytes)
-    writeStringBytes(&payload, handle)
+    let payload = handle
     try await writePacket(on: channel, type: .close, requestId: reqId, payload: payload)
     let (typeByte, buf) = try await respFuture.get()
     guard typeByte == PacketType.status.rawValue else {
