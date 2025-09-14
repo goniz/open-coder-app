@@ -1344,8 +1344,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
 
     if config.useKeyAuthentication {
       if availableMethods.contains(.publicKey) {
-        // Attempt Ed25519 private key authentication using raw private key bytes
         do {
+          // Load Ed25519 private key from raw bytes or OpenSSH unencrypted key file
           let keyData: Data
           if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             FileManager.default.fileExists(atPath: config.privateKeyPath) {
@@ -1357,9 +1357,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
             return
           }
 
-          // Expect Ed25519 raw private key bytes
-          // Construct a Crypto Ed25519 private key from rawRepresentation
-          let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: keyData)
+          let ed25519Seed = try SSHUserAuthDelegate.extractEd25519Seed(from: keyData)
+          let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: ed25519Seed)
           let nioKey = NIOSSHPrivateKey(ed25519Key: edKey)
           let offer = NIOSSHUserAuthenticationOffer(
             username: config.username,
@@ -1368,9 +1367,7 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
           )
           nextChallengePromise.succeed(offer)
         } catch {
-          nextChallengePromise.fail(
-            SSHConnectionError.keyAuthenticationFailed("\(error)")
-          )
+          nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("\(error)"))
         }
       } else {
         nextChallengePromise.fail(SSHConnectionError.publicKeyAuthNotAvailable)
@@ -1387,6 +1384,137 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
         nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
       }
     }
+  }
+}
+
+// MARK: - OpenSSH/Raw key parsing helpers
+extension SSHUserAuthDelegate {
+  /// Attempts to extract a 32-byte Ed25519 seed from various key formats.
+  /// Supported:
+  /// - 32-byte raw seed (Curve25519.Signing.PrivateKey rawRepresentation)
+  /// - 64-byte concatenation (seed + public key) – uses the first 32 bytes
+  /// - OpenSSH unencrypted ed25519 private key (BEGIN OPENSSH PRIVATE KEY)
+  ///   with ciphername "none" and kdf "none".
+  fileprivate static func extractEd25519Seed(from data: Data) throws -> Data {
+    if data.count == 32 { return data }
+    if data.count == 64 { return data.prefix(32) }
+
+    // Check for OpenSSH PEM header
+    if let text = String(data: data, encoding: .utf8),
+      text.contains("BEGIN OPENSSH PRIVATE KEY") {
+      return try parseOpenSSHEd25519Seed(fromPEM: text)
+    }
+
+    throw SSHConnectionError.keyAuthenticationFailed("Unsupported private key format (expected 32/64-byte raw or OpenSSH ed25519 key)")
+  }
+
+  /// Parse an unencrypted OpenSSH ed25519 private key (openssh-key-v1) and return the 32-byte seed.
+  private static func parseOpenSSHEd25519Seed(fromPEM pem: String) throws -> Data {
+    func base64Body(from pem: String) -> Data {
+      let lines = pem.split(separator: "\n").map(String.init)
+      guard let start = lines.firstIndex(where: { $0.contains("BEGIN OPENSSH PRIVATE KEY") }),
+        let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start else {
+        return Data()
+      }
+      let b64 = lines[(start+1)..<end].joined()
+      return Data(base64Encoded: b64) ?? Data()
+    }
+
+    let d = base64Body(from: pem)
+    if d.isEmpty {
+      throw SSHConnectionError.keyAuthenticationFailed("Invalid OpenSSH key PEM body")
+    }
+
+    // Helper readers for binary format (big-endian uint32 + strings)
+    var idx = d.startIndex
+    func readUInt32() -> UInt32? {
+      guard d.distance(from: idx, to: d.endIndex) >= 4 else { return nil }
+      let val = d[idx..<(idx+4)].withUnsafeBytes { ptr -> UInt32 in
+        ptr.load(as: UInt32.self).bigEndian
+      }
+      idx += 4
+      return val
+    }
+    func readStringBytes() -> Data? {
+      guard let len = readUInt32() else { return nil }
+      let ilen = Int(len)
+      guard d.distance(from: idx, to: d.endIndex) >= ilen else { return nil }
+      let sub = d[idx..<(idx+ilen)]
+      idx += ilen
+      return Data(sub)
+    }
+
+    // Verify header "openssh-key-v1\0"
+    guard let magic = readStringBytes(), String(data: magic, encoding: .utf8) == "openssh-key-v1" else {
+      throw SSHConnectionError.keyAuthenticationFailed("Not an OpenSSH v1 key")
+    }
+    // Skip the NUL after magic in the binary format
+    guard idx < d.endIndex, d[idx] == 0 else {
+      throw SSHConnectionError.keyAuthenticationFailed("Invalid OpenSSH key header")
+    }
+    idx += 1
+
+    // ciphername, kdfname, kdfoptions
+    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfopts = readStringBytes() else {
+      throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH key header")
+    }
+    if String(data: ciphername, encoding: .utf8) != "none" || String(data: kdfname, encoding: .utf8) != "none" {
+      throw SSHConnectionError.keyAuthenticationFailed("Encrypted OpenSSH keys are not supported")
+    }
+    if !kdfopts.isEmpty {
+      // Should be empty when kdf "none"
+    }
+
+    // number of keys (uint32)
+    guard let keyCount = readUInt32(), keyCount == 1 else {
+      throw SSHConnectionError.keyAuthenticationFailed("Unexpected key count in OpenSSH key")
+    }
+
+    // public key blob (string)
+    guard let _ = readStringBytes() else {
+      throw SSHConnectionError.keyAuthenticationFailed("Missing public key blob")
+    }
+
+    // private key blob (string)
+    guard let privateBlob = readStringBytes() else {
+      throw SSHConnectionError.keyAuthenticationFailed("Missing private key blob")
+    }
+
+    // Parse private blob: checkint1, checkint2, string keytype, string pub, string priv, string comment, padding
+    let p = privateBlob
+    var pidx = p.startIndex
+    func pReadUInt32() -> UInt32? {
+      guard p.distance(from: pidx, to: p.endIndex) >= 4 else { return nil }
+      let val = p[pidx..<(pidx+4)].withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+      pidx += 4
+      return val
+    }
+    func pReadString() -> Data? {
+      guard let len = pReadUInt32() else { return nil }
+      let ilen = Int(len)
+      guard p.distance(from: pidx, to: p.endIndex) >= ilen else { return nil }
+      let sub = p[pidx..<(pidx+ilen)]
+      pidx += ilen
+      return Data(sub)
+    }
+
+    guard let c1 = pReadUInt32(), let c2 = pReadUInt32(), c1 == c2 else {
+      throw SSHConnectionError.keyAuthenticationFailed("OpenSSH key checkints mismatch")
+    }
+    guard let keyType = pReadString(), String(data: keyType, encoding: .utf8) == "ssh-ed25519" else {
+      throw SSHConnectionError.keyAuthenticationFailed("Only ed25519 OpenSSH keys are supported")
+    }
+    guard let _ = pReadString() /* pub */ else {
+      throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH private key (pub)")
+    }
+    guard let priv = pReadString() else {
+      throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH private key (priv)")
+    }
+    // priv is 64 bytes: 32 seed + 32 pub
+    if priv.count >= 32 {
+      return priv.prefix(32)
+    }
+    throw SSHConnectionError.keyAuthenticationFailed("Invalid ed25519 private key length in OpenSSH key")
   }
 }
 
