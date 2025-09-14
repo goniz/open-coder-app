@@ -1,7 +1,7 @@
 import Foundation
-import NIO
-import NIOHTTP1
-import NIOSSL
+@preconcurrency import NIO
+@preconcurrency import NIOHTTP1
+@preconcurrency import NIOSSL
 
 // Manages graceful exit in --once mode with idle timeout after last download
 final class OnceExitManager {
