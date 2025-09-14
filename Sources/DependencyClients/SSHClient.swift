@@ -43,6 +43,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
     case close = 4
     case opendir = 11
     case readdir = 12
+    case realpath = 16
     case status = 101
     case handle = 102
     case name = 104
@@ -91,6 +92,31 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       throw SSHError.commandFailed("Unexpected SFTP response for OPENDIR: \(typeByte)")
     }
     return buffer
+  }
+
+  func realpath(on channel: Channel, path: String) async throws -> String {
+    let (reqId, respFuture) = request(on: channel)
+    var payload = channel.allocator.buffer(capacity: 4 + path.utf8.count)
+    writeString(&payload, path)
+    try await writePacket(on: channel, type: .realpath, requestId: reqId, payload: payload)
+
+    let (typeByte, mutBuffer) = try await respFuture.get()
+    if typeByte == PacketType.name.rawValue {
+      var buf = mutBuffer
+      let count: UInt32 = buf.readInteger(endianness: .big) ?? 0
+      guard count >= 1 else { throw SSHError.commandFailed("SFTP REALPATH returned no results") }
+      guard let filename = readString(&buf) else { throw SSHError.commandFailed("Invalid REALPATH response") }
+      // Consume longname and attrs to keep buffer consistent
+      _ = readString(&buf) // longname
+      var tmpBuf = buf
+      _ = parseAttrs(&tmpBuf)
+      return filename
+    } else if typeByte == PacketType.status.rawValue {
+      let (code, message) = parseStatus(mutBuffer)
+      throw SSHError.commandFailed("SFTP REALPATH failed (code: \(code)): \(message)")
+    } else {
+      throw SSHError.commandFailed("Unexpected SFTP response for REALPATH: \(typeByte)")
+    }
   }
 
   func readDirectory(on channel: Channel, handle: ByteBuffer) async throws -> SFTPReadDirResult {
@@ -993,6 +1019,84 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
+  // Resolve a path on the remote using SFTP REALPATH (v3)
+  private func sftpResolvePath(
+    _ path: String,
+    config: Models.SSHServerConfiguration
+  ) async throws -> String {
+    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    var mainChannel: Channel?
+    var sessionChannel: Channel?
+
+    do {
+      let port = config.port > 0 ? config.port : 22
+      let userAuthDelegate = SSHUserAuthDelegate(config: config)
+      let serverAuthDelegate = AcceptAllHostKeysDelegate(host: config.host, port: port)
+
+      let bootstrap = ClientBootstrap(group: eventLoopGroup)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
+        .channelInitializer { channel in
+          let sshHandler = NIOSSHHandler(
+            role: .client(
+              .init(
+                userAuthDelegate: userAuthDelegate,
+                serverAuthDelegate: serverAuthDelegate
+              )),
+            allocator: channel.allocator,
+            inboundChildChannelInitializer: nil
+          )
+          return channel.eventLoop.makeCompletedFuture {
+            try channel.pipeline.syncOperations.addHandler(sshHandler)
+          }
+        }
+
+      mainChannel = try await bootstrap.connect(host: config.host, port: port).get()
+      guard let channel = mainChannel else {
+        throw SSHError.connectionFailed("Failed to establish SSH connection")
+      }
+
+      // Brief wait for channel ready
+      try await Task.sleep(nanoseconds: 300_000_000)
+
+      let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
+      guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
+        throw SSHError.connectionFailed("SSH handler not found in pipeline")
+      }
+
+      var sftpHandlerRef: SFTPHandler?
+      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+        let sftpHandler = SFTPHandler(eventLoop: childChannel.eventLoop)
+        sftpHandlerRef = sftpHandler
+        return childChannel.pipeline.addHandler(sftpHandler)
+      }
+
+      sessionChannel = try await sessionPromise.futureResult.get()
+      guard let sftpChannel = sessionChannel, let sftpHandler = sftpHandlerRef else {
+        throw SSHError.connectionFailed("Failed to create SFTP session channel")
+      }
+
+      // Request SFTP subsystem and init
+      let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(subsystem: "sftp", wantReply: true)
+      let subsystemPromise = sftpChannel.eventLoop.makePromise(of: Void.self)
+      sftpChannel.triggerUserOutboundEvent(subsystemRequest, promise: subsystemPromise)
+      try await subsystemPromise.futureResult.get()
+      _ = try await sftpHandler.initialize(on: sftpChannel, version: 3)
+
+      let resolved = try await sftpHandler.realpath(on: sftpChannel, path: path)
+
+      try await sftpChannel.close().get()
+      try await channel.close().get()
+      try await eventLoopGroup.shutdownGracefully()
+      return resolved
+    } catch {
+      try? await sessionChannel?.close().get()
+      try? await mainChannel?.close().get()
+      try? await eventLoopGroup.shutdownGracefully()
+      throw error
+    }
+  }
+
   private func sftpReadAllEntries(
     handler: SFTPHandler,
     channel: Channel,
@@ -1013,12 +1117,10 @@ package struct SSHClient: SSHClientProtocol {
   // Removed shell fallback for directory listing. All directory operations now use SFTP only.
 
   package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
+    // Prefer SFTP REALPATH for resolving '~' to the user's home directory path
     do {
-      // Use clean execution to avoid bashrc contamination
-      let result = try await execCleanCommand("echo \"$HOME\"", config: config)
-
-      // Fallback to root if HOME is empty (shouldn't happen but safety first)
-      return result.isEmpty ? "/" : result
+      let resolved = try await sftpResolvePath("~", config: config)
+      return resolved
     } catch {
       // Handle CancellationError specifically
       if error is CancellationError {
@@ -1027,7 +1129,9 @@ package struct SSHClient: SSHClientProtocol {
         )
       }
 
-      throw error
+      // Fallback: try shell-based HOME discovery if SFTP is not available
+      let result = try await execCleanCommand("echo \"$HOME\"", config: config)
+      return result.isEmpty ? "/" : result
     }
   }
 
