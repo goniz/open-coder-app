@@ -266,7 +266,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
 
   private func parseAttrs(_ buffer: inout ByteBuffer) -> (mode: UInt32?, size: UInt64?, mtime: UInt32?) {
-    guard let flags: UInt32 = buffer.readInteger(endianness: .big) else { return (nil, nil) }
+    guard let flags: UInt32 = buffer.readInteger(endianness: .big) else { return (nil, nil, nil) }
     var mode: UInt32?
     var size: UInt64?
     var mtime: UInt32?
