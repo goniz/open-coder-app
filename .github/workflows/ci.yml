@@ -101,5 +101,14 @@ jobs:
         xcodebuild -downloadPlatform iOS
         xcrun simctl list runtimes
 
+    - name: Verify OpenSSH server availability
+      run: |
+        set -euxo pipefail
+        ls -l /usr/sbin/sshd
+        /usr/sbin/sshd -h || true
+        /usr/bin/ssh -V || true
+        /usr/bin/sftp -V || true
+        /usr/bin/ssh-keygen -V || true
+
     - name: Run Tests
       run: just test
