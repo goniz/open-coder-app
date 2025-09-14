@@ -25,6 +25,7 @@ private struct SFTPNameEntry: Sendable {
   let longname: String
   let mode: UInt32?
   let size: UInt64?
+  let mtime: UInt32?
 }
 
 private enum SFTPReadDirResult: Sendable {
@@ -107,9 +108,9 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       results.reserveCapacity(Int(count))
       for _ in 0..<count {
         guard let filename = readString(&buf), let longname = readString(&buf) else { break }
-        // Parse minimal attrs to consume buffer and detect dir/size when available
-        let (mode, size) = parseAttrs(&buf)
-        results.append(SFTPNameEntry(filename: filename, longname: longname, mode: mode, size: size))
+        // Parse attrs to detect dir/size/mtime when available
+        let (mode, size, mtime) = parseAttrs(&buf)
+        results.append(SFTPNameEntry(filename: filename, longname: longname, mode: mode, size: size, mtime: mtime))
       }
       return .names(results)
     } else if typeByte == PacketType.status.rawValue {
@@ -264,10 +265,11 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
     return (code, msg)
   }
 
-  private func parseAttrs(_ buffer: inout ByteBuffer) -> (mode: UInt32?, size: UInt64?) {
+  private func parseAttrs(_ buffer: inout ByteBuffer) -> (mode: UInt32?, size: UInt64?, mtime: UInt32?) {
     guard let flags: UInt32 = buffer.readInteger(endianness: .big) else { return (nil, nil) }
     var mode: UInt32?
     var size: UInt64?
+    var mtime: UInt32?
     if (flags & 0x00000001) != 0 { // size
       size = buffer.readInteger(endianness: .big)
     }
@@ -279,8 +281,8 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       mode = buffer.readInteger(endianness: .big)
     }
     if (flags & 0x00000008) != 0 { // atime/mtime
-      let _: UInt32? = buffer.readInteger(endianness: .big)
-      let _: UInt32? = buffer.readInteger(endianness: .big)
+      let _: UInt32? = buffer.readInteger(endianness: .big) // atime
+      mtime = buffer.readInteger(endianness: .big) // mtime
     }
     // Skip extended attributes if present (rare)
     if (flags & 0x80000000) != 0 {
@@ -290,7 +292,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
         _ = readString(&buffer)
       }
     }
-    return (mode, size)
+    return (mode, size, mtime)
   }
 }
 
@@ -961,12 +963,17 @@ package struct SSHClient: SSHClientProtocol {
           isDir = entry.longname.first == "d"
         }
         let size = entry.size.map { Int64($0) } ?? 0
+        let lastModified: Date = {
+          if let mtime = entry.mtime { return Date(timeIntervalSince1970: TimeInterval(mtime)) }
+          return Date(timeIntervalSince1970: 0)
+        }()
         return RemoteFileInfo(
           name: entry.filename,
           path: fullPath,
           isDirectory: isDir,
           size: size,
-          permissions: entry.longname
+          permissions: entry.longname,
+          lastModified: lastModified
         )
       }
 

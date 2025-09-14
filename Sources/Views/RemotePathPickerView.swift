@@ -16,6 +16,7 @@ struct RemotePathPickerView: View {
   @State private var errorMessage: String?
   @State private var pathHistory: [String] = ["~"]
   @State private var remoteHomeDirectory: String?
+  @State private var showHidden = false
 
   @Dependency(\.sshClient) private var sshClient
 
@@ -61,6 +62,15 @@ struct RemotePathPickerView: View {
             Image(systemName: "house")
           }
           .disabled(isLoading)
+        }
+
+        ToolbarItem(placement: .automatic) {
+          Button {
+            showHidden.toggle()
+          } label: {
+            Image(systemName: showHidden ? "eye" : "eye.slash")
+          }
+          .help(showHidden ? "Hide hidden files" : "Show hidden files")
         }
       }
     }
@@ -115,10 +125,20 @@ struct RemotePathPickerView: View {
   }
 
   private var fileListView: some View {
-    List(files) { file in
+    List(displayedFiles) { file in
       fileRowView(file)
     }
     .listStyle(.inset)
+  }
+
+  private var displayedFiles: [RemoteFileInfo] {
+    let filtered = showHidden ? files : files.filter { !$0.name.hasPrefix(".") }
+    // Sort by recency (lastModified desc), keeping directories first
+    return filtered.sorted { lhs, rhs in
+      if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory && !rhs.isDirectory }
+      if lhs.lastModified != rhs.lastModified { return lhs.lastModified > rhs.lastModified }
+      return lhs.name.lowercased() < rhs.name.lowercased()
+    }
   }
 
   private func fileRowView(_ file: RemoteFileInfo) -> some View {
