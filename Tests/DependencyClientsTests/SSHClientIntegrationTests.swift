@@ -2,6 +2,8 @@ import Foundation
 import Darwin
 import Crypto
 import XCTest
+import Models
+import DependencyClients
 
 /// Integration test that launches a temporary sshd bound to a random high port
 /// using only ephemeral files under a unique temp directory. It then validates
