@@ -9,11 +9,12 @@ struct RemotePathPickerView: View {
   let onPathSelected: (String) -> Void
   let onCancel: () -> Void
 
-  @State private var currentPath = "/"
+  // Display path uses '~' as the root instead of '/'
+  @State private var currentPath = "~"
   @State private var files: [RemoteFileInfo] = []
   @State private var isLoading = false
   @State private var errorMessage: String?
-  @State private var pathHistory: [String] = ["/"]
+  @State private var pathHistory: [String] = ["~"]
   @State private var remoteHomeDirectory: String?
 
   @Dependency(\.sshClient) private var sshClient
@@ -42,7 +43,7 @@ struct RemotePathPickerView: View {
 
         ToolbarItem(placement: .confirmationAction) {
           Button("Select") {
-            onPathSelected(currentPath)
+            onPathSelected(resolvePath(currentPath))
           }
         }
 
@@ -50,7 +51,7 @@ struct RemotePathPickerView: View {
           Button(action: goUp) {
             Image(systemName: "arrow.up")
           }
-          .disabled(currentPath == "/")
+          .disabled(currentPath == "~")
 
           Button {
             Task {
@@ -93,17 +94,23 @@ struct RemotePathPickerView: View {
   }
 
   private var pathComponents: [(name: String, path: String)] {
+    // Build breadcrumb components with '~' as root
     var components: [(name: String, path: String)] = []
-    let parts = currentPath.components(separatedBy: "/").filter { !$0.isEmpty }
-
-    components.append((name: "/", path: "/"))
-
-    var accumulatedPath = ""
-    for part in parts {
-      accumulatedPath += "/\(part)"
-      components.append((name: part, path: accumulatedPath))
+    if currentPath == "~" {
+      return [(name: "~", path: "~")]
     }
 
+    // Ensure we are working with display path (starts with '~')
+    let displayPath = currentPath.hasPrefix("~") ? currentPath : compressToTilde(currentPath)
+    let tail = displayPath.dropFirst(2) // drop '~/'
+    let parts = tail.split(separator: "/").map(String.init)
+
+    components.append((name: "~", path: "~"))
+    var accumulated = "~"
+    for part in parts {
+      accumulated += "/\(part)"
+      components.append((name: part, path: accumulated))
+    }
     return components
   }
 
@@ -148,7 +155,7 @@ struct RemotePathPickerView: View {
     .contentShape(Rectangle())
     .onTapGesture {
       if file.isDirectory {
-        navigateToPath(file.path)
+        navigateToPath(compressToTilde(file.path))
       }
     }
   }
@@ -184,9 +191,18 @@ struct RemotePathPickerView: View {
     errorMessage = nil
 
     do {
-      let directoryFiles = try await sshClient.listDirectory(path, config: config)
+      let directoryFiles = try await sshClient.listDirectory(resolvePath(path), config: config)
       await MainActor.run {
-        self.files = directoryFiles
+        // Convert absolute paths to display paths using '~' root
+        self.files = directoryFiles.map { info in
+          RemoteFileInfo(
+            name: info.name,
+            path: compressToTilde(info.path),
+            isDirectory: info.isDirectory,
+            size: info.size,
+            permissions: info.permissions
+          )
+        }
         self.isLoading = false
       }
     } catch {
@@ -223,11 +239,15 @@ struct RemotePathPickerView: View {
   }
 
   private func goUp() {
-    guard currentPath != "/" else { return }
+    guard currentPath != "~" else { return }
 
-    let parentPath = (currentPath as NSString).deletingLastPathComponent
-    let finalPath = parentPath.isEmpty ? "/" : parentPath
-    navigateToPath(finalPath)
+    // Compute parent on display path
+    if let range = currentPath.range(of: "/", options: .backwards) {
+      let parent = String(currentPath[..<range.lowerBound])
+      navigateToPath(parent.isEmpty ? "~" : parent)
+    } else {
+      navigateToPath("~")
+    }
   }
 
   private func initializeStartingDirectory() async {
@@ -236,47 +256,56 @@ struct RemotePathPickerView: View {
       let homePath = try await sshClient.getRemoteHomeDirectory(config: config)
       await MainActor.run {
         self.remoteHomeDirectory = homePath
-        self.currentPath = homePath
-        self.pathHistory = [homePath]
+        self.currentPath = "~"
+        self.pathHistory = ["~"]
       }
-      await loadDirectory(homePath)
+      await loadDirectory("~")
     } catch {
-      // Try to fall back to user's home first, then root as last resort
+      // Fall back to user's home path guess, represented as '~'
       let fallbackPath = "/home/\(config.username)"
 
       await MainActor.run {
         self.errorMessage =
           "Failed to determine home directory (\(error.localizedDescription)). "
-          + "Trying \(fallbackPath)..."
-        self.currentPath = fallbackPath
-        self.pathHistory = [fallbackPath]
+          + "Using '~' as home..."
+        self.remoteHomeDirectory = fallbackPath
+        self.currentPath = "~"
+        self.pathHistory = ["~"]
       }
 
-      // Try the fallback path
+      // Try the fallback home path via '~'
       do {
         let files = try await sshClient.listDirectory(fallbackPath, config: config)
         await MainActor.run {
-          self.files = files
+          self.files = files.map { info in
+            RemoteFileInfo(
+              name: info.name,
+              path: compressToTilde(info.path),
+              isDirectory: info.isDirectory,
+              size: info.size,
+              permissions: info.permissions
+            )
+          }
           self.isLoading = false
           self.errorMessage = nil // Clear error if successful
-          self.remoteHomeDirectory = fallbackPath
         }
       } catch {
-        // Last resort: try root directory
+        // Last resort: use '/' as actual, but keep '~' as display root
         await MainActor.run {
-          self.currentPath = "/"
-          self.pathHistory = ["/"]
-          self.errorMessage = "Could not access home directory, starting at root"
+          self.remoteHomeDirectory = "/"
+          self.currentPath = "~"
+          self.pathHistory = ["~"]
+          self.errorMessage = "Could not access home directory, using '~' mapped to '/'"
         }
-        await loadDirectory("/")
+        await loadDirectory("~")
       }
     }
   }
 
   private func goHome() async {
     // Use cached home directory if available
-    if let cachedHome = remoteHomeDirectory {
-      navigateToPath(cachedHome)
+    if remoteHomeDirectory != nil {
+      navigateToPath("~")
       return
     }
 
@@ -285,14 +314,33 @@ struct RemotePathPickerView: View {
       let homePath = try await sshClient.getRemoteHomeDirectory(config: config)
       await MainActor.run {
         self.remoteHomeDirectory = homePath
-        navigateToPath(homePath)
+        navigateToPath("~")
       }
     } catch {
       await MainActor.run {
-        // Fallback to root directory if home directory can't be determined
-        navigateToPath("/")
+        // Fallback to '~' mapped to '/' if home directory can't be determined
+        self.remoteHomeDirectory = "/"
+        navigateToPath("~")
       }
     }
+  }
+
+  // MARK: - Path helpers
+
+  private func resolvePath(_ path: String) -> String {
+    guard let home = remoteHomeDirectory else { return path }
+    if path == "~" { return home }
+    if path.hasPrefix("~/") { return home + String(path.dropFirst(1)) }
+    return path
+  }
+
+  private func compressToTilde(_ absolutePath: String) -> String {
+    guard let home = remoteHomeDirectory, !home.isEmpty else { return absolutePath }
+    if absolutePath == home { return "~" }
+    if absolutePath.hasPrefix(home + "/") {
+      return "~" + String(absolutePath.dropFirst(home.count))
+    }
+    return absolutePath
   }
 
   private func formatFileSize(_ bytes: Int64) -> String {
