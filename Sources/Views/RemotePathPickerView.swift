@@ -23,13 +23,19 @@ struct RemotePathPickerView: View {
   var body: some View {
     NavigationStack {
       VStack {
-        pathBreadcrumbView
+        BreadcrumbView(
+          components: pathComponents,
+          currentPath: currentPath,
+          onSelect: { navigateToPath($0) }
+        )
 
         if isLoading {
           ProgressView("Loading directory...")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage = errorMessage {
-          errorView(errorMessage)
+          ErrorView(message: errorMessage) {
+            Task { await loadDirectory(currentPath) }
+          }
         } else {
           fileListView
         }
@@ -80,29 +86,6 @@ struct RemotePathPickerView: View {
     }
   }
 
-  private var pathBreadcrumbView: some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      HStack {
-        ForEach(Array(pathComponents.enumerated()), id: \.offset) { _, component in
-          Button(component.name) {
-            navigateToPath(component.path)
-          }
-          .buttonStyle(.borderless)
-          .foregroundColor(.accentColor)
-
-          if component.path != currentPath {
-            Image(systemName: "chevron.right")
-              .foregroundColor(.secondary)
-              .font(.caption)
-          }
-        }
-      }
-      .padding(.horizontal)
-    }
-    .frame(height: 30)
-    .background(Color.gray.opacity(0.1))
-  }
-
   private var pathComponents: [(name: String, path: String)] {
     // Build breadcrumb components with '~' as root
     var components: [(name: String, path: String)] = []
@@ -126,7 +109,11 @@ struct RemotePathPickerView: View {
 
   private var fileListView: some View {
     List(displayedFiles) { file in
-      fileRowView(file)
+      FileRowView(file: file) {
+        if file.isDirectory {
+          navigateToPath(compressToTilde(file.path))
+        }
+      }
     }
     .listStyle(.inset)
   }
@@ -139,71 +126,6 @@ struct RemotePathPickerView: View {
       if lhs.lastModified != rhs.lastModified { return lhs.lastModified > rhs.lastModified }
       return lhs.name.lowercased() < rhs.name.lowercased()
     }
-  }
-
-  private func fileRowView(_ file: RemoteFileInfo) -> some View {
-    HStack {
-      Image(systemName: file.isDirectory ? "folder.fill" : "doc.fill")
-        .foregroundColor(file.isDirectory ? .blue : .secondary)
-        .frame(width: 20)
-
-      VStack(alignment: .leading, spacing: 2) {
-        Text(file.name)
-          .font(.body)
-
-        HStack {
-          Text(file.permissions)
-            .font(.caption)
-            .foregroundColor(.secondary)
-
-          if !file.isDirectory && file.size > 0 {
-            Text(formatFileSize(file.size))
-              .font(.caption)
-              .foregroundColor(.secondary)
-          }
-        }
-      }
-
-      Spacer()
-
-      if file.isDirectory {
-        Image(systemName: "chevron.right")
-          .foregroundColor(.secondary)
-          .font(.caption)
-      }
-    }
-    .contentShape(Rectangle())
-    .onTapGesture {
-      if file.isDirectory {
-        navigateToPath(compressToTilde(file.path))
-      }
-    }
-  }
-
-  private func errorView(_ message: String) -> some View {
-    VStack(spacing: 20) {
-      Image(systemName: "exclamationmark.triangle")
-        .font(.system(size: 48))
-        .foregroundColor(.orange)
-
-      Text("Error")
-        .font(.title2)
-        .fontWeight(.medium)
-
-      Text(message)
-        .font(.body)
-        .foregroundColor(.secondary)
-        .multilineTextAlignment(.center)
-
-      Button("Retry") {
-        Task {
-          await loadDirectory(currentPath)
-        }
-      }
-      .buttonStyle(.borderedProminent)
-    }
-    .padding()
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private func loadDirectory(_ path: String) async {
@@ -247,7 +169,6 @@ struct RemotePathPickerView: View {
       }
     }
   }
-
   private func navigateToPath(_ path: String) {
     if path != currentPath {
       pathHistory.append(currentPath)
@@ -370,15 +291,98 @@ struct RemotePathPickerView: View {
   }
 }
 
-#Preview {
-  RemotePathPickerView(
-    config: SSHServerConfiguration(
-      host: "example.com",
-      username: "user",
-      password: "password",
-      useKeyAuthentication: false
-    ),
-    onPathSelected: { _ in },
-    onCancel: {}
-  )
+// MARK: - Subviews
+
+private struct BreadcrumbView: View {
+  let components: [(name: String, path: String)]
+  let currentPath: String
+  let onSelect: (String) -> Void
+
+  var body: some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack {
+        ForEach(Array(components.enumerated()), id: \.offset) { _, component in
+          Button(component.name) { onSelect(component.path) }
+            .buttonStyle(.borderless)
+            .foregroundColor(.accentColor)
+
+          if component.path != currentPath {
+            Image(systemName: "chevron.right")
+              .foregroundColor(.secondary)
+              .font(.caption)
+          }
+        }
+      }
+      .padding(.horizontal)
+    }
+    .frame(height: 30)
+    .background(Color.gray.opacity(0.1))
+  }
+}
+
+private struct FileRowView: View {
+  let file: RemoteFileInfo
+  let onTap: () -> Void
+
+  var body: some View {
+    HStack {
+      Image(systemName: file.isDirectory ? "folder.fill" : "doc.fill")
+        .foregroundColor(file.isDirectory ? .blue : .secondary)
+        .frame(width: 20)
+
+      VStack(alignment: .leading, spacing: 2) {
+        Text(file.name)
+          .font(.body)
+
+        HStack {
+          Text(file.permissions)
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+          if !file.isDirectory && file.size > 0 {
+            Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+              .font(.caption)
+              .foregroundColor(.secondary)
+          }
+        }
+      }
+
+      Spacer()
+
+      if file.isDirectory {
+        Image(systemName: "chevron.right")
+          .foregroundColor(.secondary)
+          .font(.caption)
+      }
+    }
+    .contentShape(Rectangle())
+    .onTapGesture { onTap() }
+  }
+}
+
+private struct ErrorView: View {
+  let message: String
+  let onRetry: () -> Void
+
+  var body: some View {
+    VStack(spacing: 20) {
+      Image(systemName: "exclamationmark.triangle")
+        .font(.system(size: 48))
+        .foregroundColor(.orange)
+
+      Text("Error")
+        .font(.title2)
+        .fontWeight(.medium)
+
+      Text(message)
+        .font(.body)
+        .foregroundColor(.secondary)
+        .multilineTextAlignment(.center)
+
+      Button("Retry", action: onRetry)
+        .buttonStyle(.borderedProminent)
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
 }
