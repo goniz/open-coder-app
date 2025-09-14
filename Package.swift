@@ -207,7 +207,11 @@ struct SingleTargetLibrary {
   }
 
   var testTarget: Target {
-    .testTarget(
-      name: name + "Tests", dependencies: [targetDependency, customDump.targetDependency], plugins: plugins)
+    var deps: [Target.Dependency] = [targetDependency, customDump.targetDependency]
+    if name == "DependencyClients" {
+      deps.append(models.targetDependency)
+    }
+    return .testTarget(
+      name: name + "Tests", dependencies: deps, plugins: plugins)
   }
 }

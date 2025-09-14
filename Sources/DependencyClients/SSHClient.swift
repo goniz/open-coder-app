@@ -581,26 +581,25 @@ package struct SSHClient: SSHClientProtocol {
       // Create a session channel to execute the command
       let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
 
-      // Get the SSH handler from the main channel
-      guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
-        throw SSHError.connectionFailed("SSH handler not found in pipeline")
-      }
-
-      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-        // Add command output handler to capture stdout/stderr
-        let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
-        return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-          // Signal that channel is ready
-          Task {
-            await AppLogger.shared.log(
-              "SSH session channel created and handler attached",
-              level: .debug,
-              category: .ssh
-            )
+      // Create the session via the SSH handler on the event loop
+      let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+        let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+        sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+          // Add command output handler to capture stdout/stderr
+          let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
+          return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
+            Task {
+              await AppLogger.shared.log(
+                "SSH session channel created and handler attached",
+                level: .debug,
+                category: .ssh
+              )
+            }
+            return childChannel.eventLoop.makeSucceededFuture(())
           }
-          return childChannel.eventLoop.makeSucceededFuture(())
         }
       }
+      try await creationFuture.get()
 
       sessionChannel = try await sessionPromise.futureResult.get()
 
@@ -608,17 +607,18 @@ package struct SSHClient: SSHClientProtocol {
         throw SSHError.connectionFailed("Failed to create SSH session channel")
       }
 
+      // Give the session channel a brief moment to settle
+      try await Task.sleep(nanoseconds: 200_000_000)
+      guard session.isActive else {
+        throw SSHError.connectionFailed("Session channel became inactive before exec request")
+      }
+
       // Now send the exec request after the channel is established
       let execRequest = SSHChannelRequestEvent.ExecRequest(
         command: command,
-        wantReply: true
+        wantReply: false
       )
-
-      let execPromise = session.eventLoop.makePromise(of: Void.self)
-      session.triggerUserOutboundEvent(execRequest, promise: execPromise)
-
-      // Wait for the exec request to be acknowledged
-      try await execPromise.futureResult.get()
+      session.triggerUserOutboundEvent(execRequest, promise: nil)
       await AppLogger.shared.log(
         "Command exec request sent: \(command.prefix(100))",
         level: .debug,
@@ -686,13 +686,14 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   private func getCommandOutput(from channel: Channel) async throws -> String {
-    // Try to get the output handler from the channel pipeline
-    if let outputHandler = try? channel.pipeline.syncOperations.handler(
-      type: CommandOutputHandler.self) {
-      return try await outputHandler.waitForOutput()
-    } else {
-      throw SSHError.commandFailed("Output handler not found in channel pipeline")
-    }
+    // Access handler.futureResult on the channel's event loop to avoid syncOperations off-EL
+    let future: EventLoopFuture<String> = channel.eventLoop
+      .submit {
+        let handler = try channel.pipeline.syncOperations.handler(type: CommandOutputHandler.self)
+        return handler.completionFuture
+      }
+      .flatMap { $0 }
+    return try await future.get()
   }
 
   package func execCleanCommand(
@@ -723,9 +724,13 @@ package struct SSHClient: SSHClientProtocol {
         )
       }
 
+      // No platform-specific CLI fallback; propagate the original error
+
       throw error
     }
   }
+
+  // MARK: - OpenSSH CLI fallback
 
   package func extractCleanOutput(from output: String, startMarker: String, endMarker: String)
     -> String {
@@ -810,16 +815,15 @@ package struct SSHClient: SSHClientProtocol {
         .init(targetHost: host, targetPort: port, originatorAddress: originatorAddress)
       )
 
-      // Get the existing SSH handler from the channel pipeline
-      guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
-        throw SSHError.connectionFailed("SSH handler not found in pipeline")
+      // Create the channel via the SSH handler on the event loop
+      let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+        let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+        sshHandler.createChannel(promise, channelType: channelType) { childChannel, _ in
+          // Set up the channel for direct TCP/IP forwarding
+          return childChannel.eventLoop.makeSucceededFuture(())
+        }
       }
-
-      sshHandler.createChannel(promise, channelType: channelType) { childChannel, _ in
-        // Set up the channel for direct TCP/IP forwarding
-        // In a real implementation, you would add handlers here to bridge the TCP stream
-        return childChannel.eventLoop.makeSucceededFuture(())
-      }
+      try await creationFuture.get()
 
       tcpChannel = try await promise.futureResult.get()
 
@@ -2149,12 +2153,10 @@ package struct SSHConnection: Sendable {
     // Create a session channel to execute the command
     let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
 
-    // Get the SSH handler from the main channel
-    guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
-      throw SSHError.connectionFailed("SSH handler not found in pipeline")
-    }
-
-    sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+    // Create the session via the SSH handler on the event loop
+    let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+      let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
       // Add command output handler to capture stdout/stderr
       let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
       return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
@@ -2169,20 +2171,23 @@ package struct SSHConnection: Sendable {
         return childChannel.eventLoop.makeSucceededFuture(())
       }
     }
+    }
+    try await creationFuture.get()
 
     let sessionChannel = try await sessionPromise.futureResult.get()
+
+    // Allow the session channel to settle
+    try await Task.sleep(nanoseconds: 200_000_000)
+    guard sessionChannel.isActive else {
+      throw SSHError.connectionFailed("Session channel inactive before exec request")
+    }
 
     // Now send the exec request after the channel is established
     let execRequest = SSHChannelRequestEvent.ExecRequest(
       command: command,
-      wantReply: true
+      wantReply: false
     )
-
-    let execPromise = sessionChannel.eventLoop.makePromise(of: Void.self)
-    sessionChannel.triggerUserOutboundEvent(execRequest, promise: execPromise)
-
-    // Wait for the exec request to be acknowledged
-    try await execPromise.futureResult.get()
+    sessionChannel.triggerUserOutboundEvent(execRequest, promise: nil)
     await AppLogger.shared.log(
       "Command exec request sent via connection pool: \(command.prefix(100))",
       level: .debug,
@@ -2233,13 +2238,13 @@ package struct SSHConnection: Sendable {
   }
 
   private func getCommandOutput(from channel: Channel) async throws -> String {
-    // Try to get the output handler from the channel pipeline
-    if let outputHandler = try? channel.pipeline.syncOperations.handler(
-      type: CommandOutputHandler.self) {
-      return try await outputHandler.waitForOutput()
-    } else {
-      throw SSHError.commandFailed("Output handler not found in channel pipeline")
-    }
+    let future: EventLoopFuture<String> = channel.eventLoop
+      .submit {
+        let handler = try channel.pipeline.syncOperations.handler(type: CommandOutputHandler.self)
+        return handler.completionFuture
+      }
+      .flatMap { $0 }
+    return try await future.get()
   }
 }
 

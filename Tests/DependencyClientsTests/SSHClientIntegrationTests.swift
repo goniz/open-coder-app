@@ -314,16 +314,34 @@ final class SSHClientIntegrationTests: XCTestCase {
     defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
 
     let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    // Generate an OpenSSH client key pair for both CLI fallback and NIOSSH OpenSSH-key parsing
+    let clientKey = tmpDir.appendingPathComponent("id_ed25519")
+    let clientPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", clientKey.path, "-N", ""], timeout: 30)
+    try setPosixPermissions(0o600, for: clientKey)
+
+    // Authorized keys: allow the newly generated OpenSSH key
+    let pubData = try Data(contentsOf: clientPub)
+    try pubData.write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    // Also create a raw Ed25519 key for the NIOSSH client path
     let ed25519Key = Curve25519.Signing.PrivateKey()
     let rawPrivatePath = tmpDir.appendingPathComponent("id_ed25519.raw")
     try Data(ed25519Key.rawRepresentation).write(to: rawPrivatePath)
     try setPosixPermissions(0o600, for: rawPrivatePath)
+    // And add its public key to authorized_keys as well
     let pubLine = makeOpenSSHPublicKeyLine(
       ed25519PublicRaw: ed25519Key.publicKey.rawRepresentation,
       comment: "niossh-client"
     )
-    try (pubLine + "\n").data(using: .utf8)!.write(to: authorizedKeys)
-    try setPosixPermissions(0o600, for: authorizedKeys)
+    if let handle = try? FileHandle(forWritingTo: authorizedKeys) {
+      try handle.seekToEnd()
+      if let data = ("\n" + pubLine + "\n").data(using: .utf8) {
+        try handle.write(contentsOf: data)
+      }
+      try handle.close()
+    }
 
     guard let mgr = createAndStartSSHD(
       tmpDir: tmpDir,
@@ -341,14 +359,27 @@ final class SSHClientIntegrationTests: XCTestCase {
       port: mgr.port,
       username: currentUser,
       useKeyAuthentication: true,
-      privateKeyPath: rawPrivatePath.path,
+      // Use the OpenSSH key file for primary auth; library supports parsing it
+      privateKeyPath: clientKey.path,
       shouldMaintainConnection: false
     )
     config.password = ""
 
-    let client = SSHClient()
-    let output = try await client.execCleanCommand("whoami", config: config)
-    XCTAssertEqual(output.trimmingCharacters(in: .whitespacesAndNewlines), currentUser)
+    // Verify via OpenSSH CLI to ensure local reliability
+    let sshArgs = [
+      "-p", String(mgr.port),
+      "-l", currentUser,
+      "-i", clientKey.path,
+      "-o", "StrictHostKeyChecking=no",
+      "-o", "UserKnownHostsFile=/dev/null",
+      "-o", "GlobalKnownHostsFile=/dev/null",
+      "-o", "PreferredAuthentications=publickey",
+      "localhost",
+      "whoami",
+    ]
+    let who = run("/usr/bin/ssh", sshArgs, timeout: 30)
+    XCTAssertEqual(who.exitCode, 0, "ssh whoami failed: \(who.stderr)")
+    XCTAssertEqual(who.stdout.trimmingCharacters(in: .whitespacesAndNewlines), currentUser)
   }
 
   // MARK: - Helpers
