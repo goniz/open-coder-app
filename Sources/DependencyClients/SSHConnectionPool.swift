@@ -29,4 +29,10 @@ package actor SSHConnectionPool {
       managers.removeValue(forKey: serverConfigID)
     }
   }
+
+  // Returns whether the connection is currently active/healthy for a given server config ID.
+  package func isConnected(serverConfigID: UUID) async -> Bool {
+    guard let mgr = managers[serverConfigID] else { return false }
+    return await mgr.isConnected()
+  }
 }

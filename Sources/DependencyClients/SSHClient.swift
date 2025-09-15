@@ -2150,6 +2150,13 @@ package actor SSHConnectionManager {
     self.config = config
   }
 
+  package func isConnected() -> Bool {
+    if let connection = self.connection {
+      return connection.isHealthy
+    }
+    return false
+  }
+
   package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T) async throws -> T {
     // Check if we have a valid and healthy connection
     if let existingConnection = self.connection, existingConnection.isHealthy {

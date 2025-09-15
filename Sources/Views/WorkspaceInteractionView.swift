@@ -35,6 +35,8 @@ struct WorkspaceInteractionView: View {
         }
       }
       .navigationTitle(store.workspace.name)
+      .task { await store.send(.task).finish() }
+      .task(id: store.onlineState) { await store.send(.task).finish() }
     }
   }
 
@@ -49,7 +51,10 @@ struct WorkspaceInteractionView: View {
           .foregroundColor(.secondary)
       }
       Spacer()
-      statusPill
+      HStack(spacing: 8) {
+        serverBadge
+        statusPill
+      }
     }
     .padding()
     .background(.quaternary)
@@ -63,6 +68,36 @@ struct WorkspaceInteractionView: View {
       case let .spawning(phase): return (.orange, phase.rawValue)
       case let .online(port): return (.green, "Online :\(port)")
       case .error: return (.red, "Error")
+      }
+    }()
+
+    return HStack(spacing: 6) {
+      Circle().fill(color).frame(width: 8, height: 8)
+      Text(text).font(.caption)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
+    .background(color.opacity(0.15))
+    .cornerRadius(12)
+  }
+
+  private var serverBadge: some View {
+    let state = store.serverConnection
+    let color: Color = {
+      switch state {
+      case .connected: return .green
+      case .connecting: return .orange
+      case .error: return .red
+      case .disconnected: return .gray
+      }
+    }()
+
+    let text: String = {
+      switch state {
+      case .connected: return "SSH"
+      case .connecting: return "SSH"
+      case .error: return "SSH"
+      case .disconnected: return "SSH"
       }
     }()
 
