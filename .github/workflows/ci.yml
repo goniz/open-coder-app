@@ -96,11 +96,6 @@ jobs:
     - name: Configure macro package trust
       run: defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
-    - name: Install iOS Simulator Runtime
-      run: |
-        xcodebuild -downloadPlatform iOS
-        xcrun simctl list runtimes
-
     - name: Verify OpenSSH server availability
       run: |
         set -euxo pipefail
