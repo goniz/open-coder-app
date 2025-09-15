@@ -571,7 +571,9 @@ package struct SSHClient: SSHClientProtocol {
       }
       try await creationFuture.get()
 
-      sessionChannel = try await sessionPromise.futureResult.get()
+      sessionChannel = try await withTimeout(seconds: 15) {
+        try await sessionPromise.futureResult.get()
+      }
 
       guard let session = sessionChannel else {
         throw SSHError.connectionFailed("Failed to create SSH session channel")
@@ -969,8 +971,9 @@ package struct SSHClient: SSHClientProtocol {
       }
       try await creationFuture.get()
 
-      sessionChannel = try await sessionPromise.futureResult.get()
-      guard let sftpChannel = sessionChannel else { throw SSHError.connectionFailed("Failed to create SFTP session channel") }
+      let sftpChannel: Channel = try await withTimeout(seconds: 15) {
+        try await sessionPromise.futureResult.get()
+      }
 
       // Now add our SFTP handler on the child channel's event loop
       let sftpHandler = SFTPHandler(eventLoop: sftpChannel.eventLoop)
@@ -1130,6 +1133,8 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   private var outputBuffer = Data()
   private var errorBuffer = Data()
   private var isComplete = false
+  private var receivedExit = false
+  private var exitStatusCode: Int32 = -1
   private let completionPromise: EventLoopPromise<String>
 
   var completionFuture: EventLoopFuture<String> {
@@ -1240,58 +1245,29 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 
   private func handleExitStatus(_ exitStatusEvent: SSHChannelRequestEvent.ExitStatus) {
-    let wasComplete = isComplete
-    isComplete = true
-
-    guard !wasComplete else { return }
-
-    if exitStatusEvent.exitStatus == 0 {
-      // Command completed successfully
-      let output = String(data: outputBuffer, encoding: .utf8) ?? ""
-      Task {
-        await AppLogger.shared.log(
-          "Command completed with exit code 0, output length: \(output.count)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      completionPromise.succeed(output)
-    } else {
-      // Command failed
-      let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
-      let errorOutput = stderr.isEmpty
-        ? "Command failed with exit code \(exitStatusEvent.exitStatus)"
-        : stderr
-      Task {
-        await AppLogger.shared.log(
-          "Command failed with exit code \(exitStatusEvent.exitStatus): \(errorOutput)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      completionPromise.fail(SSHError.commandFailed(errorOutput))
+    // Record status and defer completion until channel closes so we don't race stdout reads.
+    receivedExit = true
+    exitStatusCode = Int32(exitStatusEvent.exitStatus)
+    Task {
+      await AppLogger.shared.log(
+        "Command exit status received: \(exitStatusEvent.exitStatus)",
+        level: .debug,
+        category: .ssh
+      )
     }
   }
 
   private func handleExitSignal(_ exitSignal: SSHChannelRequestEvent.ExitSignal) {
-    let wasComplete = isComplete
-    isComplete = true
-
-    guard !wasComplete else { return }
-
-    // Command was terminated by signal
-      let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
-      let errorOutput = stderr.isEmpty
-        ? "Command terminated by signal"
-        : "\(stderr) (terminated by signal)"
-      Task {
-        await AppLogger.shared.log(
-          "Command terminated by signal",
-          level: .debug,
-          category: .ssh
-        )
-      }
-    completionPromise.fail(SSHError.commandFailed(errorOutput))
+    // Treat as failure; we'll finalize on channel close but store state
+    receivedExit = true
+    exitStatusCode = -1
+    Task {
+      await AppLogger.shared.log(
+        "Command terminated by signal",
+        level: .debug,
+        category: .ssh
+      )
+    }
   }
 
   func waitForOutput() async throws -> String {
@@ -1303,30 +1279,31 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
     isComplete = true
 
     if !wasComplete {
-      // Channel closed without receiving exit status
+      // Finalize based on recorded exit status (if any) and collected buffers.
+      isComplete = true
       let output = String(data: outputBuffer, encoding: .utf8) ?? ""
       let errorOutput = String(data: errorBuffer, encoding: .utf8) ?? ""
 
-      Task {
-        await AppLogger.shared.log(
-          "Channel closed without exit status. Output length: \(output.count), Error length: \(errorOutput.count)",
-          level: .warning,
-          category: .ssh
-        )
-      }
-
-      // If we have output, consider it successful (some commands don't send exit status)
-      if !output.isEmpty {
-        completionPromise.succeed(output)
-      } else if !errorOutput.isEmpty {
-        // If we only have error output, fail with that
-        completionPromise.fail(SSHError.commandFailed(errorOutput))
+      if receivedExit {
+        if exitStatusCode == 0 {
+          completionPromise.succeed(output)
+        } else {
+          let message = errorOutput.isEmpty
+            ? "Command failed with exit code \(exitStatusCode)"
+            : errorOutput
+          completionPromise.fail(SSHError.commandFailed(message))
+        }
       } else {
-        // No output at all - channel was likely closed prematurely
-        // This is the NIOCore.ChannelError error 6 scenario
-        completionPromise.fail(
-          SSHError.connectionFailed(
-            "SSH channel closed unexpectedly - the connection may have been terminated by the server"))
+        // No exit status observed. Heuristic: prefer stdout, else stderr, else connection failure.
+        if !output.isEmpty {
+          completionPromise.succeed(output)
+        } else if !errorOutput.isEmpty {
+          completionPromise.fail(SSHError.commandFailed(errorOutput))
+        } else {
+          completionPromise.fail(
+            SSHError.connectionFailed(
+              "SSH channel closed unexpectedly - the connection may have been terminated by the server"))
+        }
       }
     }
   }
@@ -1564,32 +1541,38 @@ extension SSHUserAuthDelegate {
   // Parses the outer OpenSSH key envelope and returns the private key blob.
   private static func parseOpenSSHPrivateBlob(from decodedData: Data) throws -> Data {
     var index = decodedData.startIndex
+
+    func ensureAvailable(_ count: Int) -> Bool {
+      return decodedData.distance(from: index, to: decodedData.endIndex) >= count
+    }
     func readUInt32() -> UInt32? {
-      guard decodedData.distance(from: index, to: decodedData.endIndex) >= 4 else { return nil }
-      let value = decodedData[index..<(index + 4)].withUnsafeBytes { ptr -> UInt32 in
-        ptr.load(as: UInt32.self).bigEndian
-      }
+      guard ensureAvailable(4) else { return nil }
+      let b0 = UInt32(decodedData[index])
+      let b1 = UInt32(decodedData[index + 1])
+      let b2 = UInt32(decodedData[index + 2])
+      let b3 = UInt32(decodedData[index + 3])
       index += 4
-      return value
+      return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
     }
     func readStringBytes() -> Data? {
       guard let length = readUInt32() else { return nil }
       let intLength = Int(length)
-      guard decodedData.distance(from: index, to: decodedData.endIndex) >= intLength else { return nil }
+      guard ensureAvailable(intLength) else { return nil }
       let sub = decodedData[index..<(index + intLength)]
       index += intLength
       return Data(sub)
     }
 
-    // Verify header "openssh-key-v1\0"
-    guard let magic = readStringBytes(), String(data: magic, encoding: .utf8) == "openssh-key-v1" else {
+    // Verify magic bytes: "openssh-key-v1\0"
+    let magicBytes = Array("openssh-key-v1\0".utf8)
+    guard ensureAvailable(magicBytes.count) else {
+      throw SSHConnectionError.keyAuthenticationFailed("OpenSSH key too short")
+    }
+    let prefix = decodedData[index..<(index + magicBytes.count)]
+    guard Array(prefix) == magicBytes else {
       throw SSHConnectionError.keyAuthenticationFailed("Not an OpenSSH v1 key")
     }
-    // Skip the NUL after magic in the binary format
-    guard index < decodedData.endIndex, decodedData[index] == 0 else {
-      throw SSHConnectionError.keyAuthenticationFailed("Invalid OpenSSH key header")
-    }
-    index += 1
+    index += magicBytes.count
 
     // ciphername, kdfname, kdfoptions
     guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfOptions = readStringBytes() else {
@@ -1598,16 +1581,14 @@ extension SSHUserAuthDelegate {
     if String(data: ciphername, encoding: .utf8) != "none" || String(data: kdfname, encoding: .utf8) != "none" {
       throw SSHConnectionError.keyAuthenticationFailed("Encrypted OpenSSH keys are not supported")
     }
-    if !kdfOptions.isEmpty {
-      // Should be empty when kdf "none"; tolerate but ignore.
-    }
+    _ = kdfOptions // ignored for none
 
     // number of keys (uint32)
     guard let keyCount = readUInt32(), keyCount == 1 else {
       throw SSHConnectionError.keyAuthenticationFailed("Unexpected key count in OpenSSH key")
     }
 
-    // public key blob (string)
+    // public key blob (string) - skip
     guard readStringBytes() != nil else {
       throw SSHConnectionError.keyAuthenticationFailed("Missing public key blob")
     }
@@ -1616,7 +1597,6 @@ extension SSHUserAuthDelegate {
     guard let privateBlob = readStringBytes() else {
       throw SSHConnectionError.keyAuthenticationFailed("Missing private key blob")
     }
-
     return privateBlob
   }
 
@@ -1627,9 +1607,12 @@ extension SSHUserAuthDelegate {
 
     func readUInt32() -> UInt32? {
       guard blob.distance(from: index, to: blob.endIndex) >= 4 else { return nil }
-      let value = blob[index..<(index + 4)].withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+      let b0 = UInt32(blob[index])
+      let b1 = UInt32(blob[index + 1])
+      let b2 = UInt32(blob[index + 2])
+      let b3 = UInt32(blob[index + 3])
       index += 4
-      return value
+      return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
     }
     func readString() -> Data? {
       guard let length = readUInt32() else { return nil }
