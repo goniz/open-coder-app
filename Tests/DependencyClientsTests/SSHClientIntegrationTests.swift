@@ -240,6 +240,7 @@ final class SSHClientIntegrationTests: XCTestCase {
       "-o", "StrictHostKeyChecking=no",
       "-o", "UserKnownHostsFile=/dev/null",
       "-o", "GlobalKnownHostsFile=/dev/null",
+      "-o", "IdentitiesOnly=yes",
       "-o", "PreferredAuthentications=publickey",
       "-o", "ConnectTimeout=5",
     ]
@@ -278,6 +279,7 @@ final class SSHClientIntegrationTests: XCTestCase {
       "-o", "StrictHostKeyChecking=no",
       "-o", "UserKnownHostsFile=/dev/null",
       "-o", "GlobalKnownHostsFile=/dev/null",
+      "-o", "IdentitiesOnly=yes",
       "-o", "PreferredAuthentications=publickey",
       "\(currentUser)@localhost",
     ]
@@ -375,6 +377,7 @@ final class SSHClientIntegrationTests: XCTestCase {
       "-o", "StrictHostKeyChecking=no",
       "-o", "UserKnownHostsFile=/dev/null",
       "-o", "GlobalKnownHostsFile=/dev/null",
+      "-o", "IdentitiesOnly=yes",
       "-o", "PreferredAuthentications=publickey",
       "localhost",
       "whoami",
@@ -673,6 +676,7 @@ final class SSHClientIntegrationTests: XCTestCase {
           "-o", "StrictHostKeyChecking=no",
           "-o", "UserKnownHostsFile=/dev/null",
           "-o", "GlobalKnownHostsFile=/dev/null",
+          "-o", "IdentitiesOnly=yes",
           "-o", "PreferredAuthentications=publickey",
           "-o", "ConnectTimeout=2",
           "localhost",
