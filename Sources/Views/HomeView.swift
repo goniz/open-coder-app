@@ -18,14 +18,6 @@ struct HomeView: View {
         set: { store.send(.tabSelected($0)) }
       )
     ) {
-      WorkspacesView(
-        store: store.scope(state: \.workspaces, action: \.workspaces)
-      )
-      .tabItem {
-        Label("Workspaces", systemImage: "folder.badge.gear")
-      }
-      .tag(HomeFeature.Tab.workspaces)
-
       ServersView(
         store: store.scope(state: \.servers, action: \.servers),
         onStartTask: { task in
@@ -37,17 +29,13 @@ struct HomeView: View {
       }
       .tag(HomeFeature.Tab.servers)
 
-      ProjectsView(store: store.scope(state: \.projects, action: \.projects))
-        .tabItem {
-          Label("Projects", systemImage: "folder")
-        }
-        .tag(HomeFeature.Tab.projects)
-
-      ChatView(store: store.scope(state: \.chat, action: \.chat))
-        .tabItem {
-          Label("Chat", systemImage: "message")
-        }
-        .tag(HomeFeature.Tab.chat)
+      WorkspacesView(
+        store: store.scope(state: \.workspaces, action: \.workspaces)
+      )
+      .tabItem {
+        Label("Workspaces", systemImage: "folder.badge.gear")
+      }
+      .tag(HomeFeature.Tab.workspaces)
 
       SettingsView(store: store.scope(state: \.settings, action: \.settings))
         .tabItem {

@@ -59,6 +59,25 @@ struct WorkspacesView: View {
             ))
         }
       }
+      .sheet(
+        isPresented: Binding(
+          get: { store.showingWorkspaceInteraction },
+          set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
+        )
+      ) {
+        if let workspaceId = store.selectedWorkspace,
+          let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
+          WorkspaceInteractionView(
+            store: .init(
+              initialState: .init(
+                workspace: workspace.workspace,
+                onlineState: workspace.onlineState
+              ),
+              reducer: { WorkspaceInteractionFeature() }
+            )
+          )
+        }
+      }
     }
     .task {
       await store.send(.task).finish()

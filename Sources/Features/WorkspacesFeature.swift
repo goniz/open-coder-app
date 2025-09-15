@@ -13,6 +13,7 @@ package struct WorkspacesFeature {
     package var isAddingWorkspace = false
     package var selectedWorkspace: WorkspaceState.ID?
     package var showingLiveOutput = false
+    package var showingWorkspaceInteraction = false
 
     package init() {}
   }
@@ -45,6 +46,7 @@ package struct WorkspacesFeature {
     case hideLiveOutput
     case cleanAndRetry(WorkspaceState.ID)
     case spawnPhaseUpdated(WorkspaceState.ID, SpawnPhase)
+    case hideWorkspaceInteraction
   }
 
   package init() {}
@@ -97,6 +99,9 @@ package struct WorkspacesFeature {
 
     case let .spawnPhaseUpdated(id, phase):
       return handleSpawnPhaseUpdated(state: &state, id: id, phase: phase)
+
+    case .hideWorkspaceInteraction:
+      return handleHideWorkspaceInteraction(state: &state)
     }
   }
 
@@ -159,6 +164,8 @@ package struct WorkspacesFeature {
     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
     state.workspaces[index].onlineState = .spawning(phase: .ssh)
+    state.selectedWorkspace = id
+    state.showingWorkspaceInteraction = true
     let workspace = state.workspaces[index].workspace
 
     return .run { send in
@@ -227,6 +234,12 @@ package struct WorkspacesFeature {
       state.workspaces[index].onlineState = .error(error.localizedDescription)
     }
 
+    return .none
+  }
+
+  private func handleHideWorkspaceInteraction(state: inout State) -> Effect<Action> {
+    state.showingWorkspaceInteraction = false
+    state.selectedWorkspace = nil
     return .none
   }
 

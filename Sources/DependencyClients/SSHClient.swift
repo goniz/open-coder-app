@@ -1765,7 +1765,26 @@ struct TmuxService: Sendable {
         let escapedName = escapeShellArgument(name)
         let escapedPath = escapeShellArgument(path)
         let command = "tmux new-session -d -s \(escapedName) -c \(escapedPath)"
-        _ = try await connection.exec(command)
+        do {
+          _ = try await connection.exec(command)
+          await AppLogger.shared.log(
+            "Created tmux session: \(name) at \(path)",
+            level: .info,
+            category: .workspace
+          )
+        } catch {
+          // If the session already exists, tmux prints "duplicate session: <name>" to stderr with non-zero exit.
+          if case let SSHError.commandFailed(message) = error,
+            message.lowercased().contains("duplicate session") {
+            await AppLogger.shared.log(
+              "Using existing tmux session: \(name)",
+              level: .info,
+              category: .workspace
+            )
+            return
+          }
+          throw error
+        }
       }
     } catch {
       // Handle CancellationError specifically
@@ -1865,22 +1884,8 @@ package struct WorkspaceService: Sendable {
     )
 
     try await connectionManager.withConnection { _ in
-      // Ensure tmux session exists at the workspace path
-      let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
-      if !sessionExists {
-        await AppLogger.shared.log(
-          "Creating tmux session: \(workspace.tmuxSession) at \(workspace.remotePath)",
-          level: .info,
-          category: .workspace
-        )
-        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-      } else {
-        await AppLogger.shared.log(
-          "Using existing tmux session: \(workspace.tmuxSession)",
-          level: .info,
-          category: .workspace
-        )
-      }
+      // Create-or-use existing session without a separate has-session check
+      try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
     }
   }
 
@@ -1905,22 +1910,8 @@ package struct WorkspaceService: Sendable {
     do {
       // Use connection manager for all SSH operations to reuse the same connection
       return try await connectionManager.withConnection { connection in
-        // Step 1: Ensure tmux session exists
-        let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
-        if !sessionExists {
-          await AppLogger.shared.log(
-            "Creating new tmux session: \(workspace.tmuxSession)",
-            level: .info,
-            category: .workspace
-          )
-          try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-        } else {
-          await AppLogger.shared.log(
-            "Using existing tmux session: \(workspace.tmuxSession)",
-            level: .info,
-            category: .workspace
-          )
-        }
+        // Step 1: Ensure tmux session exists (no pre-check; tolerate duplicates)
+        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
 
         // Step 2: Check for existing daemon.json using the same connection
         let escapedRemotePath = escapeShellArgument(workspace.remotePath)
