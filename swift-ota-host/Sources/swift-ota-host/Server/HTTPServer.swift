@@ -1,7 +1,32 @@
 import Foundation
-import NIO
-import NIOHTTP1
-import NIOSSL
+@preconcurrency import NIO
+@preconcurrency import NIOHTTP1
+@preconcurrency import NIOSSL
+
+// Manages graceful exit in --once mode with idle timeout after last download
+final class OnceExitManager {
+    private let idleSeconds: TimeInterval
+    private let queue = DispatchQueue(label: "swift-ota-host.once-exit")
+    private var pending: DispatchWorkItem?
+
+    init(idleSeconds: TimeInterval) {
+        self.idleSeconds = idleSeconds
+    }
+
+    func downloadCompleted() {
+        queue.async {
+            // Cancel any existing scheduled exit and schedule a new one
+            self.pending?.cancel()
+            let work = DispatchWorkItem { [idle = self.idleSeconds] in
+                Logger.info("⏳ No downloads for \(Int(idle))s after completion; exiting due to --once")
+                exit(0)
+            }
+            self.pending = work
+            Logger.info("⏱️  Scheduling exit in \(Int(self.idleSeconds))s if no more downloads complete")
+            self.queue.asyncAfter(deadline: .now() + self.idleSeconds, execute: work)
+        }
+    }
+}
 
 final class HTTPHandler: ChannelInboundHandler {
     typealias InboundIn = HTTPServerRequestPart
@@ -12,12 +37,14 @@ final class HTTPHandler: ChannelInboundHandler {
     private let baseUrl: String
     private let distDir: URL
     private var pendingRequest: HTTPRequestHead?
+    private let onceExitManager: OnceExitManager?
     
-    init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String) {
+    init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String, onceExitManager: OnceExitManager?) {
         self.ipaInfo = ipaInfo
         self.config = config
         self.baseUrl = baseUrl
         self.distDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("dist/ota")
+        self.onceExitManager = onceExitManager
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -90,16 +117,13 @@ final class HTTPHandler: ChannelInboundHandler {
         Logger.info("📦 Serving IPA file (\(data.count.formatFileSize()))")
         
         if config.once {
-            Logger.info("IPA download started, will exit after completion due to --once flag")
+            Logger.info("IPA download started; --once idle shutdown will be scheduled upon completion")
         }
         
         sendBinaryResponse(context: context, data: data, contentType: "application/octet-stream") {
             Logger.info("✅ IPA download completed")
             if self.config.once {
-                Logger.info("Shutting down server...")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    exit(0)
-                }
+                self.onceExitManager?.downloadCompleted()
             }
         }
     }
@@ -171,11 +195,13 @@ final class HTTPServer: @unchecked Sendable {
     private let config: ServerConfig
     private let baseUrl: String
     private var certificates: CertificateFiles?
+    private let onceExitManager: OnceExitManager?
     
     init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String) {
         self.ipaInfo = ipaInfo
         self.config = config
         self.baseUrl = baseUrl
+        self.onceExitManager = config.once ? OnceExitManager(idleSeconds: 5) : nil
     }
     
     func start() async throws {
@@ -261,7 +287,7 @@ final class HTTPServer: @unchecked Sendable {
     
     private func configureHTTP(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline().flatMap {
-            channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl))
+            channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
         }
     }
     
@@ -289,7 +315,7 @@ final class HTTPServer: @unchecked Sendable {
             return channel.pipeline.addHandler(sslHandler).flatMap {
                 channel.pipeline.configureHTTPServerPipeline()
             }.flatMap {
-                channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl))
+                channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
             }
         } catch {
             return channel.eventLoop.makeFailedFuture(error)

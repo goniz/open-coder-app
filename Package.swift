@@ -18,14 +18,6 @@ let swiftDependencies = Package.Dependency.package(
   url: "https://github.com/pointfreeco/swift-dependencies",
   from: "1.9.4"
 )
-let swiftPerception = Package.Dependency.package(
-  url: "https://github.com/pointfreeco/swift-perception",
-  from: "1.6.0"
-)
-let swiftCasePaths = Package.Dependency.package(
-  url: "https://github.com/pointfreeco/swift-case-paths",
-  from: "1.7.0"
-)
 let dependencies = SourceControlDependency(
   package: swiftDependencies,
   productName: "Dependencies"
@@ -33,14 +25,6 @@ let dependencies = SourceControlDependency(
 let dependenciesMacros = SourceControlDependency(
   package: swiftDependencies,
   productName: "DependenciesMacros"
-)
-let perception = SourceControlDependency(
-  package: swiftPerception,
-  productName: "Perception"
-)
-let casePaths = SourceControlDependency(
-  package: swiftCasePaths,
-  productName: "CasePaths"
 )
 let customDump = SourceControlDependency(
   package: .package(
@@ -129,8 +113,6 @@ let package = Package(
   dependencies: [
     tca.package,
     swiftDependencies,
-    swiftPerception,
-    swiftCasePaths,
     customDump.package,
     swiftNIOSSH.package,
   ],
@@ -207,7 +189,11 @@ struct SingleTargetLibrary {
   }
 
   var testTarget: Target {
-    .testTarget(
-      name: name + "Tests", dependencies: [targetDependency, customDump.targetDependency], plugins: plugins)
+    var deps: [Target.Dependency] = [targetDependency, customDump.targetDependency]
+    if name == "DependencyClients" {
+      deps.append(models.targetDependency)
+    }
+    return .testTarget(
+      name: name + "Tests", dependencies: deps, plugins: plugins)
   }
 }

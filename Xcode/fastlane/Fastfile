@@ -18,6 +18,12 @@ opt_out_usage
 default_platform(:ios)
 
 platform :ios do
+  # Mirror CI behavior: skip Xcode's macro fingerprint validation so that
+  # package macro updates (e.g., PerceptionMacros) don't block builds.
+  before_all do
+    sh("defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES")
+  end
+
   desc "Build for development without publishing"
   lane :build do
     build_app(

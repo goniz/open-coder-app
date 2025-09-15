@@ -35,7 +35,7 @@ jobs:
     - name: Select Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '26-beta'
+        xcode-version: '26.0'
 
     - name: Install just
       run: brew install just
@@ -61,7 +61,7 @@ jobs:
     - name: Select Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '26-beta'
+        xcode-version: '26.0'
 
     - name: Install just
       run: brew install just
@@ -88,7 +88,7 @@ jobs:
     - name: Select Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '26-beta'
+        xcode-version: '26.0'
 
     - name: Install just
       run: brew install just
@@ -96,10 +96,14 @@ jobs:
     - name: Configure macro package trust
       run: defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
-    - name: Install iOS Simulator Runtime
+    - name: Verify OpenSSH server availability
       run: |
-        xcodebuild -downloadPlatform iOS
-        xcrun simctl list runtimes
+        set -euxo pipefail
+        ls -l /usr/sbin/sshd
+        /usr/sbin/sshd -h || true
+        /usr/bin/ssh -V || true
+        /usr/bin/sftp -V || true
+        /usr/bin/ssh-keygen -V || true
 
     - name: Run Tests
       run: just test

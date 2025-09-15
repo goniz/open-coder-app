@@ -46,9 +46,12 @@ struct AddWorkspaceView: View {
               .placeholder("/home/\(user)/projects/myproject")
 
             Button("Browse") {
+              AppLogger.shared.log("Browse tapped", category: .workspace)
               if selectedServer != nil {
+                AppLogger.shared.log("Using selected server", category: .workspace)
                 showingPathPicker = true
               } else {
+                AppLogger.shared.log("No server, asking for password", category: .workspace)
                 showingPasswordPrompt = true
               }
             }
@@ -128,13 +131,18 @@ struct AddWorkspaceView: View {
         RemotePathPickerView(
           config: config,
           onPathSelected: { path in
+            AppLogger.shared.log("Path selected: \(path)", category: .workspace)
             remotePath = path
             showingPathPicker = false
           },
           onCancel: {
+            AppLogger.shared.log("Path picker cancelled", category: .workspace)
             showingPathPicker = false
           }
         )
+        .onAppear {
+          AppLogger.shared.log("Showing path picker", category: .workspace)
+        }
       }
     }
     .alert("SSH Password Required", isPresented: $showingPasswordPrompt) {
@@ -143,6 +151,7 @@ struct AddWorkspaceView: View {
         tempPassword = ""
       }
       Button("Browse") {
+        AppLogger.shared.log("Password provided", category: .workspace)
         showingPathPicker = true
         showingPasswordPrompt = false
       }

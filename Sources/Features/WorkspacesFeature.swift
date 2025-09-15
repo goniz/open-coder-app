@@ -172,14 +172,15 @@ package struct WorkspacesFeature {
           return
         }
 
-        // Log the connection attempt for debugging
+        // Simplified connect: only establish SSH and ensure tmux session exists.
         print(
-          "🔗 Attempting SSH connection to \(workspace.user)@\(workspace.host) "
-            + "using server: \(config.name)")
+          "🔗 Simple connect to \(workspace.user)@\(workspace.host) using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
-        let result = try await workspaceService.attachOrSpawn(workspace: workspace)
-        await send(.workspaceOpened(id, .success(result)))
+        try await workspaceService.connectAndEnsureTmux(workspace: workspace)
+
+        // Mark as online without a port (use 0 to denote 'no app port').
+        await send(.workspaceOpened(id, .success(.init(port: 0, online: true, error: nil))))
       } catch {
         // Log the error for debugging
         print("❌ SSH connection failed: \(error.localizedDescription)")
@@ -208,9 +209,15 @@ package struct WorkspacesFeature {
       if spawnResult.online {
         state.workspaces[index].onlineState = .online(port: spawnResult.port)
         state.workspaces[index].lastConnectedAt = Date()
-        // Fetch sessions after successful connection
-        return .run { send in
-          await send(.refreshWorkspace(id))
+
+        // For simple SSH+tmux connect (port == 0), skip extra follow-up actions.
+        if spawnResult.port == 0 {
+          return .none
+        } else {
+          // For full spawn flow, fetch sessions after successful connection
+          return .run { send in
+            await send(.refreshWorkspace(id))
+          }
         }
       } else {
         state.workspaces[index].onlineState = .error(

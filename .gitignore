@@ -41,3 +41,6 @@ fastlane/test_output
 
 # Distribution
 dist/
+
+# Logs
+swift-ota-host/ota.log
