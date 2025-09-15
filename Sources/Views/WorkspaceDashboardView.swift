@@ -218,6 +218,7 @@ private struct LiveOutputView: View {
   @State private var outputLines: [String] = []
   @State private var isFollowing = true
   @State private var streamTask: Task<Void, Never>?
+  @State private var isWaitingForOutput = true
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -239,6 +240,19 @@ private struct LiveOutputView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
         .foregroundColor(.green)
+        .overlay(alignment: .center) {
+          if isWaitingForOutput {
+            VStack(spacing: 12) {
+              ProgressView()
+              Text("Waiting for live output…")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+          }
+        }
 
         controlsView
       }
@@ -289,12 +303,20 @@ private struct LiveOutputView: View {
     // Cancel previous stream if any
     streamTask?.cancel()
     outputLines.removeAll()
+    isWaitingForOutput = true
 
     streamTask = Task {
       for await line in WorkspaceLogs.stream(for: workspace) {
         await MainActor.run {
           outputLines.append(line)
+          isWaitingForOutput = false
         }
+      }
+      await MainActor.run {
+        if outputLines.isEmpty {
+          outputLines.append("[Live Output] No log entries yet.")
+        }
+        isWaitingForOutput = false
       }
     }
   }
