@@ -382,6 +382,288 @@ final class SSHClientIntegrationTests: XCTestCase {
     XCTAssertEqual(who.stdout.trimmingCharacters(in: .whitespacesAndNewlines), currentUser)
   }
 
+  func testSSHClient_testConnection_and_execWhoami() async throws {
+    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
+      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
+    }
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    // Prepare authorized_keys with a fresh ed25519 key pair
+    let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    let clientKey = tmpDir.appendingPathComponent("id_ed25519")
+    let clientPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", clientKey.path, "-N", ""], timeout: 30)
+    try setPosixPermissions(0o600, for: clientKey)
+    let pubData = try Data(contentsOf: clientPub)
+    try pubData.write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    guard let mgr = createAndStartSSHD(
+      tmpDir: tmpDir,
+      authorizedKeysPath: authorizedKeys.path,
+      currentUser: currentUser
+    ) else {
+      XCTFail("Failed to launch sshd for SSHClient test")
+      return
+    }
+    defer { terminateSSHD(mgr) }
+
+    var config = Models.SSHServerConfiguration(
+      name: "local",
+      host: "localhost",
+      port: mgr.port,
+      username: currentUser,
+      useKeyAuthentication: true,
+      privateKeyPath: clientKey.path,
+      shouldMaintainConnection: false
+    )
+    config.password = ""
+
+    let client = DependencyClients.SSHClient()
+
+    // testConnection should succeed
+    try await client.testConnection(config)
+
+    // exec whoami should return the current user
+    let out = try await client.exec("whoami", config: config)
+    XCTAssertEqual(out.trimmingCharacters(in: .whitespacesAndNewlines), currentUser)
+  }
+
+  func testSSHClient_execCleanCommand_and_largeOutput() async throws {
+    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
+      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
+    }
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    // Keys and server
+    let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    let clientKey = tmpDir.appendingPathComponent("id_ed25519")
+    let clientPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", clientKey.path, "-N", ""], timeout: 30)
+    try setPosixPermissions(0o600, for: clientKey)
+    try Data(contentsOf: clientPub).write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    guard let mgr = createAndStartSSHD(
+      tmpDir: tmpDir,
+      authorizedKeysPath: authorizedKeys.path,
+      currentUser: currentUser
+    ) else {
+      XCTFail("Failed to launch sshd for SSHClient test")
+      return
+    }
+    defer { terminateSSHD(mgr) }
+
+    var config = Models.SSHServerConfiguration(
+      name: "local",
+      host: "localhost",
+      port: mgr.port,
+      username: currentUser,
+      useKeyAuthentication: true,
+      privateKeyPath: clientKey.path,
+      shouldMaintainConnection: false
+    )
+    config.password = ""
+
+    let client = DependencyClients.SSHClient()
+
+    // Clean command should strip markers and preserve output
+    let clean = try await client.execCleanCommand("printf 'hello\\nworld\\n'", config: config)
+    XCTAssertEqual(clean, "hello\nworld")
+
+    // Large output: 1500 lines via seq; ensure we receive all lines and last is 1500
+    let big = try await client.exec("seq 1 1500", config: config)
+    let lines = big.split(separator: "\n")
+    XCTAssertEqual(lines.count, 1500, "Expected 1500 lines, got \(lines.count)")
+    XCTAssertEqual(lines.last, "1500")
+  }
+
+  func testSSHClient_SFTP_listDirectory_and_homeDirectory() async throws {
+    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
+      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
+    }
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    // Ephemeral workspace with files to list
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    // Prepare some files and a directory
+    let alpha = tmpDir.appendingPathComponent("alpha.txt")
+    try "alpha".data(using: .utf8)!.write(to: alpha)
+    let subdir = tmpDir.appendingPathComponent("subdir")
+    try FileManager.default.createDirectory(at: subdir, withIntermediateDirectories: false)
+
+    // Keys and server
+    let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    let clientKey = tmpDir.appendingPathComponent("id_ed25519")
+    let clientPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", clientKey.path, "-N", ""], timeout: 30)
+    try setPosixPermissions(0o600, for: clientKey)
+    try Data(contentsOf: clientPub).write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    guard let mgr = createAndStartSSHD(
+      tmpDir: tmpDir,
+      authorizedKeysPath: authorizedKeys.path,
+      currentUser: currentUser
+    ) else {
+      XCTFail("Failed to launch sshd for SFTP test")
+      return
+    }
+    defer { terminateSSHD(mgr) }
+
+    var config = Models.SSHServerConfiguration(
+      name: "local",
+      host: "localhost",
+      port: mgr.port,
+      username: currentUser,
+      useKeyAuthentication: true,
+      privateKeyPath: clientKey.path,
+      shouldMaintainConnection: false
+    )
+    config.password = ""
+
+    let client = DependencyClients.SSHClient()
+
+    // getRemoteHomeDirectory should match the current user's HOME
+    let expectedHome = ProcessInfo.processInfo.environment["HOME"]
+      ?? FileManager.default.homeDirectoryForCurrentUser.path
+    let remoteHome = try await client.getRemoteHomeDirectory(config: config)
+    // Normalize any trailing slashes
+    XCTAssertEqual(remoteHome.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
+                   expectedHome.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+
+    // listDirectory should show both alpha.txt and subdir
+    let listing = try await client.listDirectory(tmpDir.path, config: config)
+    let names = Set(listing.map { $0.name })
+    XCTAssertTrue(names.contains("alpha.txt"), "alpha.txt not found in listing: \(names)")
+    XCTAssertTrue(names.contains("subdir"), "subdir not found in listing: \(names)")
+
+    // Validate directory flag for subdir
+    if let sub = listing.first(where: { $0.name == "subdir" }) {
+      XCTAssertTrue(sub.isDirectory)
+    } else {
+      XCTFail("subdir entry missing")
+    }
+  }
+
+  func testSSHClient_authFailure_withMissingKeyPath() async throws {
+    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
+      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
+    }
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    // Valid server authorized_keys with a good key
+    let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+    let validKey = tmpDir.appendingPathComponent("id_ed25519")
+    let validPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+    _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", validKey.path, "-N", ""], timeout: 30)
+    try setPosixPermissions(0o600, for: validKey)
+    try Data(contentsOf: validPub).write(to: authorizedKeys)
+    try setPosixPermissions(0o600, for: authorizedKeys)
+
+    guard let mgr = createAndStartSSHD(
+      tmpDir: tmpDir,
+      authorizedKeysPath: authorizedKeys.path,
+      currentUser: currentUser
+    ) else {
+      XCTFail("Failed to launch sshd for auth failure test")
+      return
+    }
+    defer { terminateSSHD(mgr) }
+
+    // Provide a non-existent key path in the client config
+    let bogusKeyPath = tmpDir.appendingPathComponent("does-not-exist").path
+    var config = Models.SSHServerConfiguration(
+      name: "local",
+      host: "localhost",
+      port: mgr.port,
+      username: currentUser,
+      useKeyAuthentication: true,
+      privateKeyPath: bogusKeyPath,
+      shouldMaintainConnection: false
+    )
+    config.password = "" // ensure password auth is not attempted
+
+    let client = DependencyClients.SSHClient()
+
+    do {
+      try await client.testConnection(config)
+      XCTFail("Expected testConnection to throw for missing key path")
+    } catch {
+      // Expect a SSHConnectionError.privateKeyPathEmpty or a general auth failure depending on timing
+      if let connErr = error as? DependencyClients.SSHConnectionError {
+        switch connErr {
+        case .privateKeyPathEmpty:
+          break // expected
+        default:
+          XCTFail("Unexpected SSHConnectionError: \(connErr)")
+        }
+      } else {
+        // Accept other errors that indicate auth/connection failure
+        // but still assert we did not succeed
+      }
+    }
+  }
+
   // MARK: - Helpers
 
   private func setPosixPermissions(_ perms: UInt16, for url: URL) throws {

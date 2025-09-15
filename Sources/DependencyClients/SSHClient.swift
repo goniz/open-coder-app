@@ -959,21 +959,25 @@ package struct SSHClient: SSHClientProtocol {
       try await Task.sleep(nanoseconds: 300_000_000)
 
       let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
-      guard let sshHandler = try? channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self) else {
-        throw SSHError.connectionFailed("SSH handler not found in pipeline")
+      // Create the SFTP session channel on the channel's event loop to avoid syncOperations off-EL
+      let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+        let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+        sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+          // Add the handler after we obtain the child channel below
+          return childChannel.eventLoop.makeSucceededFuture(())
+        }
       }
-
-      var sftpHandlerRef: SFTPHandler?
-      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-        let sftpHandler = SFTPHandler(eventLoop: childChannel.eventLoop)
-        sftpHandlerRef = sftpHandler
-        return childChannel.pipeline.addHandler(sftpHandler)
-      }
+      try await creationFuture.get()
 
       sessionChannel = try await sessionPromise.futureResult.get()
-      guard let sftpChannel = sessionChannel, let sftpHandler = sftpHandlerRef else {
-        throw SSHError.connectionFailed("Failed to create SFTP session channel")
+      guard let sftpChannel = sessionChannel else { throw SSHError.connectionFailed("Failed to create SFTP session channel") }
+
+      // Now add our SFTP handler on the child channel's event loop
+      let sftpHandler = SFTPHandler(eventLoop: sftpChannel.eventLoop)
+      let addFuture: EventLoopFuture<Void> = sftpChannel.eventLoop.submit {
+        try sftpChannel.pipeline.syncOperations.addHandler(sftpHandler)
       }
+      try await addFuture.get()
 
       let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(subsystem: "sftp", wantReply: true)
       let subsystemPromise = sftpChannel.eventLoop.makePromise(of: Void.self)
