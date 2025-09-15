@@ -33,6 +33,7 @@ private enum SFTPReadDirResult: Sendable {
   case eof
 }
 
+// swiftlint:disable:next type_body_length
 private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   typealias InboundIn = SSHChannelData
 
@@ -91,7 +92,14 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       }
       throw SSHError.commandFailed("Unexpected SFTP response for OPENDIR: \(typeByte)")
     }
-    return buffer
+    // Defensive: copy the handle into a fresh buffer so callers don't retain a slice
+    var tmp = buffer
+    let count = tmp.readableBytes
+    var copied = channel.allocator.buffer(capacity: count)
+    if let bytes = tmp.readBytes(length: count) {
+      copied.writeBytes(bytes)
+    }
+    return copied
   }
 
   func realpath(on channel: Channel, path: String) async throws -> String {
@@ -441,6 +449,15 @@ private func escapeShellArgument(_ argument: String) -> String {
 
 // Helper function to extract detailed error information from NIOSSH errors
 private func detailedErrorDescription(_ error: Error) -> String {
+  // Map ChannelError to friendly descriptions first
+  if let chErr = error as? ChannelError {
+    switch chErr {
+    case .eof, .inputClosed, .outputClosed, .alreadyClosed:
+      return "SSH channel closed by remote host (likely auth failure or network drop)"
+    default:
+      return "ChannelError: \(chErr)"
+    }
+  }
   // Try to extract the underlying error from NIOSSH
   let mirror = Mirror(reflecting: error)
 
@@ -483,52 +500,8 @@ package struct SSHClient: SSHClientProtocol {
   package init() {}
 
   package static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
-    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-    var channel: Channel?
-    let port = config.port > 0 ? config.port : 22
-
-    do {
-      let bootstrap = ClientBootstrap(group: eventLoopGroup)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        .channelInitializer { channel in
-          let userAuthDelegate = SSHUserAuthDelegate(config: config)
-          let sshHandler = NIOSSHHandler(
-            role: .client(
-              .init(
-                userAuthDelegate: userAuthDelegate,
-                serverAuthDelegate: AcceptAllHostKeysDelegate(host: config.host, port: port)
-              )),
-            allocator: channel.allocator,
-            inboundChildChannelInitializer: nil
-          )
-          // Use the official Apple pattern from NIOSSHServer example to avoid Sendable conformance issues
-          return channel.eventLoop.makeCompletedFuture {
-            try channel.pipeline.syncOperations.addHandler(sshHandler)
-          }
-        }
-
-      channel = try await bootstrap.connect(host: config.host, port: port).get()
-
-      // Wait a bit for connection establishment and auth
-      try await Task.sleep(nanoseconds: 2_000_000_000)
-
-      // Connection test successful
-      try await channel?.close().get()
-      try await eventLoopGroup.shutdownGracefully()
-    } catch {
-      // Clean up on error
-      try? await channel?.close().get()
-      try? await eventLoopGroup.shutdownGracefully()
-
-      // Handle CancellationError specifically
-      if error is CancellationError {
-        throw SSHError.connectionFailed(
-          "SSH connection test was cancelled. This may be due to network issues or server timeout."
-        )
-      }
-
-      throw error
-    }
+    // Perform a minimal round-trip exec to confirm auth and channel operation
+    _ = try await SSHClient().exec("true", config: config)
   }
 
   package func exec(_ command: String) async throws -> String {
@@ -575,9 +548,6 @@ package struct SSHClient: SSHClientProtocol {
         throw SSHError.connectionFailed("Failed to establish SSH connection")
       }
 
-      // Wait for SSH connection to be established
-      try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
-
       // Create a session channel to execute the command
       let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
 
@@ -607,8 +577,6 @@ package struct SSHClient: SSHClientProtocol {
         throw SSHError.connectionFailed("Failed to create SSH session channel")
       }
 
-      // Give the session channel a brief moment to settle
-      try await Task.sleep(nanoseconds: 200_000_000)
       guard session.isActive else {
         throw SSHError.connectionFailed("Session channel became inactive before exec request")
       }
@@ -616,7 +584,7 @@ package struct SSHClient: SSHClientProtocol {
       // Now send the exec request after the channel is established
       let execRequest = SSHChannelRequestEvent.ExecRequest(
         command: command,
-        wantReply: false
+        wantReply: true
       )
       session.triggerUserOutboundEvent(execRequest, promise: nil)
       await AppLogger.shared.log(
@@ -630,10 +598,34 @@ package struct SSHClient: SSHClientProtocol {
         return try await getCommandOutput(from: session)
       }
 
-      // Clean up session channel first, then main channel
-      try await session.close().get()
-      try await channel.close().get()
-      try await eventLoopGroup.shutdownGracefully()
+      // Clean up session channel first, then main channel (best effort; ignore already-closed errors)
+      do {
+        try await session.close().get()
+      } catch {
+        await AppLogger.shared.log(
+          "Session channel cleanup warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
+      do {
+        try await channel.close().get()
+      } catch {
+        await AppLogger.shared.log(
+          "Main channel cleanup warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
+      do {
+        try await eventLoopGroup.shutdownGracefully()
+      } catch {
+        await AppLogger.shared.log(
+          "EventLoopGroup shutdown warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
 
       await AppLogger.shared.log(
         "SSH command completed successfully", level: .debug, category: .ssh)
@@ -654,6 +646,24 @@ package struct SSHClient: SSHClientProtocol {
           category: .ssh
         )
         throw cancellationError
+      }
+
+      // Map channel-closure errors to a clearer message
+      if let chErr = error as? ChannelError {
+        switch chErr {
+        case .eof, .inputClosed, .outputClosed, .alreadyClosed:
+          let mapped = SSHError.connectionFailed(
+            "SSH channel closed unexpectedly. Verify the server is reachable and your credentials are correct."
+          )
+          await AppLogger.shared.log(
+            "SSH command failed (mapped channel close): \(mapped.localizedDescription)",
+            level: .error,
+            category: .ssh
+          )
+          throw mapped
+        default:
+          break
+        }
       }
 
       await AppLogger.shared.log(
@@ -973,9 +983,28 @@ package struct SSHClient: SSHClientProtocol {
 
       let result = try await operation(sftpChannel, sftpHandler)
 
-      try await sftpChannel.close().get()
-      try await channel.close().get()
-      try await eventLoopGroup.shutdownGracefully()
+      // Best-effort cleanup; ignore already-closed errors
+      do { try await sftpChannel.close().get() } catch {
+        await AppLogger.shared.log(
+          "SFTP channel cleanup warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
+      do { try await channel.close().get() } catch {
+        await AppLogger.shared.log(
+          "Main channel cleanup warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
+      do { try await eventLoopGroup.shutdownGracefully() } catch {
+        await AppLogger.shared.log(
+          "EventLoopGroup shutdown warning: \(error.localizedDescription)",
+          level: .debug,
+          category: .ssh
+        )
+      }
       return result
     } catch {
       try? await sessionChannel?.close().get()
@@ -1097,7 +1126,6 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   private var outputBuffer = Data()
   private var errorBuffer = Data()
   private var isComplete = false
-  private let lock = NSLock()
   private let completionPromise: EventLoopPromise<String>
 
   var completionFuture: EventLoopFuture<String> {
@@ -1146,9 +1174,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
             category: .ssh
           )
         }
-        lock.withLock {
-          outputBuffer.append(contentsOf: bytes)
-        }
+        outputBuffer.append(contentsOf: bytes)
       }
     case .fileRegion:
       // File regions aren't expected for command output
@@ -1174,9 +1200,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
             category: .ssh
           )
         }
-        lock.withLock {
-          errorBuffer.append(contentsOf: bytes)
-        }
+        errorBuffer.append(contentsOf: bytes)
       }
     case .fileRegion:
       // File regions aren't expected for command output
@@ -1212,19 +1236,14 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 
   private func handleExitStatus(_ exitStatusEvent: SSHChannelRequestEvent.ExitStatus) {
-    let wasComplete = lock.withLock { () -> Bool in
-      if isComplete {
-        return true
-      }
-      isComplete = true
-      return false
-    }
+    let wasComplete = isComplete
+    isComplete = true
 
     guard !wasComplete else { return }
 
     if exitStatusEvent.exitStatus == 0 {
       // Command completed successfully
-      let output = lock.withLock { String(data: outputBuffer, encoding: .utf8) ?? "" }
+      let output = String(data: outputBuffer, encoding: .utf8) ?? ""
       Task {
         await AppLogger.shared.log(
           "Command completed with exit code 0, output length: \(output.count)",
@@ -1235,12 +1254,10 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
       completionPromise.succeed(output)
     } else {
       // Command failed
-      let errorOutput = lock.withLock {
-        let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
-        return stderr.isEmpty
-          ? "Command failed with exit code \(exitStatusEvent.exitStatus)"
-          : stderr
-      }
+      let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
+      let errorOutput = stderr.isEmpty
+        ? "Command failed with exit code \(exitStatusEvent.exitStatus)"
+        : stderr
       Task {
         await AppLogger.shared.log(
           "Command failed with exit code \(exitStatusEvent.exitStatus): \(errorOutput)",
@@ -1253,23 +1270,16 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 
   private func handleExitSignal(_ exitSignal: SSHChannelRequestEvent.ExitSignal) {
-    let wasComplete = lock.withLock { () -> Bool in
-      if isComplete {
-        return true
-      }
-      isComplete = true
-      return false
-    }
+    let wasComplete = isComplete
+    isComplete = true
 
     guard !wasComplete else { return }
 
     // Command was terminated by signal
-      let errorOutput = lock.withLock {
-        let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
-        return stderr.isEmpty
-          ? "Command terminated by signal"
-          : "\(stderr) (terminated by signal)"
-      }
+      let stderr = String(data: errorBuffer, encoding: .utf8) ?? ""
+      let errorOutput = stderr.isEmpty
+        ? "Command terminated by signal"
+        : "\(stderr) (terminated by signal)"
       Task {
         await AppLogger.shared.log(
           "Command terminated by signal",
@@ -1285,16 +1295,13 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 
   func channelInactive(context: ChannelHandlerContext) {
-    let wasComplete = lock.withLock { () -> Bool in
-      let wasComplete = isComplete
-      isComplete = true
-      return wasComplete
-    }
+    let wasComplete = isComplete
+    isComplete = true
 
     if !wasComplete {
       // Channel closed without receiving exit status
-      let output = lock.withLock { String(data: outputBuffer, encoding: .utf8) ?? "" }
-      let errorOutput = lock.withLock { String(data: errorBuffer, encoding: .utf8) ?? "" }
+      let output = String(data: outputBuffer, encoding: .utf8) ?? ""
+      let errorOutput = String(data: errorBuffer, encoding: .utf8) ?? ""
 
       Task {
         await AppLogger.shared.log(
@@ -1321,6 +1328,93 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   }
 }
 
+// Streams stdout/stderr lines to callbacks; completes on exit or channel close.
+private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendable {
+  typealias InboundIn = SSHChannelData
+
+  private var stdoutBuffer = Data()
+  private var stderrBuffer = Data()
+  private var finished = false
+  private let onLine: @Sendable (String) -> Void
+  private let onErrorLine: @Sendable (String) -> Void
+  private let onFinish: @Sendable (Error?) -> Void
+
+  init(
+    onLine: @escaping @Sendable (String) -> Void,
+    onErrorLine: @escaping @Sendable (String) -> Void,
+    onFinish: @escaping @Sendable (Error?) -> Void
+  ) {
+    self.onLine = onLine
+    self.onErrorLine = onErrorLine
+    self.onFinish = onFinish
+  }
+
+  func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+    let channelData = self.unwrapInboundIn(data)
+    switch channelData.type {
+    case .channel:
+      if case .byteBuffer(var buf) = channelData.data, let bytes = buf.readBytes(length: buf.readableBytes) {
+        stdoutBuffer.append(contentsOf: bytes)
+        flushLines(buffer: &stdoutBuffer, emit: onLine)
+      }
+    case .stdErr:
+      if case .byteBuffer(var buf) = channelData.data, let bytes = buf.readBytes(length: buf.readableBytes) {
+        stderrBuffer.append(contentsOf: bytes)
+        flushLines(buffer: &stderrBuffer, emit: onErrorLine)
+      }
+    default:
+      break
+    }
+  }
+
+  func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+    if let exitStatus = event as? SSHChannelRequestEvent.ExitStatus {
+      if !finished {
+        finished = true
+        if exitStatus.exitStatus == 0 {
+          // Flush any partial trailing lines
+          flushRemainder()
+          onFinish(nil)
+        } else {
+          let err = SSHError.commandFailed("Command finished with exit code: \(exitStatus.exitStatus)")
+          onFinish(err)
+        }
+      }
+    } else if event is SSHChannelRequestEvent.ExitSignal {
+      if !finished {
+        finished = true
+        flushRemainder()
+        onFinish(SSHError.commandFailed("Command terminated by signal"))
+      }
+    }
+  }
+
+  func channelInactive(context: ChannelHandlerContext) {
+    if !finished {
+      finished = true
+      flushRemainder()
+      onFinish(nil)
+    }
+  }
+
+  private func flushLines(buffer: inout Data, emit: (String) -> Void) {
+    while let range = buffer.firstRange(of: Data([0x0A])) { // '\n'
+      let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
+      buffer.removeSubrange(buffer.startIndex..<range.upperBound) // remove including '\n'
+      if let line = String(data: lineData, encoding: .utf8) {
+        emit(line)
+      }
+    }
+  }
+
+  private func flushRemainder() {
+    if !stdoutBuffer.isEmpty, let line = String(data: stdoutBuffer, encoding: .utf8) { onLine(line) }
+    if !stderrBuffer.isEmpty, let line = String(data: stderrBuffer, encoding: .utf8) { onErrorLine(line) }
+    stdoutBuffer.removeAll(keepingCapacity: false)
+    stderrBuffer.removeAll(keepingCapacity: false)
+  }
+}
+
 private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
   private let config: Models.SSHServerConfiguration
   private var authenticationAttempts = 0
@@ -1339,54 +1433,81 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
 
     if authenticationAttempts > maxAttempts {
       nextChallengePromise.fail(
-        SSHConnectionError.keyAuthenticationFailed(
-          "Maximum authentication attempts exceeded"
-        )
+        SSHConnectionError.keyAuthenticationFailed("Maximum authentication attempts exceeded")
       )
       return
     }
 
-    if config.useKeyAuthentication {
-      if availableMethods.contains(.publicKey) {
-        do {
-          // Load Ed25519 private key from raw bytes or OpenSSH unencrypted key file
-          let keyData: Data
-          if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            FileManager.default.fileExists(atPath: config.privateKeyPath) {
-            keyData = try Data(contentsOf: URL(fileURLWithPath: config.privateKeyPath))
-          } else if let privateKeyData = config.privateKeyData {
-            keyData = privateKeyData
-          } else {
-            nextChallengePromise.fail(SSHConnectionError.privateKeyPathEmpty)
-            return
-          }
-
-          let ed25519Seed = try SSHUserAuthDelegate.extractEd25519Seed(from: keyData)
-          let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: ed25519Seed)
-          let nioKey = NIOSSHPrivateKey(ed25519Key: edKey)
-          let offer = NIOSSHUserAuthenticationOffer(
-            username: config.username,
-            serviceName: "ssh-connection",
-            offer: .privateKey(.init(privateKey: nioKey))
-          )
-          nextChallengePromise.succeed(offer)
-        } catch {
-          nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("\(error)"))
-        }
-      } else {
-        nextChallengePromise.fail(SSHConnectionError.publicKeyAuthNotAvailable)
-      }
-    } else {
-      if availableMethods.contains(.password) {
-        let offer = NIOSSHUserAuthenticationOffer(
-          username: config.username,
-          serviceName: "ssh-connection",
-          offer: .password(.init(password: config.password))
-        )
+    do {
+      if let offer = try chooseAuthenticationOffer(availableMethods: availableMethods) {
         nextChallengePromise.succeed(offer)
       } else {
-        nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
+        // Neither method is possible with current configuration
+        if availableMethods.contains(.publicKey) {
+          nextChallengePromise.fail(SSHConnectionError.privateKeyPathEmpty)
+        } else if availableMethods.contains(.password) {
+          nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
+        } else {
+          nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("No supported methods"))
+        }
       }
+    } catch {
+      nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("\(error)"))
+    }
+  }
+
+  // MARK: - Auth selection helpers
+
+  private func buildPublicKeyOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
+    throws -> NIOSSHUserAuthenticationOffer? {
+    guard availableMethods.contains(.publicKey) else { return nil }
+
+    // Load Ed25519 private key from raw bytes or OpenSSH unencrypted key file
+    let keyData: Data
+    if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      FileManager.default.fileExists(atPath: (config.privateKeyPath as NSString).expandingTildeInPath) {
+      let expanded = (config.privateKeyPath as NSString).expandingTildeInPath
+      let url = URL(fileURLWithPath: expanded)
+      keyData = try Data(contentsOf: url)
+    } else if let privateKeyData = config.privateKeyData {
+      keyData = privateKeyData
+    } else {
+      // No key material available
+      return nil
+    }
+
+    let ed25519Seed = try SSHUserAuthDelegate.extractEd25519Seed(from: keyData)
+    let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: ed25519Seed)
+    let nioKey = NIOSSHPrivateKey(ed25519Key: edKey)
+    Task { await AppLogger.shared.log("Using public key auth", level: .debug, category: .ssh) }
+    return NIOSSHUserAuthenticationOffer(
+      username: config.username,
+      serviceName: "ssh-connection",
+      offer: .privateKey(.init(privateKey: nioKey))
+    )
+  }
+
+  private func buildPasswordOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
+    -> NIOSSHUserAuthenticationOffer? {
+    guard availableMethods.contains(.password), !config.password.isEmpty else { return nil }
+    Task { await AppLogger.shared.log("Using password auth", level: .debug, category: .ssh) }
+    return NIOSSHUserAuthenticationOffer(
+      username: config.username,
+      serviceName: "ssh-connection",
+      offer: .password(.init(password: config.password))
+    )
+  }
+
+  private func chooseAuthenticationOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
+    throws -> NIOSSHUserAuthenticationOffer? {
+    if config.useKeyAuthentication {
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
+      return nil
+    } else {
+      if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      return nil
     }
   }
 }
@@ -1904,17 +2025,36 @@ package struct WorkspaceService: Sendable {
 
   func getLiveOutputStream(workspace: Models.Workspace) -> AsyncStream<String> {
     return AsyncStream { continuation in
+      // Run the streaming setup in a Task
       Task {
         do {
-          let tailCommand = "tail -n 200 -F \(workspace.remotePath)/.opencode/live.log"
-          let result = try await self.sshClient.exec(tailCommand, config: self.config)
+          try await self.connectionManager.withConnection { connection in
+            let escapedPath = escapeShellArgument(workspace.remotePath)
+            let command = "tail -n 200 -F \(escapedPath)/.opencode/live.log"
 
-          let lines = result.split(separator: "\n")
-          for line in lines {
-            continuation.yield(String(line))
+            let sessionPromise = connection.channel.eventLoop.makePromise(of: Channel.self)
+            let creationFuture: EventLoopFuture<Void> = connection.channel.eventLoop.submit {
+              let sshHandler = try connection.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+              sshHandler.createChannel(sessionPromise, channelType: .session) { child, _ in
+                let handler = LineStreamHandler(
+                  onLine: { continuation.yield($0) },
+                  onErrorLine: { continuation.yield($0) },
+                  onFinish: { _ in continuation.finish() }
+                )
+                return child.pipeline.addHandler(handler)
+              }
+            }
+            try await creationFuture.get()
+            let streamChannel = try await sessionPromise.futureResult.get()
+
+            let exec = SSHChannelRequestEvent.ExecRequest(command: command, wantReply: true)
+            streamChannel.triggerUserOutboundEvent(exec, promise: nil)
+
+            // Set termination handler after we have the channel
+            continuation.onTermination = { _ in
+              Task { try? await streamChannel.close().get() }
+            }
           }
-
-          continuation.finish()
         } catch {
           continuation.finish()
         }
@@ -2131,8 +2271,8 @@ package struct SSHConnection: Sendable {
 
   /// Check if the channel is healthy and ready for operations
   var isHealthy: Bool {
-    // A channel is healthy if it's active and writable
-    channel.isActive && channel.isWritable
+    // Consider a channel healthy if it's active; writability may briefly be false due to backpressure
+    channel.isActive
   }
 
   func close() async {
@@ -2176,8 +2316,6 @@ package struct SSHConnection: Sendable {
 
     let sessionChannel = try await sessionPromise.futureResult.get()
 
-    // Allow the session channel to settle
-    try await Task.sleep(nanoseconds: 200_000_000)
     guard sessionChannel.isActive else {
       throw SSHError.connectionFailed("Session channel inactive before exec request")
     }
@@ -2185,7 +2323,7 @@ package struct SSHConnection: Sendable {
     // Now send the exec request after the channel is established
     let execRequest = SSHChannelRequestEvent.ExecRequest(
       command: command,
-      wantReply: false
+      wantReply: true
     )
     sessionChannel.triggerUserOutboundEvent(execRequest, promise: nil)
     await AppLogger.shared.log(
