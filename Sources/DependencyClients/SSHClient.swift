@@ -1855,10 +1855,46 @@ package struct WorkspaceService: Sendable {
     self.connectionManager = SSHConnectionManager(config: config)
   }
 
+  // Establish an SSH connection and ensure the tmux session exists for the workspace, nothing else.
+  // This intentionally avoids spawning the opencode server, parsing ports, or writing daemon files.
+  package func connectAndEnsureTmux(workspace: Models.Workspace) async throws {
+    await AppLogger.shared.log(
+      "Connecting and ensuring tmux session for: \(workspace.name)",
+      level: .info,
+      category: .workspace
+    )
+
+    try await connectionManager.withConnection { _ in
+      // Ensure tmux session exists at the workspace path
+      let sessionExists = try await tmuxService.hasSession(workspace.tmuxSession)
+      if !sessionExists {
+        await AppLogger.shared.log(
+          "Creating tmux session: \(workspace.tmuxSession) at \(workspace.remotePath)",
+          level: .info,
+          category: .workspace
+        )
+        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
+      } else {
+        await AppLogger.shared.log(
+          "Using existing tmux session: \(workspace.tmuxSession)",
+          level: .info,
+          category: .workspace
+        )
+      }
+    }
+  }
+
   package struct SpawnResult: Equatable {
     package let port: Int
     package let online: Bool
     package let error: SSHError?
+
+    // Explicit package initializer so other modules in the package can construct results
+    package init(port: Int, online: Bool, error: SSHError?) {
+      self.port = port
+      self.online = online
+      self.error = error
+    }
   }
 
   // swiftlint:disable:next function_body_length
