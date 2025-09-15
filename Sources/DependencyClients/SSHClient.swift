@@ -1864,6 +1864,64 @@ struct TmuxService: Sendable {
   }
 }
 
+// MARK: - tmux window/pane helpers
+extension TmuxService {
+  /// Ensure a window with the given name exists in the session, creating it if needed.
+  func ensureWindow(session: String, window: String, path: String) async throws {
+    let connectionManager = await SSHConnectionPool.shared.manager(for: config)
+    try await connectionManager.withConnection { connection in
+      let escapedSession = escapeShellArgument(session)
+      let escapedWindow = escapeShellArgument(window)
+      let escapedPath = escapeShellArgument(path)
+
+      // If window exists, nothing to do
+      let listCommand = "tmux list-windows -t \(escapedSession) -F '#{window_name}' 2>/dev/null || true"
+      let windowsList = try await connection.exec(listCommand)
+      let names = windowsList.split(separator: "\n").map(String.init)
+      if names.contains(where: { $0 == window }) {
+        return
+      }
+
+      // Create a new window in the session
+      let newWindowCmd = "tmux new-window -t \(escapedSession): -n \(escapedWindow) -c \(escapedPath)"
+      do {
+        _ = try await connection.exec(newWindowCmd)
+        await AppLogger.shared.log(
+          "Created tmux window '\(window)' in session '\(session)'",
+          level: .info,
+          category: .workspace
+        )
+      } catch {
+        // If duplicate window due to race, ignore
+        if case let SSHError.commandFailed(message) = error,
+           message.lowercased().contains("duplicate window") || message.lowercased().contains("duplicate") {
+          return
+        }
+        throw error
+      }
+    }
+  }
+
+  /// Respawn the first pane in the named window with the provided command and working directory.
+  func respawnPane(session: String, window: String, path: String, command: String) async throws {
+    let connectionManager = await SSHConnectionPool.shared.manager(for: config)
+    try await connectionManager.withConnection { connection in
+      let escapedSession = escapeShellArgument(session)
+      let escapedWindow = escapeShellArgument(window)
+      let escapedPath = escapeShellArgument(path)
+      // Safely single-quote the command for tmux invocation
+      let quoted = command.replacingOccurrences(of: "'", with: "'\"'\"'")
+      let respawnCmd = "tmux respawn-pane -k -c \(escapedPath) -t \(escapedSession):\(escapedWindow).0 '\(quoted)'"
+      _ = try await connection.exec(respawnCmd)
+      await AppLogger.shared.log(
+        "Respawned tmux pane in '\(session):\(window)'",
+        level: .info,
+        category: .workspace
+      )
+    }
+  }
+}
+
 package struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let tmuxService: TmuxService
@@ -1916,12 +1974,15 @@ package struct WorkspaceService: Sendable {
         // Step 1: Ensure tmux session exists (no pre-check; tolerate duplicates)
         try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
 
+        let stateDirectory = workspaceStateDirectory(for: workspace)
+        let daemonPath = workspaceDaemonPath(for: workspace)
+        let logPath = workspaceLogPath(for: workspace)
+
+        // Ensure directory exists for daemon/log files
+        _ = try await connection.exec("mkdir -p \(stateDirectory)")
+
         // Step 2: Check for existing daemon.json using the same connection
-        let escapedRemotePath = escapeShellArgument(workspace.remotePath)
-        let checkCommand = """
-          test -f \(escapedRemotePath)/.opencode/daemon.json && \
-          cat \(escapedRemotePath)/.opencode/daemon.json || echo '{}'
-          """
+        let checkCommand = "if [ -f \(daemonPath) ]; then cat \(daemonPath); else echo '{}'; fi"
         let daemonContent = try await connection.exec(checkCommand)
 
         // Parse daemon.json to check for existing port
@@ -1958,16 +2019,22 @@ package struct WorkspaceService: Sendable {
           level: .info,
           category: .workspace
         )
-        let spawnCommand = """
-          opencode serve --hostname 127.0.0.1 --port 0 --print-logs | \
-          tee -a \(escapedRemotePath)/.opencode/live.log
-          """
+        // Build the command using NPX to run opencode-ai and print logs to shared state directory.
+        let spawnCommand = "mkdir -p \(stateDirectory) && npx -y opencode-ai serve --hostname 127.0.0.1 --port 0 --print-logs | tee -a \(logPath)"
 
-        // Execute spawn command in tmux window using the same connection  
-        let escapedTmuxSession = escapeShellArgument(workspace.tmuxSession)
-        let escapedSpawnCommand = spawnCommand.replacingOccurrences(of: "'", with: "'\"'\"'")
-        let tmuxCommand = "tmux send-keys -t \(escapedTmuxSession):0 '\(escapedSpawnCommand)' C-m"
-        _ = try await connection.exec(tmuxCommand)
+        // Ensure a dedicated tmux window named 'opencode' exists and respawn the pane with our command
+        try await tmuxService.ensureWindow(
+          session: workspace.tmuxSession,
+          window: "opencode",
+          path: workspace.remotePath
+        )
+
+        try await tmuxService.respawnPane(
+          session: workspace.tmuxSession,
+          window: "opencode",
+          path: workspace.remotePath,
+          command: spawnCommand
+        )
 
         // Step 4: Wait for server to start and parse the assigned port from logs
         let maxRetries = 30  // 30 seconds timeout
@@ -1976,10 +2043,7 @@ package struct WorkspaceService: Sendable {
             // Create daemon.json with the actual assigned port
             let daemonData = try JSONEncoder().encode(["port": assignedPort])
             if let daemonJson = String(data: daemonData, encoding: .utf8) {
-              let writeCommand = """
-                mkdir -p \(escapedRemotePath)/.opencode && \
-                echo '\(daemonJson)' > \(escapedRemotePath)/.opencode/daemon.json
-                """
+              let writeCommand = "mkdir -p \(stateDirectory) && echo '\(daemonJson)' > \(daemonPath)"
               _ = try await connection.exec(writeCommand)
             }
 
@@ -2022,19 +2086,19 @@ package struct WorkspaceService: Sendable {
 
   private func parsePortFromLogs(workspace: Models.Workspace, connection: SSHConnection) async throws -> Int? {
     do {
-      // Read the live log to find the assigned port using the existing connection
-      let escapedRemotePath = escapeShellArgument(workspace.remotePath)
-      let logPath = "\(escapedRemotePath)/.opencode/live.log"
+      // Read the live log (stored outside the workspace) to find the assigned port
+      let logPath = workspaceLogPath(for: workspace)
       let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
       let logContent = try await connection.exec(command)
 
-      // Look for opencode server startup pattern: "opencode server listening on http://127.0.0.1:51535"
-      let pattern = #"opencode server listening on http://[^:]+:(\d+)"#
+      // Look for opencode server startup pattern (support opencode/opencode-ai variants):
+      // e.g., "opencode server listening on http://127.0.0.1:51535"
+      let pattern = #"(?i)(opencode|opencode\s*ai|opencode-ai).*server listening on http://[^:]+:(\d+)"#
 
       if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
         let match = regex.firstMatch(
           in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
-        let portRange = Range(match.range(at: 1), in: logContent) {
+        let portRange = Range(match.range(at: 2), in: logContent) {
         let portString = String(logContent[portRange])
         if let port = Int(portString) {
           return port
@@ -2062,15 +2126,15 @@ package struct WorkspaceService: Sendable {
     return port > 0
   }
 
-  func getLiveOutputStream(workspace: Models.Workspace) -> AsyncStream<String> {
+  package func getLiveOutputStream(workspace: Models.Workspace) -> AsyncStream<String> {
     return AsyncStream { continuation in
       // Run the streaming setup in a Task
       Task {
         do {
           let manager = await SSHConnectionPool.shared.manager(for: self.config)
           try await manager.withConnection { connection in
-            let escapedPath = escapeShellArgument(workspace.remotePath)
-            let command = "tail -n 200 -F \(escapedPath)/.opencode/live.log"
+            let logPath = workspaceLogPath(for: workspace)
+            let command = "tail -n 200 -F \(logPath) 2>/dev/null"
 
             let sessionPromise = connection.channel.eventLoop.makePromise(of: Channel.self)
             let creationFuture: EventLoopFuture<Void> = connection.channel.eventLoop.submit {
@@ -2108,11 +2172,11 @@ package struct WorkspaceService: Sendable {
       // Use connection manager for cleanup operations too
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
-        // Remove stale daemon.json and lock files
-        let escapedRemotePath = escapeShellArgument(workspace.remotePath)
-        let cleanupCommand = """
-          rm -f \(escapedRemotePath)/.opencode/daemon.json \(escapedRemotePath)/.opencode/lock
-          """
+        let stateDirectory = workspaceStateDirectory(for: workspace)
+        let daemonPath = workspaceDaemonPath(for: workspace)
+        let logPath = workspaceLogPath(for: workspace)
+        // Remove stale daemon.json, log, and lock files
+        let cleanupCommand = "rm -f \(daemonPath) \(logPath) \(stateDirectory)/lock"
         _ = try await connection.exec(cleanupCommand)
 
         // Kill existing tmux session
@@ -2137,6 +2201,22 @@ package struct WorkspaceService: Sendable {
 
       throw error
     }
+  }
+}
+
+// MARK: - Workspace metadata paths
+
+extension WorkspaceService {
+  private func workspaceStateDirectory(for workspace: Models.Workspace) -> String {
+    "$HOME/.opencoder/workspaces/\(workspace.id.uuidString)"
+  }
+
+  private func workspaceDaemonPath(for workspace: Models.Workspace) -> String {
+    "\(workspaceStateDirectory(for: workspace))/daemon.json"
+  }
+
+  private func workspaceLogPath(for workspace: Models.Workspace) -> String {
+    "\(workspaceStateDirectory(for: workspace))/live.log"
   }
 }
 

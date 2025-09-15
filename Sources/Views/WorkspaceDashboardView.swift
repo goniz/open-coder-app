@@ -217,6 +217,7 @@ private struct LiveOutputView: View {
   let workspace: Workspace
   @State private var outputLines: [String] = []
   @State private var isFollowing = true
+  @State private var streamTask: Task<Void, Never>? = nil
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -249,9 +250,8 @@ private struct LiveOutputView: View {
           }
         }
       }
-      .task {
-        await startLiveOutput()
-      }
+      .task { await startLiveOutput() }
+      .onDisappear { streamTask?.cancel() }
     }
   }
 
@@ -286,22 +286,16 @@ private struct LiveOutputView: View {
   }
 
   private func startLiveOutput() async {
-    let mockLines = [
-      "[2024-01-15 10:30:15] Starting opencode server...",
-      "[2024-01-15 10:30:16] Loading configuration...",
-      "[2024-01-15 10:30:17] Initializing SSH connection...",
-      "[2024-01-15 10:30:18] Connected to \(workspace.host)",
-      "[2024-01-15 10:30:19] Starting tmux session: \(workspace.tmuxSession)",
-      "[2024-01-15 10:30:20] Workspace ready",
-      "[2024-01-15 10:30:21] Listening on port 8080...",
-      "[2024-01-15 10:30:22] Health check passed",
-      "[2024-01-15 10:30:23] Server is online",
-      "[2024-01-15 10:30:24] Ready to accept connections"
-    ]
+    // Cancel previous stream if any
+    streamTask?.cancel()
+    outputLines.removeAll()
 
-    for line in mockLines {
-      outputLines.append(line)
-      try? await Task.sleep(for: .milliseconds(500))
+    streamTask = Task {
+      for await line in WorkspaceLogs.stream(for: workspace) {
+        await MainActor.run {
+          outputLines.append(line)
+        }
+      }
     }
   }
 
