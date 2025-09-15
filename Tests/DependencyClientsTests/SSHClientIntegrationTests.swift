@@ -383,9 +383,6 @@ final class SSHClientIntegrationTests: XCTestCase {
   }
 
   func testSSHClient_testConnection_and_execWhoami() async throws {
-    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
-      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
-    }
     #if os(macOS)
     #else
     throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
@@ -445,9 +442,6 @@ final class SSHClientIntegrationTests: XCTestCase {
   }
 
   func testSSHClient_execCleanCommand_and_largeOutput() async throws {
-    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
-      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
-    }
     #if os(macOS)
     #else
     throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
@@ -509,9 +503,6 @@ final class SSHClientIntegrationTests: XCTestCase {
   }
 
   func testSSHClient_SFTP_listDirectory_and_homeDirectory() async throws {
-    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
-      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
-    }
     #if os(macOS)
     #else
     throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
@@ -591,9 +582,6 @@ final class SSHClientIntegrationTests: XCTestCase {
   }
 
   func testSSHClient_authFailure_withMissingKeyPath() async throws {
-    guard ProcessInfo.processInfo.environment["RUN_SSHCLIENT_INTEGRATION"] == "1" else {
-      throw XCTSkip("Set RUN_SSHCLIENT_INTEGRATION=1 to run SSHClient integration tests")
-    }
     #if os(macOS)
     #else
     throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
