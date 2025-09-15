@@ -153,6 +153,8 @@ final class SSHClientIntegrationTests: XCTestCase {
       ChallengeResponseAuthentication no
       UsePAM no
       StrictModes no
+      LoginGraceTime 5
+      MaxAuthTries 1
 
       AllowUsers \(currentUser)
       AuthorizedKeysFile \(authorizedKeys.path)
@@ -793,6 +795,8 @@ final class SSHClientIntegrationTests: XCTestCase {
       ChallengeResponseAuthentication no
       UsePAM no
       StrictModes no
+      LoginGraceTime 5
+      MaxAuthTries 1
 
       AllowUsers \(currentUser)
       AuthorizedKeysFile \(authorizedKeysPath)

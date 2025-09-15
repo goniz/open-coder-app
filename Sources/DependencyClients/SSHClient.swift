@@ -512,9 +512,27 @@ package struct SSHClient: SSHClientProtocol {
     )
   }
 
+  // Validate auth intent vs supplied credentials prior to connecting
+  private func preflightAuth(_ config: Models.SSHServerConfiguration) throws {
+    if config.useKeyAuthentication {
+      let trimmed = config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines)
+      let hasKeyFile = !trimmed.isEmpty && FileManager.default.fileExists(atPath: (trimmed as NSString).expandingTildeInPath)
+      let hasKeyData = (config.privateKeyData != nil)
+      if !hasKeyFile && !hasKeyData {
+        throw SSHConnectionError.privateKeyPathEmpty
+      }
+    } else {
+      if config.password.isEmpty {
+        throw SSHConnectionError.passwordAuthNotAvailable
+      }
+    }
+  }
+
   // swiftlint:disable:next function_body_length
   package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
     await AppLogger.shared.log("Executing SSH command: \(command)", level: .debug, category: .ssh)
+    // Fail fast if configuration cannot possibly authenticate with our supported methods.
+    do { try preflightAuth(config) } catch { throw error }
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     var mainChannel: Channel?
     var sessionChannel: Channel?
