@@ -49,4 +49,3 @@ package struct WorkspaceInteractionFeature {
     }
   }
 }
-
