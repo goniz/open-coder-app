@@ -2020,7 +2020,10 @@ package struct WorkspaceService: Sendable {
           category: .workspace
         )
         // Build the command using NPX to run opencode-ai and print logs to shared state directory.
-        let spawnCommand = "mkdir -p \(stateDirectory) && npx -y opencode-ai serve --hostname 127.0.0.1 --port 0 --print-logs | tee -a \(logPath)"
+        let serveCommand =
+          "npx -y opencode-ai serve --hostname 127.0.0.1 --port 0 --print-logs"
+        let spawnCommand =
+          "mkdir -p \(stateDirectory) && \(serveCommand) | tee -a \(logPath)"
 
         // Ensure a dedicated tmux window named 'opencode' exists and respawn the pane with our command
         try await tmuxService.ensureWindow(

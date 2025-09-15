@@ -217,7 +217,7 @@ private struct LiveOutputView: View {
   let workspace: Workspace
   @State private var outputLines: [String] = []
   @State private var isFollowing = true
-  @State private var streamTask: Task<Void, Never>? = nil
+  @State private var streamTask: Task<Void, Never>?
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
