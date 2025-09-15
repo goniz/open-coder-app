@@ -51,6 +51,27 @@ package struct HomeFeature {
     case .workspaces(.task), .servers(.task), .settings(.task):
       return .none
 
+    // Reflect a successful workspace connection in Servers tab connection state
+    case let .workspaces(.workspaceOpened(workspaceID, result)):
+      switch result {
+      case .success(let spawnResult) where spawnResult.online:
+        if let workspaceState = state.workspaces.workspaces.first(where: { $0.id == workspaceID }) {
+          // Prefer explicit serverID mapping, otherwise match by host+user
+          if let serverConfigID = workspaceState.workspace.serverID,
+             let server = state.servers.servers.first(where: { $0.configuration.id == serverConfigID }) {
+            return .send(.servers(.connectionSuccess(server.id)))
+          } else if let server = state.servers.servers.first(where: {
+            $0.configuration.host == workspaceState.workspace.host &&
+            $0.configuration.username == workspaceState.workspace.user
+          }) {
+            return .send(.servers(.connectionSuccess(server.id)))
+          }
+        }
+        return .none
+      default:
+        return .none
+      }
+
     case .workspaces, .servers, .settings:
       return .none
     }

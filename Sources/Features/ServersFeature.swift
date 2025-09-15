@@ -156,7 +156,19 @@ package struct ServersFeature {
   }
 
   private func handleServersLoaded(state: inout State, servers: [ServerState]) -> Effect<Action> {
-    state.servers = servers
+    // Preserve existing connection state when reloading from storage
+    let existingByConfigID: [UUID: ServerState] = Dictionary(
+      uniqueKeysWithValues: state.servers.map { ($0.configuration.id, $0) }
+    )
+
+    state.servers = servers.map { loaded in
+      var merged = loaded
+      if let existing = existingByConfigID[loaded.configuration.id] {
+        merged.connectionState = existing.connectionState
+        merged.lastConnectedAt = existing.lastConnectedAt
+      }
+      return merged
+    }
     state.isLoading = false
 
     state.persistentConnections = Set(
@@ -190,7 +202,8 @@ package struct ServersFeature {
 
     return .run { send in
       do {
-        try await SSHClient.testConnection(config)
+        // Establish and cache a shared connection for this server
+        try await SSHConnectionPool.shared.connect(config)
         await send(.connectionSuccess(id))
       } catch {
         await send(.connectionFailed(id, error.localizedDescription))

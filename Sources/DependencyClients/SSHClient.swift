@@ -1732,16 +1732,15 @@ package enum SSHConnectionError: Error, LocalizedError {
 struct TmuxService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let sshClient: SSHClient
-  private let connectionManager: SSHConnectionManager
 
   init(config: Models.SSHServerConfiguration) {
     self.config = config
     self.sshClient = SSHClient()
-    self.connectionManager = SSHConnectionManager(config: config)
   }
 
   func hasSession(_ name: String) async throws -> Bool {
     do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       return try await connectionManager.withConnection { connection in
         let escapedName = escapeShellArgument(name)
         let command = "tmux has-session -t \(escapedName) 2>/dev/null && echo 'exists' || echo 'not found'"
@@ -1761,6 +1760,7 @@ struct TmuxService: Sendable {
 
   func newSession(name: String, path: String) async throws {
     do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
         let escapedName = escapeShellArgument(name)
         let escapedPath = escapeShellArgument(path)
@@ -1800,6 +1800,7 @@ struct TmuxService: Sendable {
 
   func newOrReplaceServerWindow(name: String) async throws {
     do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
         let hasExisting = try await hasSession(name)
         if hasExisting {
@@ -1825,6 +1826,7 @@ struct TmuxService: Sendable {
 
   func listSessions() async throws -> [String] {
     do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       return try await connectionManager.withConnection { connection in
         let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
         let result = try await connection.exec(command)
@@ -1844,6 +1846,7 @@ struct TmuxService: Sendable {
 
   func killSession(_ name: String) async throws {
     do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
         let escapedName = escapeShellArgument(name)
         let command = "tmux kill-session -t \(escapedName) 2>/dev/null || true"
@@ -1865,13 +1868,11 @@ package struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let tmuxService: TmuxService
   private let sshClient: SSHClient
-  private let connectionManager: SSHConnectionManager
 
   package init(config: Models.SSHServerConfiguration) {
     self.config = config
     self.sshClient = SSHClient()
     self.tmuxService = TmuxService(config: config)
-    self.connectionManager = SSHConnectionManager(config: config)
   }
 
   // Establish an SSH connection and ensure the tmux session exists for the workspace, nothing else.
@@ -1883,6 +1884,7 @@ package struct WorkspaceService: Sendable {
       category: .workspace
     )
 
+    let connectionManager = await SSHConnectionPool.shared.manager(for: config)
     try await connectionManager.withConnection { _ in
       // Create-or-use existing session without a separate has-session check
       try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
@@ -1909,6 +1911,7 @@ package struct WorkspaceService: Sendable {
 
     do {
       // Use connection manager for all SSH operations to reuse the same connection
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       return try await connectionManager.withConnection { connection in
         // Step 1: Ensure tmux session exists (no pre-check; tolerate duplicates)
         try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
@@ -1923,7 +1926,7 @@ package struct WorkspaceService: Sendable {
 
         // Parse daemon.json to check for existing port
         let decoder = JSONDecoder()
-        if let data = daemonContent.data(using: .utf8),
+        if let data = daemonContent.data(using: String.Encoding.utf8),
           let daemonInfo = try? decoder.decode([String: Int].self, from: data),
           let existingPort = daemonInfo["port"] {
 
@@ -2064,7 +2067,8 @@ package struct WorkspaceService: Sendable {
       // Run the streaming setup in a Task
       Task {
         do {
-          try await self.connectionManager.withConnection { connection in
+          let manager = await SSHConnectionPool.shared.manager(for: self.config)
+          try await manager.withConnection { connection in
             let escapedPath = escapeShellArgument(workspace.remotePath)
             let command = "tail -n 200 -F \(escapedPath)/.opencode/live.log"
 
@@ -2102,6 +2106,7 @@ package struct WorkspaceService: Sendable {
   package func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
     do {
       // Use connection manager for cleanup operations too
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
         // Remove stale daemon.json and lock files
         let escapedRemotePath = escapeShellArgument(workspace.remotePath)
