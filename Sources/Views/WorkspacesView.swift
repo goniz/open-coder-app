@@ -255,18 +255,19 @@ struct WorkspaceRowView: View {
           .scaleEffect(0.8)
 
       case .online:
+        Button(action: onShowLiveOutput) {
+          Label("Open", systemImage: "arrow.right.circle")
+            .font(.caption)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.blue)
+
         Button(action: onRefresh) {
           Image(systemName: "arrow.clockwise")
             .font(.caption)
         }
         .buttonStyle(.bordered)
         .disabled(workspaceState.isRefreshing)
-
-        Button(action: onShowLiveOutput) {
-          Image(systemName: "text.alignleft")
-            .font(.caption)
-        }
-        .buttonStyle(.bordered)
 
       case .error:
         Button(action: onCleanAndRetry) {
