@@ -6,6 +6,7 @@ import Models
 package struct WorkspaceDashboardFeature {
   package enum Tab: String, CaseIterable {
     case sessions = "Sessions"
+    case liveOutput = "Live Output"
     case repo = "Repo"
     case terminals = "Terminals"
     case activity = "Activity"
@@ -15,7 +16,7 @@ package struct WorkspaceDashboardFeature {
   package struct State: Equatable {
     package var workspace: Workspace
     package var onlineState: WorkspaceOnlineState
-    package var selectedTab: Tab = .sessions
+    package var selectedTab: Tab = .liveOutput
     package var sessions: [SessionMeta] = []
     package var isRefreshing = false
     package var showingSpawningOverlay = false
@@ -30,7 +31,6 @@ package struct WorkspaceDashboardFeature {
     case tabSelected(Tab)
     case refreshSessions
     case sessionsRefreshed([SessionMeta])
-    case showLiveOutput
     case spawnPhaseUpdated(SpawnPhase)
     case cleanAndRetry
   }
@@ -65,9 +65,6 @@ package struct WorkspaceDashboardFeature {
     case let .sessionsRefreshed(sessions):
       state.sessions = sessions
       state.isRefreshing = false
-      return .none
-
-    case .showLiveOutput:
       return .none
 
     case let .spawnPhaseUpdated(phase):

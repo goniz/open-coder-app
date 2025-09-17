@@ -15,7 +15,7 @@ struct WorkspaceDashboardView: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        HeaderView(workspace: store.workspace, onlineState: .online(port: 8080))
+        HeaderView(workspace: store.workspace, onlineState: store.onlineState)
 
         Picker("Tab", selection: $store.selectedTab.sending(\.tabSelected)) {
           ForEach(WorkspaceDashboardFeature.Tab.allCases, id: \.self) { tab in
@@ -29,17 +29,6 @@ struct WorkspaceDashboardView: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
       .navigationTitle(store.workspace.name)
-      .toolbar {
-        ToolbarItem(placement: .primaryAction) {
-          Button("Live Output") {
-            store.send(.showLiveOutput)
-          }
-          .disabled(store.onlineState != .online(port: 8080))
-        }
-      }
-    }
-    .sheet(isPresented: .constant(false)) {
-      LiveOutputView(workspace: store.workspace)
     }
   }
 
@@ -52,6 +41,8 @@ struct WorkspaceDashboardView: View {
         isRefreshing: store.isRefreshing,
         onRefresh: { store.send(.refreshSessions) }
       )
+    case .liveOutput:
+      WorkspaceLiveOutputTabView(workspace: store.workspace)
     case .repo:
       VStack {
         Image(systemName: "folder")
@@ -210,128 +201,6 @@ private struct SessionRow: View {
         .foregroundColor(.secondary)
     }
     .padding(.vertical, 4)
-  }
-}
-
-private struct LiveOutputView: View {
-  let workspace: Workspace
-  @State private var outputLines: [String] = []
-  @State private var isFollowing = true
-  @State private var streamTask: Task<Void, Never>?
-  @State private var isWaitingForOutput = true
-  @Environment(\.dismiss) private var dismiss
-
-  var body: some View {
-    NavigationStack {
-      VStack(spacing: 0) {
-        ScrollView {
-          LazyVStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(outputLines.enumerated()), id: \.offset) { index, line in
-              Text(line)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .id(index)
-            }
-          }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-        .foregroundColor(.green)
-        .overlay(alignment: .center) {
-          if isWaitingForOutput {
-            VStack(spacing: 12) {
-              ProgressView()
-              Text("Waiting for live output…")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            }
-            .padding()
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-          }
-        }
-
-        controlsView
-      }
-      .navigationTitle("Live Output - \(workspace.name)")
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Done") {
-            dismiss()
-          }
-        }
-      }
-      .task { await startLiveOutput() }
-      .onDisappear { streamTask?.cancel() }
-    }
-  }
-
-  private var controlsView: some View {
-    HStack(spacing: 16) {
-      Button(
-        action: { isFollowing.toggle() },
-        label: {
-          Image(systemName: isFollowing ? "pause.fill" : "play.fill")
-            .font(.title3)
-        }
-      )
-
-      Button(action: copyOutput) {
-        Image(systemName: "doc.on.doc")
-          .font(.title3)
-      }
-
-      Button(action: clearOutput) {
-        Image(systemName: "trash")
-          .font(.title3)
-      }
-
-      Spacer()
-
-      Text("\(outputLines.count) lines")
-        .font(.caption)
-        .foregroundColor(.secondary)
-    }
-    .padding()
-    .background(Color.secondary.opacity(0.1))
-  }
-
-  private func startLiveOutput() async {
-    // Cancel previous stream if any
-    streamTask?.cancel()
-    outputLines.removeAll()
-    isWaitingForOutput = true
-
-    streamTask = Task {
-      for await line in WorkspaceLogs.stream(for: workspace) {
-        await MainActor.run {
-          outputLines.append(line)
-          isWaitingForOutput = false
-        }
-      }
-      await MainActor.run {
-        if outputLines.isEmpty {
-          outputLines.append("[Live Output] No log entries yet.")
-        }
-        isWaitingForOutput = false
-      }
-    }
-  }
-
-  private func copyOutput() {
-    let text = outputLines.joined(separator: "\n")
-    #if os(iOS)
-      UIPasteboard.general.string = text
-    #elseif os(macOS)
-      NSPasteboard.general.setString(text, forType: .string)
-    #endif
-  }
-
-  private func clearOutput() {
-    outputLines.removeAll()
   }
 }
 
