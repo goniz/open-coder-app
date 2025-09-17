@@ -11,8 +11,8 @@ package struct WorkspacesFeature {
     package var isLoading = false
     package var isAddingWorkspace = false
     package var selectedWorkspace: WorkspaceState.ID?
-    package var showingLiveOutput = false
     package var showingWorkspaceInteraction = false
+    package var interactionInitialTab: WorkspaceInteractionFeature.Tab = .activity
 
     package init() {}
   }
@@ -42,7 +42,6 @@ package struct WorkspacesFeature {
     case removeWorkspace(WorkspaceState.ID)
     case dismissAddWorkspace
     case showLiveOutput(WorkspaceState.ID)
-    case hideLiveOutput
     case cleanAndRetry(WorkspaceState.ID)
     case spawnPhaseUpdated(WorkspaceState.ID, SpawnPhase)
     case hideWorkspaceInteraction
@@ -89,9 +88,6 @@ package struct WorkspacesFeature {
 
     case let .showLiveOutput(id):
       return handleShowLiveOutput(state: &state, id: id)
-
-    case .hideLiveOutput:
-      return handleHideLiveOutput(state: &state)
 
     case let .cleanAndRetry(id):
       return handleCleanAndRetry(state: &state, id: id)
@@ -154,13 +150,8 @@ package struct WorkspacesFeature {
 
   private func handleShowLiveOutput(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
     state.selectedWorkspace = id
-    state.showingLiveOutput = true
-    return .none
-  }
-
-  private func handleHideLiveOutput(state: inout State) -> Effect<Action> {
-    state.showingLiveOutput = false
-    state.selectedWorkspace = nil
+    state.interactionInitialTab = .liveOutput
+    state.showingWorkspaceInteraction = true
     return .none
   }
 
@@ -178,6 +169,7 @@ package struct WorkspacesFeature {
 
     state.workspaces[index].onlineState = .spawning(phase: .ssh)
     state.selectedWorkspace = id
+    state.interactionInitialTab = .activity
     state.showingWorkspaceInteraction = true
     let workspace = state.workspaces[index].workspace
 
@@ -198,6 +190,7 @@ package struct WorkspacesFeature {
   private func handleHideWorkspaceInteraction(state: inout State) -> Effect<Action> {
     state.showingWorkspaceInteraction = false
     state.selectedWorkspace = nil
+    state.interactionInitialTab = .activity
     return .none
   }
 

@@ -10,19 +10,25 @@ package struct WorkspaceInteractionFeature {
     case chat = "Chat"
     case terminal = "Terminal"
     case files = "Files"
+    case liveOutput = "Live Output"
   }
 
   @ObservableState
   package struct State: Equatable {
     package var workspace: Workspace
     package var onlineState: WorkspaceOnlineState
-    package var selectedTab: Tab = .activity
+    package var selectedTab: Tab
     package var chat = ChatFeature.State()
     package var serverConnection: ConnectionState = .disconnected
 
-    package init(workspace: Workspace, onlineState: WorkspaceOnlineState) {
+    package init(
+      workspace: Workspace,
+      onlineState: WorkspaceOnlineState,
+      selectedTab: Tab = .activity
+    ) {
       self.workspace = workspace
       self.onlineState = onlineState
+      self.selectedTab = selectedTab
     }
   }
 

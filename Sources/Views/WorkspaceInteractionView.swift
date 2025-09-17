@@ -17,6 +17,10 @@ struct WorkspaceInteractionView: View {
             set: { store.send(.tabSelected($0)) }
           )
         ) {
+          WorkspaceLiveOutputTabView(workspace: store.workspace)
+            .tabItem { Label("Live Output", systemImage: "text.alignleft") }
+            .tag(WorkspaceInteractionFeature.Tab.liveOutput)
+
           activityView
             .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
             .tag(WorkspaceInteractionFeature.Tab.activity)

@@ -43,24 +43,6 @@ struct WorkspacesView: View {
       }
       .sheet(
         isPresented: Binding(
-          get: { store.showingLiveOutput },
-          set: { if !$0 { store.send(.hideLiveOutput) } }
-        )
-      ) {
-        if let workspaceId = store.selectedWorkspace,
-          let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
-          WorkspaceDashboardView(
-            store: .init(
-              initialState: .init(
-                workspace: workspace.workspace,
-                onlineState: workspace.onlineState
-              ),
-              reducer: { WorkspaceDashboardFeature() }
-            ))
-        }
-      }
-      .sheet(
-        isPresented: Binding(
           get: { store.showingWorkspaceInteraction },
           set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
         )
@@ -71,7 +53,8 @@ struct WorkspacesView: View {
             store: .init(
               initialState: .init(
                 workspace: workspace.workspace,
-                onlineState: workspace.onlineState
+                onlineState: workspace.onlineState,
+                selectedTab: store.interactionInitialTab
               ),
               reducer: { WorkspaceInteractionFeature() }
             )
