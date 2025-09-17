@@ -3,11 +3,9 @@ import Models
 
 struct TmuxService: Sendable {
   private let config: Models.SSHServerConfiguration
-  private let sshClient: SSHClient
 
   init(config: Models.SSHServerConfiguration) {
     self.config = config
-    self.sshClient = SSHClient()
   }
 
   func hasSession(_ name: String) async throws -> Bool {
@@ -29,10 +27,16 @@ struct TmuxService: Sendable {
     }
   }
 
-  func newSession(name: String, path: String) async throws {
+  enum NewSessionResult: Equatable {
+    case created
+    case existing
+  }
+
+  @discardableResult
+  func newSession(name: String, path: String) async throws -> NewSessionResult {
     do {
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
-      try await connectionManager.withConnection { connection in
+      return try await connectionManager.withConnection { connection in
         let escapedName = escapeShellArgument(name)
         let escapedPath = escapeShellArgument(path)
         let command = "tmux new-session -d -s \(escapedName) -c \(escapedPath)"
@@ -43,6 +47,7 @@ struct TmuxService: Sendable {
             level: .info,
             category: .workspace
           )
+          return .created
         } catch {
           if case let SSHError.commandFailed(message) = error,
             message.lowercased().contains("duplicate session") {
@@ -51,7 +56,7 @@ struct TmuxService: Sendable {
               level: .info,
               category: .workspace
             )
-            return
+            return .existing
           }
           throw error
         }
@@ -69,18 +74,19 @@ struct TmuxService: Sendable {
 
   func newOrReplaceServerWindow(name: String) async throws {
     do {
+      let workspacePath = "$HOME"
+      let sessionResult = try await newSession(name: name, path: workspacePath)
+
+      guard sessionResult == .existing else { return }
+
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
-        let hasExisting = try await hasSession(name)
-        if hasExisting {
-          let escapedName = escapeShellArgument(name)
-          let killCommand = "tmux kill-session -t \(escapedName)"
-          _ = try await connection.exec(killCommand)
-        }
-
-        let workspacePath = "$HOME"
-        try await newSession(name: name, path: workspacePath)
+        let escapedName = escapeShellArgument(name)
+        let killCommand = "tmux kill-session -t \(escapedName)"
+        _ = try await connection.exec(killCommand)
       }
+
+      _ = try await newSession(name: name, path: workspacePath)
     } catch {
       if error is CancellationError {
         throw SSHError.commandFailed(

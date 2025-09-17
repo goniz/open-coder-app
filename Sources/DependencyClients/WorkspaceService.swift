@@ -33,10 +33,7 @@ package struct WorkspaceService: Sendable {
       category: .workspace
     )
 
-    let connectionManager = await SSHConnectionPool.shared.manager(for: config)
-    try await connectionManager.withConnection { _ in
-      try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-    }
+    _ = try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
   }
 
   // swiftlint:disable:next function_body_length
