@@ -10,8 +10,8 @@ final class HomeFeatureTests: XCTestCase {
       reducer: { HomeFeature() }
     )
 
-    await store.send(.tabSelected(.projects)) {
-      $0.selectedTab = .projects
+    await store.send(.tabSelected(.workspaces)) {
+      $0.selectedTab = .workspaces
     }
   }
 }

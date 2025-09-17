@@ -84,7 +84,8 @@ struct ServersView: View {
           server: server,
           onTestConnection: { store.send(.testConnection(server.id)) },
           onDelete: { store.send(.removeServer(server.id)) },
-          onStartTask: onStartTask
+          onStartTask: onStartTask,
+          onDisconnect: { store.send(.disconnect(server.id)) }
         )
       }
     }
@@ -96,6 +97,7 @@ struct ServerRowView: View {
   let onTestConnection: () -> Void
   let onDelete: () -> Void
   let onStartTask: ((CodingTask) -> Void)?
+  let onDisconnect: () -> Void
 
   @State private var showingTaskMenu = false
 
@@ -135,6 +137,14 @@ struct ServerRowView: View {
             onStartTask(CodingTask.mockDeployTask(serverID: server.id))
           }
         }
+      }
+
+      if server.connectionState == .connected || server.connectionState == .connecting {
+        Button(action: onDisconnect) {
+          Image(systemName: "bolt.slash")
+            .foregroundColor(.red)
+        }
+        .disabled(server.connectionState == .connecting)
       }
 
       Button(action: onTestConnection) {

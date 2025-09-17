@@ -43,20 +43,22 @@ struct WorkspacesView: View {
       }
       .sheet(
         isPresented: Binding(
-          get: { store.showingLiveOutput },
-          set: { if !$0 { store.send(.hideLiveOutput) } }
+          get: { store.showingWorkspaceInteraction },
+          set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
         )
       ) {
         if let workspaceId = store.selectedWorkspace,
           let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
-          WorkspaceDashboardView(
+          WorkspaceInteractionView(
             store: .init(
               initialState: .init(
                 workspace: workspace.workspace,
-                onlineState: workspace.onlineState
+                onlineState: workspace.onlineState,
+                selectedTab: store.interactionInitialTab
               ),
-              reducer: { WorkspaceDashboardFeature() }
-            ))
+              reducer: { WorkspaceInteractionFeature() }
+            )
+          )
         }
       }
     }
@@ -253,18 +255,19 @@ struct WorkspaceRowView: View {
           .scaleEffect(0.8)
 
       case .online:
+        Button(action: onShowLiveOutput) {
+          Label("Open", systemImage: "arrow.right.circle")
+            .font(.caption)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.blue)
+
         Button(action: onRefresh) {
           Image(systemName: "arrow.clockwise")
             .font(.caption)
         }
         .buttonStyle(.bordered)
         .disabled(workspaceState.isRefreshing)
-
-        Button(action: onShowLiveOutput) {
-          Image(systemName: "text.alignleft")
-            .font(.caption)
-        }
-        .buttonStyle(.bordered)
 
       case .error:
         Button(action: onCleanAndRetry) {

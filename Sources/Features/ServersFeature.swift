@@ -57,6 +57,7 @@ package struct ServersFeature {
     case addServer
     case addServerCompleted(SSHServerConfiguration)
     case testConnection(ServerState.ID)
+    case disconnect(ServerState.ID)
     case connectionSuccess(ServerState.ID)
     case connectionFailed(ServerState.ID, String)
     case removeServer(ServerState.ID)
@@ -79,7 +80,7 @@ package struct ServersFeature {
 
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
-    case .task, .serversLoaded, .addServer, .addServerCompleted, .testConnection,
+    case .task, .serversLoaded, .addServer, .addServerCompleted, .testConnection, .disconnect,
       .connectionSuccess, .connectionFailed, .removeServer, .dismissAddServer,
       .toggleConnectionPersistence:
       return handleServerAction(state: &state, action: action)
@@ -104,6 +105,8 @@ package struct ServersFeature {
       return handleAddServerCompleted(state: &state, config: config)
     case let .testConnection(id):
       return handleTestConnection(state: &state, id: id)
+    case let .disconnect(id):
+      return handleDisconnect(state: &state, id: id)
     case let .connectionSuccess(id):
       return handleConnectionSuccess(state: &state, id: id)
     case let .connectionFailed(id, errorMessage):
@@ -156,7 +159,19 @@ package struct ServersFeature {
   }
 
   private func handleServersLoaded(state: inout State, servers: [ServerState]) -> Effect<Action> {
-    state.servers = servers
+    // Preserve existing connection state when reloading from storage
+    let existingByConfigID: [UUID: ServerState] = Dictionary(
+      uniqueKeysWithValues: state.servers.map { ($0.configuration.id, $0) }
+    )
+
+    state.servers = servers.map { loaded in
+      var merged = loaded
+      if let existing = existingByConfigID[loaded.configuration.id] {
+        merged.connectionState = existing.connectionState
+        merged.lastConnectedAt = existing.lastConnectedAt
+      }
+      return merged
+    }
     state.isLoading = false
 
     state.persistentConnections = Set(
@@ -190,11 +205,23 @@ package struct ServersFeature {
 
     return .run { send in
       do {
-        try await SSHClient.testConnection(config)
+        // Establish and cache a shared connection for this server
+        try await SSHConnectionPool.shared.connect(config)
         await send(.connectionSuccess(id))
       } catch {
         await send(.connectionFailed(id, error.localizedDescription))
       }
+    }
+  }
+
+  private func handleDisconnect(state: inout State, id: ServerState.ID) -> Effect<Action> {
+    guard let index = state.servers.firstIndex(where: { $0.id == id }) else { return .none }
+    let configID = state.servers[index].configuration.id
+    state.servers[index].connectionState = .disconnected
+    state.persistentConnections.remove(id)
+
+    return .run { _ in
+      await SSHConnectionPool.shared.disconnect(serverConfigID: configID)
     }
   }
 
@@ -364,9 +391,7 @@ package struct ServersFeature {
 
   private func handleMaintainActiveTaskConnections(state: inout State) -> Effect<Action> {
     let connectionEffects = state.activeTaskConnections.keys.map { _ in
-      Effect<Action>.run { _ in
-
-      }
+      Effect<Action>.run { _ in }
     }
 
     return .merge(connectionEffects)
