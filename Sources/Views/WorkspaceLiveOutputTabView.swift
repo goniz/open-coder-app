@@ -181,7 +181,7 @@ struct WorkspaceLiveOutputTabView: View {
 
         if windows.isEmpty {
           outputLines = [
-            "[Live Output] No tmux tabs found for session \(workspace.tmuxSession)."
+            "[Live Output] No tmux tabs found for session \(workspace.tmuxSession.value)."
           ]
           isWaitingForOutput = false
         } else {

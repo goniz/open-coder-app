@@ -63,7 +63,7 @@ struct AddWorkspaceView: View {
         Section("Configuration") {
           Stepper("Idle TTL: \(idleTTLMinutes) minutes", value: $idleTTLMinutes, in: 5...120)
 
-          Text("Deterministic tmux session: \(generateTmuxSessionName())")
+          Text("Deterministic tmux session: \(generateTmuxSessionName().value)")
             .font(.caption)
             .foregroundColor(.secondary)
         }
@@ -94,7 +94,7 @@ struct AddWorkspaceView: View {
                 Text("Session:")
                   .font(.caption)
                   .foregroundColor(.secondary)
-                Text(preview.tmuxSession)
+                Text(preview.tmuxSession.value)
                   .font(.caption)
                   .fontDesign(.monospaced)
               }
@@ -193,11 +193,12 @@ struct AddWorkspaceView: View {
     return nil
   }
 
-  private func generateTmuxSessionName() -> String {
-    guard !user.isEmpty && !host.isEmpty && !remotePath.isEmpty else {
-      return "ocw-user-host-hash"
-    }
-    return Workspace.generateTmuxSessionName(user: user, host: host, path: remotePath)
+  private func generateTmuxSessionName() -> TmuxSessionName {
+    let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedPath = remotePath.trimmingCharacters(in: .whitespacesAndNewlines)
+    let safeName = trimmedName.isEmpty ? "workspace" : trimmedName
+    let safePath = trimmedPath.isEmpty ? "/" : trimmedPath
+    return TmuxSessionName(workspaceName: safeName, path: safePath)
   }
 
   private func createWorkspace() {

@@ -16,15 +16,19 @@ enum WorkspacesFeatureHandlers {
           return
         }
 
-        // Simplified connect: only establish SSH and ensure tmux session exists.
         print(
-          "🔗 Simple connect to \(workspace.user)@\(workspace.host) using server: \(config.name)")
+          "🚀 Spawning opencode for \(workspace.user)@\(workspace.host) using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
-        try await workspaceService.connectAndEnsureTmux(workspace: workspace)
+        await send(.spawnPhaseUpdated(id, .launch))
 
-        // Mark as online without a port (use 0 to denote 'no app port').
-        await send(.workspaceOpened(id, .success(.init(port: 0, online: true, error: nil))))
+        let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
+
+        if spawnResult.online {
+          await send(.spawnPhaseUpdated(id, .attach))
+        }
+
+        await send(.workspaceOpened(id, .success(spawnResult)))
       } catch {
         // Log the error for debugging
         print("❌ SSH connection failed: \(error.localizedDescription)")
@@ -88,7 +92,14 @@ enum WorkspacesFeatureHandlers {
           "🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
 
         let workspaceService = WorkspaceService(config: config)
+        await send(.spawnPhaseUpdated(id, .launch))
+
         let result = try await workspaceService.cleanAndRetry(workspace: workspace)
+
+        if result.online {
+          await send(.spawnPhaseUpdated(id, .attach))
+        }
+
         await send(.workspaceOpened(id, .success(result)))
       } catch {
         // Log the error for debugging

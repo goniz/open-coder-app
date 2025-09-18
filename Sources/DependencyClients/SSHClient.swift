@@ -561,7 +561,7 @@ package struct SSHClient: SSHClientProtocol {
         let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
         sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
           // Add command output handler to capture stdout/stderr
-          let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
+          let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop, command: command)
           return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
             Task {
               await AppLogger.shared.log(
@@ -1143,16 +1143,18 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   private var receivedExit = false
   private var exitStatusCode: Int32 = -1
   private let completionPromise: EventLoopPromise<String>
+  private let command: String
 
   var completionFuture: EventLoopFuture<String> {
     return completionPromise.futureResult
   }
 
-  init(eventLoop: EventLoop) {
+  init(eventLoop: EventLoop, command: String) {
     self.completionPromise = eventLoop.makePromise(of: String.self)
+    self.command = command
     Task {
       await AppLogger.shared.log(
-        "CommandOutputHandler initialized",
+        "CommandOutputHandler initialized for command: \(command.prefix(80))",
         level: .debug,
         category: .ssh
       )
@@ -1295,9 +1297,15 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if exitStatusCode == 0 {
           completionPromise.succeed(output)
         } else {
-          let message = errorOutput.isEmpty
-            ? "Command failed with exit code \(exitStatusCode)"
-            : errorOutput
+          let trimmedCommand = command.count > 200
+            ? "\(command.prefix(200))…"
+            : command
+          let message: String
+          if errorOutput.isEmpty {
+            message = "`\(trimmedCommand)` failed with exit code \(exitStatusCode)"
+          } else {
+            message = "`\(trimmedCommand)` failed: \(errorOutput)"
+          }
           completionPromise.fail(SSHError.commandFailed(message))
         }
       } else {
@@ -1305,7 +1313,11 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if !output.isEmpty {
           completionPromise.succeed(output)
         } else if !errorOutput.isEmpty {
-          completionPromise.fail(SSHError.commandFailed(errorOutput))
+          let trimmedCommand = command.count > 200
+            ? "\(command.prefix(200))…"
+            : command
+          let message = "`\(trimmedCommand)` failed: \(errorOutput)"
+          completionPromise.fail(SSHError.commandFailed(message))
         } else {
           completionPromise.fail(
             SSHError.connectionFailed(
@@ -1835,7 +1847,7 @@ package struct SSHConnection: Sendable {
       let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
       sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
       // Add command output handler to capture stdout/stderr
-      let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
+      let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop, command: command)
       return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
         // Signal that channel is ready
         Task {

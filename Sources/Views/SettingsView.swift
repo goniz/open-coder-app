@@ -50,7 +50,11 @@ struct SettingsView: View {
 struct LogsView: View {
   @Bindable var store: StoreOf<SettingsFeature>
   @StateObject private var logger = AppLogger.shared
-  @Environment(\.dismiss) private var dismiss
+  @State private var isPinnedToBottom = true
+  @State private var pendingProgrammaticScroll = false
+  @State private var scrollTask: Task<Void, Never>?
+
+  private let bottomSentinelID = UUID()
 
   var body: some View {
     NavigationView {
@@ -61,17 +65,36 @@ struct LogsView: View {
               LogEntryView(entry: entry)
                 .id(entry.id)
             }
+
+            Color.clear
+              .frame(height: 1)
+              .id(bottomSentinelID)
+              .onAppear {
+                isPinnedToBottom = true
+                pendingProgrammaticScroll = false
+              }
+              .onDisappear {
+                if !pendingProgrammaticScroll {
+                  isPinnedToBottom = false
+                }
+              }
           }
           .padding(.horizontal, 16)
           .padding(.vertical, 12)
         }
         .background(.gray.opacity(0.1))
+        .onAppear {
+          scheduleScrollToBottom(proxy: proxy, force: true)
+        }
         .onChange(of: logger.logEntries.count) { _, _ in
-          if let lastEntry = logger.logEntries.last {
-            withAnimation(.easeOut(duration: 0.3)) {
-              proxy.scrollTo(lastEntry.id, anchor: .bottom)
-            }
+          guard logger.latestEntryID != nil else {
+            scrollTask?.cancel()
+            pendingProgrammaticScroll = false
+            isPinnedToBottom = true
+            return
           }
+
+          scheduleScrollToBottom(proxy: proxy)
         }
       }
       .navigationTitle("Live Activity Logs")
@@ -88,6 +111,34 @@ struct LogsView: View {
           }
           .foregroundColor(.red)
         }
+      }
+    }
+    .onDisappear {
+      scrollTask?.cancel()
+      scrollTask = nil
+      pendingProgrammaticScroll = false
+    }
+  }
+
+  @MainActor
+  private func scheduleScrollToBottom(proxy: ScrollViewProxy, force: Bool = false) {
+    if !force && !isPinnedToBottom {
+      return
+    }
+
+    pendingProgrammaticScroll = true
+    scrollTask?.cancel()
+    scrollTask = Task { @MainActor in
+      defer {
+        pendingProgrammaticScroll = false
+        scrollTask = nil
+      }
+
+      await Task.yield()
+      guard !Task.isCancelled else { return }
+
+      withAnimation(.easeOut(duration: 0.3)) {
+        proxy.scrollTo(bottomSentinelID, anchor: .bottom)
       }
     }
   }

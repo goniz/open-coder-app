@@ -150,7 +150,7 @@ package struct WorkspaceService: Sendable {
             let command: String
 
             if let window {
-              let target = "\(workspace.tmuxSession):\(window)"
+              let target = "\(workspace.tmuxSession.value):\(window)"
               let escapedTarget = escapeShellArgument(target)
               let script = """
               tmux_target=\(escapedTarget)
@@ -244,10 +244,18 @@ private extension WorkspaceService {
 
   func readDaemonData(workspace: Models.Workspace, connection: SSHConnection) async throws -> [String: Int]? {
     let daemonPath = workspaceDaemonPath(for: workspace)
-    let command = "cat \(daemonPath) 2>/dev/null"
+    let escapedDaemonPath = daemonPath.escapingDoubleQuotes()
+    let command = """
+    if [ -f "\(escapedDaemonPath)" ]; then
+      cat "\(escapedDaemonPath)" 2>/dev/null
+    else
+      printf ''
+    fi
+    """
     let output = try await connection.exec(command)
-    guard !output.isEmpty else { return nil }
-    guard let data = output.data(using: .utf8) else { return nil }
+    let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedOutput.isEmpty else { return nil }
+    guard let data = trimmedOutput.data(using: .utf8) else { return nil }
     return try JSONDecoder().decode([String: Int].self, from: data)
   }
 

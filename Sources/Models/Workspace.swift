@@ -6,7 +6,7 @@ package struct Workspace: Identifiable, Codable, Equatable {
   package var host: String
   package var user: String
   package var remotePath: String
-  package var tmuxSession: String
+  package var tmuxSession: TmuxSessionName
   package var idleTTLMinutes: Int
   package var serverID: UUID?
 
@@ -16,7 +16,7 @@ package struct Workspace: Identifiable, Codable, Equatable {
     host: String,
     user: String,
     remotePath: String,
-    tmuxSession: String = "",
+    tmuxSession: TmuxSessionName? = nil,
     idleTTLMinutes: Int = 30,
     serverID: UUID? = nil
   ) {
@@ -25,17 +25,17 @@ package struct Workspace: Identifiable, Codable, Equatable {
     self.host = host
     self.user = user
     self.remotePath = remotePath
-    self.tmuxSession =
-      tmuxSession.isEmpty
-      ? Self.generateTmuxSessionName(user: user, host: host, path: remotePath) : tmuxSession
+    if let tmuxSession {
+      self.tmuxSession = tmuxSession
+    } else {
+      self.tmuxSession = TmuxSessionName(workspaceName: name, path: remotePath)
+    }
     self.idleTTLMinutes = idleTTLMinutes
     self.serverID = serverID
   }
 
-  package static func generateTmuxSessionName(user: String, host: String, path: String) -> String {
-    let pathHash = String(path.hashValue)
-    let shortHash = String(pathHash.prefix(8))
-    return "ocw-\(user)-\(host)-\(shortHash)"
+  package static func generateTmuxSessionName(name: String, path: String) -> String {
+    TmuxSessionName.generate(workspaceName: name, path: path)
   }
 }
 
@@ -99,7 +99,7 @@ package struct WorkspaceDTO: Codable {
   let host: String
   let user: String
   let remotePath: String
-  let tmuxSession: String
+  let tmuxSession: TmuxSessionName
   let idleTTLMinutes: Int
   let serverID: UUID?
 
