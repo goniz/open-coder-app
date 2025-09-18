@@ -66,15 +66,35 @@ package struct WorkspaceService: Sendable {
         let stateDirectory = workspaceStateDirectory(for: workspace)
         let logPath = workspaceLogPath(for: workspace)
         let daemonPath = workspaceDaemonPath(for: workspace)
-        let lockPath = "\(stateDirectory)/lock"
+        let spawnScript = """
+        set -euo pipefail
+        state_dir=\(stateDirectory.escapingDoubleQuotes())
+        lock_dir="$state_dir/lock.d"
+        log_file=\(logPath.escapingDoubleQuotes())
+        run_dir=\(runDir.escapingDoubleQuotes())
 
-        let spawnCommand =
-          "mkdir -p \(stateDirectory) && exec flock \(lockPath) bash -lc \"\(opencodeCommand) | tee -a \(logPath)\""
+        mkdir -p "$state_dir"
 
-        let serveCommand = "cd \(runDir.escapingDoubleQuotes()) && \(spawnCommand)"
+        cleanup_lock() {
+          if [ -d "$lock_dir" ]; then
+            rmdir "$lock_dir" 2>/dev/null || true
+          fi
+        }
+
+        if mkdir "$lock_dir" 2>/dev/null; then
+          trap cleanup_lock EXIT INT TERM HUP
+          cd "$run_dir"
+          \(opencodeCommand) | tee -a "$log_file"
+        else
+          printf '[Live Output] Another opencode launch is already in progress.\\n'
+          exit 0
+        fi
+        """
+
+        let spawnCommand = "bash -lc \(escapeShellArgument(spawnScript))"
 
         await AppLogger.shared.log(
-          "Spawning opencode server with command: \(serveCommand)",
+          "Spawning opencode server with script:\n\(spawnScript)",
           level: .info,
           category: .workspace
         )
@@ -145,6 +165,21 @@ package struct WorkspaceService: Sendable {
     AsyncStream { continuation in
       Task {
         do {
+          if let window {
+            do {
+              let snapshot = try await tmuxService.paneSnapshot(
+                session: workspace.tmuxSession,
+                window: window,
+                lineCount: 200
+              )
+              snapshot.forEach { continuation.yield($0) }
+            } catch {
+              continuation.yield(
+                "[Live Output] Failed to capture tmux output: \(error.localizedDescription)"
+              )
+            }
+          }
+
           let manager = await SSHConnectionPool.shared.manager(for: self.config)
           try await manager.withConnection { connection in
             let command: String
@@ -152,8 +187,7 @@ package struct WorkspaceService: Sendable {
             if let window {
               command = tmuxService.paneStreamingCommand(
                 session: workspace.tmuxSession,
-                window: window,
-                lineCount: 200
+                window: window
               )
             } else {
               let logPath = workspaceLogPath(for: workspace)
@@ -197,7 +231,7 @@ package struct WorkspaceService: Sendable {
         let stateDirectory = workspaceStateDirectory(for: workspace)
         let daemonPath = workspaceDaemonPath(for: workspace)
         let logPath = workspaceLogPath(for: workspace)
-        let cleanupCommand = "rm -f \(daemonPath) \(logPath) \(stateDirectory)/lock"
+        let cleanupCommand = "rm -f \(daemonPath) \(logPath); rm -rf \(stateDirectory)/lock.d"
         _ = try await connection.exec(cleanupCommand)
         try await tmuxService.killSession(workspace.tmuxSession)
       }

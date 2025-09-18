@@ -170,22 +170,40 @@ extension TmuxService {
   /// Builds a tmux streaming command that tails the pane's live output.
   func paneStreamingCommand(
     session: TmuxSessionName,
-    window: String,
-    lineCount: Int = 200
+    window: String
   ) -> String {
     let script = paneStreamingScript(
       session: session,
-      window: window,
-      lineCount: lineCount
+      window: window
     )
     return "bash -lc \(escapeShellArgument(script))"
+  }
+
+  /// Captures the current buffer of a tmux pane for initial rendering or post-exit inspection.
+  func paneSnapshot(
+    session: TmuxSessionName,
+    window: String,
+    lineCount: Int = 200
+  ) async throws -> [String] {
+    let connectionManager = await SSHConnectionPool.shared.manager(for: config)
+    return try await connectionManager.withConnection { connection in
+      let escapedSession = escapeShellArgument(session.value)
+      let escapedWindow = escapeShellArgument(window)
+      let command =
+        "tmux capture-pane -p -J -t \(escapedSession):\(escapedWindow) -S -\(max(1, lineCount)) 2>/dev/null || true"
+      let output = try await connection.exec(command)
+      return output
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .map { line in
+          line.replacingOccurrences(of: "\r", with: "")
+        }
+    }
   }
 
   /// Constructs the shell script used to stream a tmux pane and emit fallback messaging.
   func paneStreamingScript(
     session: TmuxSessionName,
-    window: String,
-    lineCount: Int = 200
+    window: String
   ) -> String {
     let target = "\(session.value):\(window)"
     let escapedTarget = escapeShellArgument(target)
@@ -193,10 +211,9 @@ extension TmuxService {
     tmux_target=\(escapedTarget)
     pane_tty=$(tmux display-message -p -t "$tmux_target" -F '#{pane_tty}' 2>/dev/null || true)
     if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
-      printf '[Live Output] Unable to resolve tmux pane for %s.\\n' "$tmux_target"
+      printf '[Live Output] tmux pane closed (%s).\\n' "$tmux_target"
       exit 0
     fi
-    tmux capture-pane -p -J -t "$tmux_target" -S -\(lineCount) 2>/dev/null || true
     exec cat "$pane_tty"
     """
   }
