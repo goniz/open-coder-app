@@ -107,17 +107,7 @@ struct TmuxService: Sendable {
         return result
           .split(separator: "\n")
           .compactMap { line -> TmuxSessionName? in
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return nil }
-
-            let namePortion: String
-            if let colonIndex = trimmed.firstIndex(of: ":") {
-              namePortion = String(trimmed[..<colonIndex])
-            } else {
-              namePortion = trimmed
-            }
-
-            let normalized = namePortion.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !normalized.isEmpty else { return nil }
             return TmuxSessionName(rawValue: normalized)
           }
@@ -143,8 +133,8 @@ struct TmuxService: Sendable {
         let result = try await connection.exec(command)
         return result
           .split(separator: "\n")
-          .map(String.init)
-          .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+          .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+          .filter { !$0.isEmpty }
       }
     } catch {
       if error is CancellationError {
@@ -177,6 +167,40 @@ struct TmuxService: Sendable {
 }
 
 extension TmuxService {
+  /// Builds a tmux streaming command that tails the pane's live output.
+  func paneStreamingCommand(
+    session: TmuxSessionName,
+    window: String,
+    lineCount: Int = 200
+  ) -> String {
+    let script = paneStreamingScript(
+      session: session,
+      window: window,
+      lineCount: lineCount
+    )
+    return "bash -lc \(escapeShellArgument(script))"
+  }
+
+  /// Constructs the shell script used to stream a tmux pane and emit fallback messaging.
+  func paneStreamingScript(
+    session: TmuxSessionName,
+    window: String,
+    lineCount: Int = 200
+  ) -> String {
+    let target = "\(session.value):\(window)"
+    let escapedTarget = escapeShellArgument(target)
+    return """
+    tmux_target=\(escapedTarget)
+    pane_tty=$(tmux display-message -p -t "$tmux_target" -F '#{pane_tty}' 2>/dev/null || true)
+    if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
+      printf '[Live Output] Unable to resolve tmux pane for %s.\\n' "$tmux_target"
+      exit 0
+    fi
+    tmux capture-pane -p -J -t "$tmux_target" -S -\(lineCount) 2>/dev/null || true
+    exec cat "$pane_tty"
+    """
+  }
+
   func ensureWindow(session: TmuxSessionName, window: String, path: String) async throws {
     let connectionManager = await SSHConnectionPool.shared.manager(for: config)
     try await connectionManager.withConnection { connection in
@@ -186,7 +210,10 @@ extension TmuxService {
 
       let listCommand = "tmux list-windows -t \(escapedSession) -F '#{window_name}' 2>/dev/null || true"
       let windowsList = try await connection.exec(listCommand)
-      let names = windowsList.split(separator: "\n").map(String.init)
+      let names = windowsList
+        .split(separator: "\n")
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
       if names.contains(where: { $0 == window }) {
         return
       }

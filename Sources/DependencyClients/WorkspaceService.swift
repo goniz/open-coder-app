@@ -150,19 +150,11 @@ package struct WorkspaceService: Sendable {
             let command: String
 
             if let window {
-              let target = "\(workspace.tmuxSession.value):\(window)"
-              let escapedTarget = escapeShellArgument(target)
-              let script = """
-              tmux_target=\(escapedTarget)
-              pane_tty=$(tmux display-message -p -t "$tmux_target" '#{pane_tty}' 2>/dev/null || true)
-              if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
-                printf '[Live Output] Unable to resolve tmux pane for %s.\\n' "$tmux_target"
-                exit 0
-              fi
-              tmux capture-pane -p -J -t "$tmux_target" -S -200 2>/dev/null || true
-              exec cat "$pane_tty"
-              """
-              command = "bash -lc \(escapeShellArgument(script))"
+              command = tmuxService.paneStreamingCommand(
+                session: workspace.tmuxSession,
+                window: window,
+                lineCount: 200
+              )
             } else {
               let logPath = workspaceLogPath(for: workspace)
               command = "tail -n 200 -F \(logPath) 2>/dev/null"
