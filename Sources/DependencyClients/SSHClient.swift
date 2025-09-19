@@ -113,9 +113,11 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       var buf = mutBuffer
       let count: UInt32 = buf.readInteger(endianness: .big) ?? 0
       guard count >= 1 else { throw SSHError.commandFailed("SFTP REALPATH returned no results") }
-      guard let filename = readString(&buf) else { throw SSHError.commandFailed("Invalid REALPATH response") }
+      guard let filename = readString(&buf) else {
+        throw SSHError.commandFailed("Invalid REALPATH response")
+      }
       // Consume longname and attrs to keep buffer consistent
-      _ = readString(&buf) // longname
+      _ = readString(&buf)  // longname
       var tmpBuf = buf
       _ = parseAttrs(&tmpBuf)
       return filename
@@ -157,7 +159,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       return .names(results)
     } else if typeByte == PacketType.status.rawValue {
       let (code, message) = parseStatus(mutBuffer)
-      if code == 1 { // SSH_FX_EOF
+      if code == 1 {  // SSH_FX_EOF
         return .eof
       }
       throw SSHError.commandFailed("SFTP READDIR failed (code: \(code)): \(message)")
@@ -227,7 +229,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
         versionPromise?.succeed(version)
         versionPromise = nil
         // Consume any remaining extension bytes in packet
-        if packetLength > 5 { // type(1) + version(4)
+        if packetLength > 5 {  // type(1) + version(4)
           _ = inboundBuffer.readSlice(length: Int(packetLength) - 5)
         }
         continue
@@ -320,22 +322,22 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
     var mode: UInt32?
     var size: UInt64?
     var mtime: UInt32?
-    if (flags & 0x00000001) != 0 { // size
+    if (flags & 0x0000_0001) != 0 {  // size
       size = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000002) != 0 { // uid/gid
+    if (flags & 0x0000_0002) != 0 {  // uid/gid
       let _: UInt32? = buffer.readInteger(endianness: .big)
       let _: UInt32? = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000004) != 0 { // permissions (mode)
+    if (flags & 0x0000_0004) != 0 {  // permissions (mode)
       mode = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000008) != 0 { // atime/mtime
-      let _: UInt32? = buffer.readInteger(endianness: .big) // atime
-      mtime = buffer.readInteger(endianness: .big) // mtime
+    if (flags & 0x0000_0008) != 0 {  // atime/mtime
+      let _: UInt32? = buffer.readInteger(endianness: .big)  // atime
+      mtime = buffer.readInteger(endianness: .big)  // mtime
     }
     // Skip extended attributes if present (rare)
-    if (flags & 0x80000000) != 0 {
+    if (flags & 0x8000_0000) != 0 {
       let count: UInt32 = buffer.readInteger(endianness: .big) ?? 0
       for _ in 0..<count {
         _ = readString(&buffer)
@@ -433,7 +435,7 @@ package enum SSHError: LocalizedError, Equatable {
 }
 
 // Helper function to extract detailed error information from NIOSSH errors
-private func detailedErrorDescription(_ error: Error) -> String {
+private func detailedErrorDescription(_ error: any Swift.Error) -> String {
   // Map ChannelError to friendly descriptions first
   if let chErr = error as? ChannelError {
     switch chErr {
@@ -506,9 +508,11 @@ package struct SSHClient: SSHClientProtocol {
   private func preflightAuth(_ config: Models.SSHServerConfiguration) throws {
     if config.useKeyAuthentication {
       let trimmed = config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines)
-      let hasKeyFile = !trimmed.isEmpty && FileManager.default.fileExists(
-        atPath: (trimmed as NSString).expandingTildeInPath
-      )
+      let hasKeyFile =
+        !trimmed.isEmpty
+        && FileManager.default.fileExists(
+          atPath: (trimmed as NSString).expandingTildeInPath
+        )
       let hasKeyData = (config.privateKeyData != nil)
       if !hasKeyFile && !hasKeyData {
         throw SSHConnectionError.privateKeyPathEmpty
@@ -521,7 +525,8 @@ package struct SSHClient: SSHClientProtocol {
   }
 
   package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
-    await AppLogger.shared.log("Executing SSH command via connection pool: \(command)", level: .debug, category: .ssh)
+    await AppLogger.shared.log(
+      "Executing SSH command via connection pool: \(command)", level: .debug, category: .ssh)
 
     // Fail fast if configuration cannot possibly authenticate with our supported methods.
     do { try preflightAuth(config) } catch { throw error }
@@ -824,7 +829,7 @@ package struct SSHClient: SSHClientProtocol {
       }
     }
   }
-  // swiftlint:enable function_body_length
+  // swiftlint:disable function_body_length
 
   private func sftpListDirectory(
     _ path: String,
@@ -832,12 +837,14 @@ package struct SSHClient: SSHClientProtocol {
   ) async throws -> [RemoteFileInfo] {
     return try await withSFTP(config: config) { sftpChannel, sftpHandler in
       let handle = try await sftpHandler.openDirectory(on: sftpChannel, path: path)
-      let entries = try await sftpReadAllEntries(handler: sftpHandler, channel: sftpChannel, handle: handle)
+      let entries = try await sftpReadAllEntries(
+        handler: sftpHandler, channel: sftpChannel, handle: handle)
       try await sftpHandler.closeHandle(on: sftpChannel, handle: handle)
 
       let files: [RemoteFileInfo] = entries.compactMap { entry in
         if entry.filename == "." || entry.filename == ".." { return nil }
-        let fullPath = path.hasSuffix("/") ? "\(path)\(entry.filename)" : "\(path)/\(entry.filename)"
+        let fullPath =
+          path.hasSuffix("/") ? "\(path)\(entry.filename)" : "\(path)/\(entry.filename)"
         let isDir: Bool
         if let mode = entry.mode {
           isDir = (mode & 0o170000) == 0o040000
@@ -845,9 +852,10 @@ package struct SSHClient: SSHClientProtocol {
           isDir = entry.longname.first == "d"
         }
         let size = entry.size.map { Int64($0) } ?? 0
-        let lastModified: Date = entry.mtime.map {
-          Date(timeIntervalSince1970: TimeInterval($0))
-        } ?? Date(timeIntervalSince1970: 0)
+        let lastModified: Date =
+          entry.mtime.map {
+            Date(timeIntervalSince1970: TimeInterval($0))
+          } ?? Date(timeIntervalSince1970: 0)
         return RemoteFileInfo(
           name: entry.filename,
           path: fullPath,
@@ -1094,7 +1102,8 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if exitStatusCode == 0 {
           completionPromise.succeed(output)
         } else {
-          let trimmedCommand = command.count > 200
+          let trimmedCommand =
+            command.count > 200
             ? "\(command.prefix(200))…"
             : command
           let message: String
@@ -1110,7 +1119,8 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if !output.isEmpty {
           completionPromise.succeed(output)
         } else if !errorOutput.isEmpty {
-          let trimmedCommand = command.count > 200
+          let trimmedCommand =
+            command.count > 200
             ? "\(command.prefix(200))…"
             : command
           let message = "`\(trimmedCommand)` failed: \(errorOutput)"
@@ -1118,7 +1128,8 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         } else {
           completionPromise.fail(
             SSHError.connectionFailed(
-              "SSH channel closed unexpectedly - the connection may have been terminated by the server"))
+              "SSH channel closed unexpectedly - the connection may have been terminated by the server"
+            ))
         }
       }
     }
@@ -1158,7 +1169,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
         } else if availableMethods.contains(.password) {
           nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
         } else {
-          nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("No supported methods"))
+          nextChallengePromise.fail(
+            SSHConnectionError.keyAuthenticationFailed("No supported methods"))
         }
       }
     } catch {
@@ -1175,7 +1187,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
     // Load Ed25519 private key from raw bytes or OpenSSH unencrypted key file
     let keyData: Data
     if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-      FileManager.default.fileExists(atPath: (config.privateKeyPath as NSString).expandingTildeInPath) {
+      FileManager.default.fileExists(
+        atPath: (config.privateKeyPath as NSString).expandingTildeInPath) {
       let expanded = (config.privateKeyPath as NSString).expandingTildeInPath
       let url = URL(fileURLWithPath: expanded)
       keyData = try Data(contentsOf: url)
@@ -1211,12 +1224,16 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
   private func chooseAuthenticationOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
     throws -> NIOSSHUserAuthenticationOffer? {
     if config.useKeyAuthentication {
-      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) {
+        return keyOffer
+      }
       if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
       return nil
     } else {
       if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
-      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) {
+        return keyOffer
+      }
       return nil
     }
   }
@@ -1241,8 +1258,7 @@ extension SSHUserAuthDelegate {
     }
 
     throw SSHConnectionError.keyAuthenticationFailed(
-      "Unsupported private key format " +
-      "(expected 32/64-byte raw or OpenSSH ed25519 key)"
+      "Unsupported private key format " + "(expected 32/64-byte raw or OpenSSH ed25519 key)"
     )
   }
 
@@ -1251,7 +1267,8 @@ extension SSHUserAuthDelegate {
     func base64Body(from pem: String) -> Data {
       let lines = pem.split(separator: "\n").map(String.init)
       guard let start = lines.firstIndex(where: { $0.contains("BEGIN OPENSSH PRIVATE KEY") }),
-        let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start else {
+        let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start
+      else {
         return Data()
       }
       let base64 = lines[(start + 1)..<end].joined()
@@ -1304,13 +1321,16 @@ extension SSHUserAuthDelegate {
     index += magicBytes.count
 
     // ciphername, kdfname, kdfoptions
-    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfOptions = readStringBytes() else {
+    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(),
+      let kdfOptions = readStringBytes()
+    else {
       throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH key header")
     }
-    if String(data: ciphername, encoding: .utf8) != "none" || String(data: kdfname, encoding: .utf8) != "none" {
+    if String(data: ciphername, encoding: .utf8) != "none"
+      || String(data: kdfname, encoding: .utf8) != "none" {
       throw SSHConnectionError.keyAuthenticationFailed("Encrypted OpenSSH keys are not supported")
     }
-    _ = kdfOptions // ignored for none
+    _ = kdfOptions  // ignored for none
 
     // number of keys (uint32)
     guard let keyCount = readUInt32(), keyCount == 1 else {
@@ -1368,7 +1388,8 @@ extension SSHUserAuthDelegate {
     if privatePart.count >= 32 {
       return privatePart.prefix(32)
     }
-    throw SSHConnectionError.keyAuthenticationFailed("Invalid ed25519 private key length in OpenSSH key")
+    throw SSHConnectionError.keyAuthenticationFailed(
+      "Invalid ed25519 private key length in OpenSSH key")
   }
 }
 
@@ -1416,7 +1437,7 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
   }
 }
 
-package enum SSHConnectionError: Error, LocalizedError {
+package enum SSHConnectionError: LocalizedError {
   case publicKeyAuthNotAvailable
   case passwordAuthNotAvailable
   case privateKeyPathEmpty
@@ -1454,7 +1475,8 @@ package actor SSHConnectionManager {
     return false
   }
 
-  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T) async throws -> T {
+  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T)
+    async throws -> T {
     // Check if we have a valid and healthy connection
     if let existingConnection = self.connection, existingConnection.isHealthy {
       do {
@@ -1463,10 +1485,10 @@ package actor SSHConnectionManager {
       } catch {
         // Check if it's a channel closed error (NIOCore.ChannelError error 6)
         let errorString = String(describing: error)
-        let isChannelClosedError = errorString.contains("ChannelError") &&
-                                  (errorString.contains("error 6") ||
-                                   errorString.contains("outputClosed") ||
-                                   errorString.contains("inputClosed"))
+        let isChannelClosedError =
+          errorString.contains("ChannelError")
+          && (errorString.contains("error 6") || errorString.contains("outputClosed")
+            || errorString.contains("inputClosed"))
 
         if isChannelClosedError {
           await AppLogger.shared.log(
@@ -1494,7 +1516,7 @@ package actor SSHConnectionManager {
         self.connection = try await self.createConnection()
 
         // Add a small delay to ensure the connection is fully ready
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        try await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
       }
 
       return try await operation(self.connection!)
@@ -1506,7 +1528,7 @@ package actor SSHConnectionManager {
     baseDelay: TimeInterval,
     operation: @escaping () async throws -> T
   ) async throws -> T {
-    var lastError: Error?
+    var lastError: (any Swift.Error)?
 
     for attempt in 0...maxRetries {
       do {
@@ -1522,8 +1544,8 @@ package actor SSHConnectionManager {
         // Calculate exponential backoff delay
         let delay = baseDelay * pow(2.0, Double(attempt))
         await AppLogger.shared.log(
-          "SSH operation failed (attempt \(attempt + 1)/\(maxRetries + 1)), " +
-          "retrying in \(delay)s: \(detailedErrorDescription(error))",
+          "SSH operation failed (attempt \(attempt + 1)/\(maxRetries + 1)), "
+            + "retrying in \(delay)s: \(detailedErrorDescription(error))",
           level: .warning,
           category: .ssh
         )
@@ -1538,7 +1560,8 @@ package actor SSHConnectionManager {
       }
     }
 
-    throw lastError ?? SSHError.connectionFailed("Operation failed after \(maxRetries + 1) attempts")
+    throw lastError
+      ?? SSHError.connectionFailed("Operation failed after \(maxRetries + 1) attempts")
   }
 
   private func createConnection() async throws -> SSHConnection {
@@ -1575,7 +1598,7 @@ package actor SSHConnectionManager {
       }
 
       // Wait for SSH connection to be established and verify it's ready
-      try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+      try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
 
       // Verify the connection is actually established by checking channel state
       guard establishedChannel.isActive else {
@@ -1634,7 +1657,8 @@ package struct SSHConnection: Sendable {
   fileprivate func createSFTPChannel() async throws -> (Channel, SFTPHandler) {
     // Ensure the connection is healthy before creating SFTP channel
     guard isHealthy else {
-      throw SSHError.connectionFailed("SSH connection is not healthy - channel is inactive or closing")
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
     }
 
     // Create a session channel for SFTP
@@ -1667,7 +1691,8 @@ package struct SSHConnection: Sendable {
     }
 
     // Initialize SFTP subsystem
-    let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(subsystem: "sftp", wantReply: true)
+    let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(
+      subsystem: "sftp", wantReply: true)
     let subsystemPromise = sessionChannel.eventLoop.makePromise(of: Void.self)
     sessionChannel.triggerUserOutboundEvent(subsystemRequest, promise: subsystemPromise)
     try await subsystemPromise.futureResult.get()
@@ -1692,7 +1717,8 @@ package struct SSHConnection: Sendable {
   func exec(_ command: String) async throws -> String {
     // Ensure the connection is healthy before executing
     guard isHealthy else {
-      throw SSHError.connectionFailed("SSH connection is not healthy - channel is inactive or closing")
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
     }
 
     // Create a session channel to execute the command
@@ -1702,20 +1728,21 @@ package struct SSHConnection: Sendable {
     let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
       let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
       sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-      // Add command output handler to capture stdout/stderr
-      let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop, command: command)
-      return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-        // Signal that channel is ready
-        Task {
-          await AppLogger.shared.log(
-            "SSH session channel created via connection pool and handler attached",
-            level: .debug,
-            category: .ssh
-          )
+        // Add command output handler to capture stdout/stderr
+        let outputHandler = CommandOutputHandler(
+          eventLoop: childChannel.eventLoop, command: command)
+        return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
+          // Signal that channel is ready
+          Task {
+            await AppLogger.shared.log(
+              "SSH session channel created via connection pool and handler attached",
+              level: .debug,
+              category: .ssh
+            )
+          }
+          return childChannel.eventLoop.makeSucceededFuture(())
         }
-        return childChannel.eventLoop.makeSucceededFuture(())
       }
-    }
     }
     try await creationFuture.get()
 
@@ -1757,6 +1784,7 @@ package struct SSHConnection: Sendable {
 
     return result
   }
+  // swiftlint:enable function_body_length
 
   private func withTimeout<T: Sendable>(
     seconds: Int,

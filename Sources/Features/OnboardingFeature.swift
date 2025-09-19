@@ -26,11 +26,15 @@ package struct OnboardingFeature {
     case completeOnboarding
   }
 
-  package struct ConnectionError: Error, Equatable {
+  package struct ConnectionError: Swift.Error, LocalizedError, Equatable {
     package let message: String
 
     package init(_ message: String) {
       self.message = message
+    }
+
+    package var errorDescription: String? {
+      message
     }
   }
 

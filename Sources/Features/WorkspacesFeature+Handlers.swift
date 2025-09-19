@@ -4,7 +4,9 @@ import Foundation
 import Models
 
 enum WorkspacesFeatureHandlers {
-  static func handleOpenWorkspace(workspace: Workspace, id: UUID) -> Effect<WorkspacesFeature.Action> {
+  static func handleOpenWorkspace(workspace: Workspace, id: UUID) -> Effect<
+    WorkspacesFeature.Action
+  > {
     .run { send in
       do {
         // Get SSH configuration from linked server
@@ -17,7 +19,8 @@ enum WorkspacesFeatureHandlers {
         }
 
         print(
-          "🚀 Spawning opencode for \(workspace.user)@\(workspace.host) using server: \(config.name)")
+          "🚀 Spawning opencode for \(workspace.user)@\(workspace.host) using server: \(config.name)"
+        )
 
         let workspaceService = WorkspaceService(config: config)
         await send(.spawnPhaseUpdated(id, .launch))
@@ -75,7 +78,9 @@ enum WorkspacesFeatureHandlers {
     return .none
   }
 
-  static func handleCleanAndRetry(workspace: Workspace, id: UUID) -> Effect<WorkspacesFeature.Action> {
+  static func handleCleanAndRetry(workspace: Workspace, id: UUID) -> Effect<
+    WorkspacesFeature.Action
+  > {
     .run { send in
       do {
         // Get SSH configuration from linked server
@@ -89,7 +94,8 @@ enum WorkspacesFeatureHandlers {
 
         // Log the retry attempt for debugging
         print(
-          "🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)")
+          "🔄 Retrying SSH connection to \(workspace.user)@\(workspace.host) using server: \(config.name)"
+        )
 
         let workspaceService = WorkspaceService(config: config)
         await send(.spawnPhaseUpdated(id, .launch))

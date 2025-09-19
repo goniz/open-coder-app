@@ -26,7 +26,8 @@ package struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomSt
       let hash = Self.normalizeHashComponent(parsed.hash)
       normalized = (component, hash)
     } else {
-      let withoutPrefix = trimmed.hasPrefix(Self.prefix)
+      let withoutPrefix =
+        trimmed.hasPrefix(Self.prefix)
         ? String(trimmed.dropFirst(Self.prefix.count)) : trimmed
       let component = Self.normalizeWorkspaceName(withoutPrefix)
       let hash = Self.shortHash(for: trimmed)

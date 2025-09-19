@@ -13,7 +13,8 @@ struct TmuxService: Sendable {
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       return try await connectionManager.withConnection { connection in
         let escapedName = escapeShellArgument(name.value)
-        let command = "tmux has-session -t \(escapedName) 2>/dev/null && echo 'exists' || echo 'not found'"
+        let command =
+          "tmux has-session -t \(escapedName) 2>/dev/null && echo 'exists' || echo 'not found'"
         let result = try await connection.exec(command)
         return result.trimmingCharacters(in: .whitespacesAndNewlines) == "exists"
       }
@@ -104,7 +105,8 @@ struct TmuxService: Sendable {
       return try await connectionManager.withConnection { connection in
         let command = "tmux list-sessions -F '#{session_name}' 2>/dev/null || true"
         let result = try await connection.exec(command)
-        return result
+        return
+          result
           .split(separator: "\n")
           .compactMap { line -> TmuxSessionName? in
             let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -131,7 +133,8 @@ struct TmuxService: Sendable {
         let command =
           "tmux list-windows -t \(escapedSession) -F '#{window_name}' 2>/dev/null || true"
         let result = try await connection.exec(command)
-        return result
+        return
+          result
           .split(separator: "\n")
           .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
           .filter { !$0.isEmpty }
@@ -192,7 +195,8 @@ extension TmuxService {
       let command =
         "tmux capture-pane -p -J -t \(escapedSession):\(escapedWindow) -S -\(max(1, lineCount)) 2>/dev/null || true"
       let output = try await connection.exec(command)
-      return output
+      return
+        output
         .split(separator: "\n", omittingEmptySubsequences: false)
         .map { line in
           line.replacingOccurrences(of: "\r", with: "")
@@ -208,14 +212,14 @@ extension TmuxService {
     let target = "\(session.value):\(window)"
     let escapedTarget = escapeShellArgument(target)
     return """
-    tmux_target=\(escapedTarget)
-    pane_tty=$(tmux display-message -p -t "$tmux_target" -F '#{pane_tty}' 2>/dev/null || true)
-    if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
-      printf '[Live Output] tmux pane closed (%s).\\n' "$tmux_target"
-      exit 0
-    fi
-    exec cat "$pane_tty"
-    """
+      tmux_target=\(escapedTarget)
+      pane_tty=$(tmux display-message -p -t "$tmux_target" -F '#{pane_tty}' 2>/dev/null || true)
+      if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
+        printf '[Live Output] tmux pane closed (%s).\\n' "$tmux_target"
+        exit 0
+      fi
+      exec cat "$pane_tty"
+      """
   }
 
   func ensureWindow(session: TmuxSessionName, window: String, path: String) async throws {
@@ -225,9 +229,11 @@ extension TmuxService {
       let escapedWindow = escapeShellArgument(window)
       let escapedPath = escapeShellArgument(path)
 
-      let listCommand = "tmux list-windows -t \(escapedSession) -F '#{window_name}' 2>/dev/null || true"
+      let listCommand =
+        "tmux list-windows -t \(escapedSession) -F '#{window_name}' 2>/dev/null || true"
       let windowsList = try await connection.exec(listCommand)
-      let names = windowsList
+      let names =
+        windowsList
         .split(separator: "\n")
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
@@ -235,7 +241,8 @@ extension TmuxService {
         return
       }
 
-      let newWindowCmd = "tmux new-window -t \(escapedSession): -n \(escapedWindow) -c \(escapedPath)"
+      let newWindowCmd =
+        "tmux new-window -t \(escapedSession): -n \(escapedWindow) -c \(escapedPath)"
       do {
         _ = try await connection.exec(newWindowCmd)
         await AppLogger.shared.log(
@@ -245,7 +252,8 @@ extension TmuxService {
         )
       } catch {
         if case let SSHError.commandFailed(message) = error,
-           message.lowercased().contains("duplicate window") || message.lowercased().contains("duplicate") {
+          message.lowercased().contains("duplicate window")
+            || message.lowercased().contains("duplicate") {
           return
         }
         throw error
@@ -253,14 +261,16 @@ extension TmuxService {
     }
   }
 
-  func respawnPane(session: TmuxSessionName, window: String, path: String, command: String) async throws {
+  func respawnPane(session: TmuxSessionName, window: String, path: String, command: String)
+    async throws {
     let connectionManager = await SSHConnectionPool.shared.manager(for: config)
     try await connectionManager.withConnection { connection in
       let escapedSession = escapeShellArgument(session.value)
       let escapedWindow = escapeShellArgument(window)
       let escapedPath = escapeShellArgument(path)
       let quoted = command.replacingOccurrences(of: "'", with: "'\"'\"'")
-      let respawnCmd = "tmux respawn-pane -k -c \(escapedPath) -t \(escapedSession):\(escapedWindow).0 '\(quoted)'"
+      let respawnCmd =
+        "tmux respawn-pane -k -c \(escapedPath) -t \(escapedSession):\(escapedWindow).0 '\(quoted)'"
       _ = try await connection.exec(respawnCmd)
       await AppLogger.shared.log(
         "Respawned tmux pane in '\(session.value):\(window)'",

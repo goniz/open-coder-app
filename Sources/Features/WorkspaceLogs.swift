@@ -1,8 +1,8 @@
+import DependencyClients
 import Foundation
 import Models
-import DependencyClients
 
-package enum WorkspaceLogsError: Error, LocalizedError, Equatable {
+package enum WorkspaceLogsError: Swift.Error, LocalizedError, Equatable {
   case missingConfiguration
 
   package var errorDescription: String? {

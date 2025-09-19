@@ -40,3 +40,8 @@ ota-host *args:
 preview-ota *args:
     just preview && just ota-host --ipa ../Xcode/OpenCoder-Preview.ipa {{args}}
 
+generate-opencode-api:
+    OPENCODE_VERSION=`opencode --version` && \
+    export OPENCODE_VERSION && \
+    opencode generate | yq -P ".info.version = env(OPENCODE_VERSION)" > opencode_api_generated.yaml && \
+    mv opencode_api_generated.yaml Sources/OpenAPIGenerated/openapi.yaml

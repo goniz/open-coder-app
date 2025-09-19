@@ -95,7 +95,7 @@ struct RemotePathPickerView: View {
 
     // Ensure we are working with display path (starts with '~')
     let displayPath = currentPath.hasPrefix("~") ? currentPath : compressToTilde(currentPath)
-    let tail = displayPath.dropFirst(2) // drop '~/'
+    let tail = displayPath.dropFirst(2)  // drop '~/'
     let parts = tail.split(separator: "/").map(String.init)
 
     components.append((name: "~", path: "~"))
@@ -228,7 +228,7 @@ struct RemotePathPickerView: View {
             )
           }
           self.isLoading = false
-          self.errorMessage = nil // Clear error if successful
+          self.errorMessage = nil  // Clear error if successful
         }
       } catch {
         // Last resort: use '/' as actual, but keep '~' as display root

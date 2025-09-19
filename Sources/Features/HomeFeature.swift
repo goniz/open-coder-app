@@ -58,11 +58,13 @@ package struct HomeFeature {
         if let workspaceState = state.workspaces.workspaces.first(where: { $0.id == workspaceID }) {
           // Prefer explicit serverID mapping, otherwise match by host+user
           if let serverConfigID = workspaceState.workspace.serverID,
-             let server = state.servers.servers.first(where: { $0.configuration.id == serverConfigID }) {
+            let server = state.servers.servers.first(where: {
+              $0.configuration.id == serverConfigID
+            }) {
             return .send(.servers(.connectionSuccess(server.id)))
           } else if let server = state.servers.servers.first(where: {
-            $0.configuration.host == workspaceState.workspace.host &&
-            $0.configuration.username == workspaceState.workspace.user
+            $0.configuration.host == workspaceState.workspace.host
+              && $0.configuration.username == workspaceState.workspace.user
           }) {
             return .send(.servers(.connectionSuccess(server.id)))
           }
