@@ -68,6 +68,15 @@ let models = SingleTargetLibrary(
   name: "Models",
   dependencies: []
 )
+let openAPIGenerated = SingleTargetLibrary(
+  name: "OpenAPIGenerated",
+  dependencies: [
+    swiftOpenAPIRuntime.targetDependency,
+  ],
+  plugins: [
+    .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
+  ]
+)
 let dependencyClients = SingleTargetLibrary(
   name: "DependencyClients",
   dependencies: [
@@ -77,6 +86,7 @@ let dependencyClients = SingleTargetLibrary(
     models.targetDependency,
     swiftNIOSSH.targetDependency,
     swiftOpenAPIRuntime.targetDependency,
+    openAPIGenerated.targetDependency,
   ]
 )
 let features = SingleTargetLibrary(
@@ -97,15 +107,6 @@ let views = SingleTargetLibrary(
   ],
   resources: [
     .process("Resources")
-  ]
-)
-let openAPIGenerated = SingleTargetLibrary(
-  name: "OpenAPIGenerated",
-  dependencies: [
-    swiftOpenAPIRuntime.targetDependency,
-  ],
-  plugins: [
-    .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
   ]
 )
 let dependencyClientsLive = SingleTargetLibrary(
