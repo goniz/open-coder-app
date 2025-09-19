@@ -2,19 +2,19 @@ openapi: 3.1.1
 info:
   title: opencode
   description: opencode api
-  version: 0.10.0
+  version: 0.10.1
 paths:
   /project:
     get:
       operationId: project.list
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all projects
       responses:
-        '200':
+        "200":
           description: List of projects
           content:
             application/json:
@@ -26,13 +26,13 @@ paths:
     get:
       operationId: project.current
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Get the current project
       responses:
-        '200':
+        "200":
           description: Current project
           content:
             application/json:
@@ -42,13 +42,13 @@ paths:
     get:
       operationId: config.get
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Get config info
       responses:
-        '200':
+        "200":
           description: Get config info
           content:
             application/json:
@@ -58,19 +58,19 @@ paths:
     get:
       operationId: tool.ids
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all tool IDs (including built-in and dynamically registered)
       responses:
-        '200':
+        "200":
           description: Tool IDs
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ToolIDs'
-        '400':
+        "400":
           description: Bad request
           content:
             application/json:
@@ -80,29 +80,29 @@ paths:
     get:
       operationId: tool.list
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: provider
-        schema:
-          type: string
-        required: true
-      - in: query
-        name: model
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: provider
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: model
+          schema:
+            type: string
+          required: true
       description: List tools with JSON schema parameters for a provider/model
       responses:
-        '200':
+        "200":
           description: Tools
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ToolList'
-        '400':
+        "400":
           description: Bad request
           content:
             application/json:
@@ -112,13 +112,13 @@ paths:
     get:
       operationId: path.get
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Get the current path
       responses:
-        '200':
+        "200":
           description: Path
           content:
             application/json:
@@ -128,13 +128,13 @@ paths:
     get:
       operationId: session.list
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all sessions
       responses:
-        '200':
+        "200":
           description: List of sessions
           content:
             application/json:
@@ -145,19 +145,19 @@ paths:
     post:
       operationId: session.create
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Create a new session
       responses:
-        '200':
+        "200":
           description: Successfully created session
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Session'
-        '400':
+        "400":
           description: Bad request
           content:
             application/json:
@@ -177,18 +177,18 @@ paths:
     get:
       operationId: session.get
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Get session
       responses:
-        '200':
+        "200":
           description: Get session
           content:
             application/json:
@@ -197,18 +197,18 @@ paths:
     delete:
       operationId: session.delete
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Delete a session and all its data
       responses:
-        '200':
+        "200":
           description: Successfully deleted session
           content:
             application/json:
@@ -217,18 +217,18 @@ paths:
     patch:
       operationId: session.update
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Update session properties
       responses:
-        '200':
+        "200":
           description: Successfully updated session
           content:
             application/json:
@@ -246,18 +246,18 @@ paths:
     get:
       operationId: session.children
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Get a session's children
       responses:
-        '200':
+        "200":
           description: List of children
           content:
             application/json:
@@ -269,20 +269,20 @@ paths:
     post:
       operationId: session.init
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: Analyze the app and create an AGENTS.md file
       responses:
-        '200':
-          description: '200'
+        "200":
+          description: "200"
           content:
             application/json:
               schema:
@@ -300,25 +300,25 @@ paths:
                 modelID:
                   type: string
               required:
-              - messageID
-              - providerID
-              - modelID
+                - messageID
+                - providerID
+                - modelID
   /session/{id}/abort:
     post:
       operationId: session.abort
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Abort a session
       responses:
-        '200':
+        "200":
           description: Aborted session
           content:
             application/json:
@@ -328,18 +328,18 @@ paths:
     post:
       operationId: session.share
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Share a session
       responses:
-        '200':
+        "200":
           description: Successfully shared session
           content:
             application/json:
@@ -348,18 +348,18 @@ paths:
     delete:
       operationId: session.unshare
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Unshare the session
       responses:
-        '200':
+        "200":
           description: Successfully unshared session
           content:
             application/json:
@@ -369,19 +369,19 @@ paths:
     post:
       operationId: session.summarize
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: Summarize the session
       responses:
-        '200':
+        "200":
           description: Summarized session
           content:
             application/json:
@@ -398,25 +398,25 @@ paths:
                 modelID:
                   type: string
               required:
-              - providerID
-              - modelID
+                - providerID
+                - modelID
   /session/{id}/message:
     get:
       operationId: session.messages
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: List messages for a session
       responses:
-        '200':
+        "200":
           description: List of messages
           content:
             application/json:
@@ -432,24 +432,24 @@ paths:
                       items:
                         $ref: '#/components/schemas/Part'
                   required:
-                  - info
-                  - parts
+                    - info
+                    - parts
     post:
       operationId: session.prompt
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: Create and send a new message to a session
       responses:
-        '200':
+        "200":
           description: Created message
           content:
             application/json:
@@ -463,8 +463,8 @@ paths:
                     items:
                       $ref: '#/components/schemas/Part'
                 required:
-                - info
-                - parts
+                  - info
+                  - parts
       requestBody:
         content:
           application/json:
@@ -482,8 +482,8 @@ paths:
                     modelID:
                       type: string
                   required:
-                  - providerID
-                  - modelID
+                    - providerID
+                    - modelID
                 agent:
                   type: string
                 system:
@@ -498,34 +498,34 @@ paths:
                   type: array
                   items:
                     anyOf:
-                    - $ref: '#/components/schemas/TextPartInput'
-                    - $ref: '#/components/schemas/FilePartInput'
-                    - $ref: '#/components/schemas/AgentPartInput'
+                      - $ref: '#/components/schemas/TextPartInput'
+                      - $ref: '#/components/schemas/FilePartInput'
+                      - $ref: '#/components/schemas/AgentPartInput'
               required:
-              - parts
+                - parts
   /session/{id}/message/{messageID}:
     get:
       operationId: session.message
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
-      - in: path
-        name: messageID
-        schema:
-          type: string
-        required: true
-        description: Message ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
+        - in: path
+          name: messageID
+          schema:
+            type: string
+          required: true
+          description: Message ID
       description: Get a message from a session
       responses:
-        '200':
+        "200":
           description: Message
           content:
             application/json:
@@ -539,25 +539,25 @@ paths:
                     items:
                       $ref: '#/components/schemas/Part'
                 required:
-                - info
-                - parts
+                  - info
+                  - parts
   /session/{id}/command:
     post:
       operationId: session.command
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: Send a new command to a session
       responses:
-        '200':
+        "200":
           description: Created message
           content:
             application/json:
@@ -571,8 +571,8 @@ paths:
                     items:
                       $ref: '#/components/schemas/Part'
                 required:
-                - info
-                - parts
+                  - info
+                  - parts
       requestBody:
         content:
           application/json:
@@ -591,25 +591,25 @@ paths:
                 command:
                   type: string
               required:
-              - arguments
-              - command
+                - arguments
+                - command
   /session/{id}/shell:
     post:
       operationId: session.shell
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-        description: Session ID
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
       description: Run a shell command
       responses:
-        '200':
+        "200":
           description: Created message
           content:
             application/json:
@@ -626,24 +626,24 @@ paths:
                 command:
                   type: string
               required:
-              - agent
-              - command
+                - agent
+                - command
   /session/{id}/revert:
     post:
       operationId: session.revert
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Revert a message
       responses:
-        '200':
+        "200":
           description: Updated session
           content:
             application/json:
@@ -662,23 +662,23 @@ paths:
                   type: string
                   pattern: ^prt.*
               required:
-              - messageID
+                - messageID
   /session/{id}/unrevert:
     post:
       operationId: session.unrevert
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Restore all reverted messages
       responses:
-        '200':
+        "200":
           description: Updated session
           content:
             application/json:
@@ -688,23 +688,23 @@ paths:
     post:
       operationId: postSession:idPermissions:permissionID
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-      - in: path
-        name: permissionID
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: permissionID
+          schema:
+            type: string
+          required: true
       description: Respond to a permission request
       responses:
-        '200':
+        "200":
           description: Permission processed successfully
           content:
             application/json:
@@ -719,22 +719,22 @@ paths:
                 response:
                   type: string
                   enum:
-                  - once
-                  - always
-                  - reject
+                    - once
+                    - always
+                    - reject
               required:
-              - response
+                - response
   /command:
     get:
       operationId: command.list
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all commands
       responses:
-        '200':
+        "200":
           description: List of commands
           content:
             application/json:
@@ -746,13 +746,13 @@ paths:
     get:
       operationId: config.providers
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all providers
       responses:
-        '200':
+        "200":
           description: List of providers
           content:
             application/json:
@@ -770,24 +770,24 @@ paths:
                     additionalProperties:
                       type: string
                 required:
-                - providers
-                - default
+                  - providers
+                  - default
   /find:
     get:
       operationId: find.text
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: pattern
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: pattern
+          schema:
+            type: string
+          required: true
       description: Find text in files
       responses:
-        '200':
+        "200":
           description: Matches
           content:
             application/json:
@@ -802,14 +802,14 @@ paths:
                         text:
                           type: string
                       required:
-                      - text
+                        - text
                     lines:
                       type: object
                       properties:
                         text:
                           type: string
                       required:
-                      - text
+                        - text
                     line_number:
                       type: number
                     absolute_offset:
@@ -825,37 +825,37 @@ paths:
                               text:
                                 type: string
                             required:
-                            - text
+                              - text
                           start:
                             type: number
                           end:
                             type: number
                         required:
-                        - match
-                        - start
-                        - end
+                          - match
+                          - start
+                          - end
                   required:
-                  - path
-                  - lines
-                  - line_number
-                  - absolute_offset
-                  - submatches
+                    - path
+                    - lines
+                    - line_number
+                    - absolute_offset
+                    - submatches
   /find/file:
     get:
       operationId: find.files
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: query
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: query
+          schema:
+            type: string
+          required: true
       description: Find files
       responses:
-        '200':
+        "200":
           description: File paths
           content:
             application/json:
@@ -867,18 +867,18 @@ paths:
     get:
       operationId: find.symbols
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: query
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: query
+          schema:
+            type: string
+          required: true
       description: Find workspace symbols
       responses:
-        '200':
+        "200":
           description: Symbols
           content:
             application/json:
@@ -890,18 +890,18 @@ paths:
     get:
       operationId: file.list
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: path
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: path
+          schema:
+            type: string
+          required: true
       description: List files and directories
       responses:
-        '200':
+        "200":
           description: Files and directories
           content:
             application/json:
@@ -913,18 +913,18 @@ paths:
     get:
       operationId: file.read
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: query
-        name: path
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: query
+          name: path
+          schema:
+            type: string
+          required: true
       description: Read a file
       responses:
-        '200':
+        "200":
           description: File content
           content:
             application/json:
@@ -934,13 +934,13 @@ paths:
     get:
       operationId: file.status
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Get file status
       responses:
-        '200':
+        "200":
           description: File status
           content:
             application/json:
@@ -952,13 +952,13 @@ paths:
     post:
       operationId: app.log
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Write a log entry to the server logs
       responses:
-        '200':
+        "200":
           description: Log entry written successfully
           content:
             application/json:
@@ -977,10 +977,10 @@ paths:
                   description: Log level
                   type: string
                   enum:
-                  - debug
-                  - info
-                  - error
-                  - warn
+                    - debug
+                    - info
+                    - error
+                    - warn
                 message:
                   description: Log message
                   type: string
@@ -991,20 +991,20 @@ paths:
                     type: string
                   additionalProperties: {}
               required:
-              - service
-              - level
-              - message
+                - service
+                - level
+                - message
   /agent:
     get:
       operationId: app.agents
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: List all agents
       responses:
-        '200':
+        "200":
           description: List of agents
           content:
             application/json:
@@ -1016,13 +1016,13 @@ paths:
     post:
       operationId: tui.appendPrompt
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Append prompt to the TUI
       responses:
-        '200':
+        "200":
           description: Prompt processed successfully
           content:
             application/json:
@@ -1037,18 +1037,18 @@ paths:
                 text:
                   type: string
               required:
-              - text
+                - text
   /tui/open-help:
     post:
       operationId: tui.openHelp
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Open the help dialog
       responses:
-        '200':
+        "200":
           description: Help dialog opened successfully
           content:
             application/json:
@@ -1058,13 +1058,13 @@ paths:
     post:
       operationId: tui.openSessions
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Open the session dialog
       responses:
-        '200':
+        "200":
           description: Session dialog opened successfully
           content:
             application/json:
@@ -1074,13 +1074,13 @@ paths:
     post:
       operationId: tui.openThemes
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Open the theme dialog
       responses:
-        '200':
+        "200":
           description: Theme dialog opened successfully
           content:
             application/json:
@@ -1090,13 +1090,13 @@ paths:
     post:
       operationId: tui.openModels
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Open the model dialog
       responses:
-        '200':
+        "200":
           description: Model dialog opened successfully
           content:
             application/json:
@@ -1106,13 +1106,13 @@ paths:
     post:
       operationId: tui.submitPrompt
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Submit the prompt
       responses:
-        '200':
+        "200":
           description: Prompt submitted successfully
           content:
             application/json:
@@ -1122,13 +1122,13 @@ paths:
     post:
       operationId: tui.clearPrompt
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Clear the prompt
       responses:
-        '200':
+        "200":
           description: Prompt cleared successfully
           content:
             application/json:
@@ -1138,13 +1138,13 @@ paths:
     post:
       operationId: tui.executeCommand
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Execute a TUI command (e.g. agent_cycle)
       responses:
-        '200':
+        "200":
           description: Command executed successfully
           content:
             application/json:
@@ -1159,18 +1159,18 @@ paths:
                 command:
                   type: string
               required:
-              - command
+                - command
   /tui/show-toast:
     post:
       operationId: tui.showToast
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Show a toast notification in the TUI
       responses:
-        '200':
+        "200":
           description: Toast notification shown successfully
           content:
             application/json:
@@ -1189,35 +1189,35 @@ paths:
                 variant:
                   type: string
                   enum:
-                  - info
-                  - success
-                  - warning
-                  - error
+                    - info
+                    - success
+                    - warning
+                    - error
               required:
-              - message
-              - variant
+                - message
+                - variant
   /auth/{id}:
     put:
       operationId: auth.set
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
       description: Set authentication credentials
       responses:
-        '200':
+        "200":
           description: Successfully set authentication credentials
           content:
             application/json:
               schema:
                 type: boolean
-        '400':
+        "400":
           description: Bad request
           content:
             application/json:
@@ -1232,13 +1232,13 @@ paths:
     get:
       operationId: event.subscribe
       parameters:
-      - in: query
-        name: directory
-        schema:
-          type: string
+        - in: query
+          name: directory
+          schema:
+            type: string
       description: Get events
       responses:
-        '200':
+        "200":
           description: Event stream
           content:
             text/event-stream:
@@ -1264,11 +1264,11 @@ components:
             initialized:
               type: number
           required:
-          - created
+            - created
       required:
-      - id
-      - worktree
-      - time
+        - id
+        - worktree
+        - time
     KeybindsConfig:
       description: Custom keybind configurations
       type: object
@@ -1494,51 +1494,51 @@ components:
           type: string
         mode:
           anyOf:
-          - type: string
-            const: subagent
-          - type: string
-            const: primary
-          - type: string
-            const: all
+            - type: string
+              const: subagent
+            - type: string
+              const: primary
+            - type: string
+              const: all
         permission:
           type: object
           properties:
             edit:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
-            bash:
-              anyOf:
-              - anyOf:
                 - type: string
                   const: ask
                 - type: string
                   const: allow
                 - type: string
                   const: deny
-              - type: object
-                propertyNames:
-                  type: string
-                additionalProperties:
-                  anyOf:
-                  - type: string
-                    const: ask
-                  - type: string
-                    const: allow
-                  - type: string
-                    const: deny
+            bash:
+              anyOf:
+                - anyOf:
+                    - type: string
+                      const: ask
+                    - type: string
+                      const: allow
+                    - type: string
+                      const: deny
+                - type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        const: ask
+                      - type: string
+                        const: allow
+                      - type: string
+                        const: deny
             webfetch:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
+                - type: string
+                  const: ask
+                - type: string
+                  const: allow
+                - type: string
+                  const: deny
       additionalProperties: {}
     McpLocalConfig:
       type: object
@@ -1563,8 +1563,8 @@ components:
           description: Enable or disable the MCP server on startup
           type: boolean
       required:
-      - type
-      - command
+        - type
+        - command
       additionalProperties: false
     McpRemoteConfig:
       type: object
@@ -1587,15 +1587,15 @@ components:
           additionalProperties:
             type: string
       required:
-      - type
-      - url
+        - type
+        - url
       additionalProperties: false
     LayoutConfig:
       description: '@deprecated Always uses stretch layout.'
       type: string
       enum:
-      - auto
-      - stretch
+        - auto
+        - stretch
     Config:
       type: object
       properties:
@@ -1635,7 +1635,7 @@ components:
               subtask:
                 type: boolean
             required:
-            - template
+              - template
         watcher:
           type: object
           properties:
@@ -1650,16 +1650,14 @@ components:
         snapshot:
           type: boolean
         share:
-          description: Control sharing behavior:'manual' allows manual sharing via
-            commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
+          description: Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
           type: string
           enum:
-          - manual
-          - auto
-          - disabled
+            - manual
+            - auto
+            - disabled
         autoshare:
-          description: '@deprecated Use ''share'' field instead. Share newly created
-            sessions automatically'
+          description: '@deprecated Use ''share'' field instead. Share newly created sessions automatically'
           type: boolean
         autoupdate:
           description: Automatically update to the latest version
@@ -1673,12 +1671,10 @@ components:
           description: Model to use in the format of provider/model, eg anthropic/claude-2
           type: string
         small_model:
-          description: Small model to use for tasks like title generation in the format
-            of provider/model
+          description: Small model to use for tasks like title generation in the format of provider/model
           type: string
         username:
-          description: Custom username to display in conversations instead of system
-            username
+          description: Custom username to display in conversations instead of system username
           type: string
         mode:
           description: '@deprecated Use `agent` field instead.'
@@ -1755,8 +1751,8 @@ components:
                         cache_write:
                           type: number
                       required:
-                      - input
-                      - output
+                        - input
+                        - output
                     limit:
                       type: object
                       properties:
@@ -1765,8 +1761,8 @@ components:
                         output:
                           type: number
                       required:
-                      - context
-                      - output
+                        - context
+                        - output
                     experimental:
                       type: boolean
                     options:
@@ -1780,7 +1776,7 @@ components:
                         npm:
                           type: string
                       required:
-                      - npm
+                        - npm
               options:
                 type: object
                 properties:
@@ -1789,17 +1785,15 @@ components:
                   baseURL:
                     type: string
                   timeout:
-                    description: Timeout in milliseconds for requests to this provider.
-                      Default is 300000 (5 minutes). Set to false to disable timeout.
+                    description: Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
                     anyOf:
-                    - description: Timeout in milliseconds for requests to this provider.
-                        Default is 300000 (5 minutes). Set to false to disable timeout.
-                      type: integer
-                      exclusiveMinimum: 0
-                      maximum: 9007199254740991
-                    - description: Disable timeout for this provider entirely.
-                      type: boolean
-                      const: false
+                      - description: Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 9007199254740991
+                      - description: Disable timeout for this provider entirely.
+                        type: boolean
+                        const: false
                 additionalProperties: {}
             additionalProperties: false
         mcp:
@@ -1809,8 +1803,8 @@ components:
             type: string
           additionalProperties:
             anyOf:
-            - $ref: '#/components/schemas/McpLocalConfig'
-            - $ref: '#/components/schemas/McpRemoteConfig'
+              - $ref: '#/components/schemas/McpLocalConfig'
+              - $ref: '#/components/schemas/McpRemoteConfig'
         formatter:
           type: object
           propertyNames:
@@ -1840,38 +1834,38 @@ components:
             type: string
           additionalProperties:
             anyOf:
-            - type: object
-              properties:
-                disabled:
-                  type: boolean
-                  const: true
-              required:
-              - disabled
-            - type: object
-              properties:
-                command:
-                  type: array
-                  items:
-                    type: string
-                extensions:
-                  type: array
-                  items:
-                    type: string
-                disabled:
-                  type: boolean
-                env:
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: string
-                initialization:
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties: {}
-              required:
-              - command
+              - type: object
+                properties:
+                  disabled:
+                    type: boolean
+                    const: true
+                required:
+                  - disabled
+              - type: object
+                properties:
+                  command:
+                    type: array
+                    items:
+                      type: string
+                  extensions:
+                    type: array
+                    items:
+                      type: string
+                  disabled:
+                    type: boolean
+                  env:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
+                  initialization:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
+                required:
+                  - command
         instructions:
           description: Additional instruction files or patterns to include
           type: array
@@ -1884,40 +1878,40 @@ components:
           properties:
             edit:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
-            bash:
-              anyOf:
-              - anyOf:
                 - type: string
                   const: ask
                 - type: string
                   const: allow
                 - type: string
                   const: deny
-              - type: object
-                propertyNames:
-                  type: string
-                additionalProperties:
-                  anyOf:
-                  - type: string
-                    const: ask
-                  - type: string
-                    const: allow
-                  - type: string
-                    const: deny
+            bash:
+              anyOf:
+                - anyOf:
+                    - type: string
+                      const: ask
+                    - type: string
+                      const: allow
+                    - type: string
+                      const: deny
+                - type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        const: ask
+                      - type: string
+                        const: allow
+                      - type: string
+                        const: deny
             webfetch:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
+                - type: string
+                  const: ask
+                - type: string
+                  const: allow
+                - type: string
+                  const: deny
         tools:
           type: object
           propertyNames:
@@ -1950,7 +1944,7 @@ components:
                           additionalProperties:
                             type: string
                       required:
-                      - command
+                        - command
                 session_completed:
                   type: array
                   items:
@@ -1967,7 +1961,7 @@ components:
                         additionalProperties:
                           type: string
                     required:
-                    - command
+                      - command
             disable_paste_summary:
               type: boolean
       additionalProperties: false
@@ -1984,7 +1978,7 @@ components:
             type: string
           additionalProperties: {}
       required:
-      - data
+        - data
     ToolListItem:
       type: object
       properties:
@@ -1994,9 +1988,9 @@ components:
           type: string
         parameters: {}
       required:
-      - id
-      - description
-      - parameters
+        - id
+        - description
+        - parameters
     ToolList:
       type: array
       items:
@@ -2013,10 +2007,10 @@ components:
         directory:
           type: string
       required:
-      - state
-      - config
-      - worktree
-      - directory
+        - state
+        - config
+        - worktree
+        - directory
     Session:
       type: object
       properties:
@@ -2036,7 +2030,7 @@ components:
             url:
               type: string
           required:
-          - url
+            - url
         title:
           type: string
         version:
@@ -2051,8 +2045,8 @@ components:
             compacting:
               type: number
           required:
-          - created
-          - updated
+            - created
+            - updated
         revert:
           type: object
           properties:
@@ -2065,14 +2059,14 @@ components:
             diff:
               type: string
           required:
-          - messageID
+            - messageID
       required:
-      - id
-      - projectID
-      - directory
-      - title
-      - version
-      - time
+        - id
+        - projectID
+        - directory
+        - title
+        - version
+        - time
     UserMessage:
       type: object
       properties:
@@ -2089,12 +2083,12 @@ components:
             created:
               type: number
           required:
-          - created
+            - created
       required:
-      - id
-      - sessionID
-      - role
-      - time
+        - id
+        - sessionID
+        - role
+        - time
     ProviderAuthError:
       type: object
       properties:
@@ -2109,11 +2103,11 @@ components:
             message:
               type: string
           required:
-          - providerID
-          - message
+            - providerID
+            - message
       required:
-      - name
-      - data
+        - name
+        - data
     UnknownError:
       type: object
       properties:
@@ -2126,10 +2120,10 @@ components:
             message:
               type: string
           required:
-          - message
+            - message
       required:
-      - name
-      - data
+        - name
+        - data
     MessageOutputLengthError:
       type: object
       properties:
@@ -2140,8 +2134,8 @@ components:
           type: object
           properties: {}
       required:
-      - name
-      - data
+        - name
+        - data
     MessageAbortedError:
       type: object
       properties:
@@ -2154,10 +2148,10 @@ components:
             message:
               type: string
           required:
-          - message
+            - message
       required:
-      - name
-      - data
+        - name
+        - data
     AssistantMessage:
       type: object
       properties:
@@ -2176,13 +2170,13 @@ components:
             completed:
               type: number
           required:
-          - created
+            - created
         error:
           anyOf:
-          - $ref: '#/components/schemas/ProviderAuthError'
-          - $ref: '#/components/schemas/UnknownError'
-          - $ref: '#/components/schemas/MessageOutputLengthError'
-          - $ref: '#/components/schemas/MessageAbortedError'
+            - $ref: '#/components/schemas/ProviderAuthError'
+            - $ref: '#/components/schemas/UnknownError'
+            - $ref: '#/components/schemas/MessageOutputLengthError'
+            - $ref: '#/components/schemas/MessageAbortedError'
         system:
           type: array
           items:
@@ -2201,8 +2195,8 @@ components:
             root:
               type: string
           required:
-          - cwd
-          - root
+            - cwd
+            - root
         summary:
           type: boolean
         cost:
@@ -2224,29 +2218,29 @@ components:
                 write:
                   type: number
               required:
-              - read
-              - write
+                - read
+                - write
           required:
-          - input
-          - output
-          - reasoning
-          - cache
+            - input
+            - output
+            - reasoning
+            - cache
       required:
-      - id
-      - sessionID
-      - role
-      - time
-      - system
-      - modelID
-      - providerID
-      - mode
-      - path
-      - cost
-      - tokens
+        - id
+        - sessionID
+        - role
+        - time
+        - system
+        - modelID
+        - providerID
+        - mode
+        - path
+        - cost
+        - tokens
     Message:
       anyOf:
-      - $ref: '#/components/schemas/UserMessage'
-      - $ref: '#/components/schemas/AssistantMessage'
+        - $ref: '#/components/schemas/UserMessage'
+        - $ref: '#/components/schemas/AssistantMessage'
     TextPart:
       type: object
       properties:
@@ -2271,13 +2265,13 @@ components:
             end:
               type: number
           required:
-          - start
+            - start
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - text
+        - id
+        - sessionID
+        - messageID
+        - type
+        - text
     ReasoningPart:
       type: object
       properties:
@@ -2305,14 +2299,14 @@ components:
             end:
               type: number
           required:
-          - start
+            - start
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - text
-      - time
+        - id
+        - sessionID
+        - messageID
+        - type
+        - text
+        - time
     FilePartSourceText:
       type: object
       properties:
@@ -2327,9 +2321,9 @@ components:
           minimum: -9007199254740991
           maximum: 9007199254740991
       required:
-      - value
-      - start
-      - end
+        - value
+        - start
+        - end
     FileSource:
       type: object
       properties:
@@ -2341,9 +2335,9 @@ components:
         path:
           type: string
       required:
-      - text
-      - type
-      - path
+        - text
+        - type
+        - path
     Range:
       type: object
       properties:
@@ -2355,8 +2349,8 @@ components:
             character:
               type: number
           required:
-          - line
-          - character
+            - line
+            - character
         end:
           type: object
           properties:
@@ -2365,11 +2359,11 @@ components:
             character:
               type: number
           required:
-          - line
-          - character
+            - line
+            - character
       required:
-      - start
-      - end
+        - start
+        - end
     SymbolSource:
       type: object
       properties:
@@ -2389,16 +2383,16 @@ components:
           minimum: -9007199254740991
           maximum: 9007199254740991
       required:
-      - text
-      - type
-      - path
-      - range
-      - name
-      - kind
+        - text
+        - type
+        - path
+        - range
+        - name
+        - kind
     FilePartSource:
       anyOf:
-      - $ref: '#/components/schemas/FileSource'
-      - $ref: '#/components/schemas/SymbolSource'
+        - $ref: '#/components/schemas/FileSource'
+        - $ref: '#/components/schemas/SymbolSource'
     FilePart:
       type: object
       properties:
@@ -2420,12 +2414,12 @@ components:
         source:
           $ref: '#/components/schemas/FilePartSource'
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - mime
-      - url
+        - id
+        - sessionID
+        - messageID
+        - type
+        - mime
+        - url
     ToolStatePending:
       type: object
       properties:
@@ -2433,7 +2427,7 @@ components:
           type: string
           const: pending
       required:
-      - status
+        - status
     ToolStateRunning:
       type: object
       properties:
@@ -2454,11 +2448,11 @@ components:
             start:
               type: number
           required:
-          - start
+            - start
       required:
-      - status
-      - input
-      - time
+        - status
+        - input
+        - time
     ToolStateCompleted:
       type: object
       properties:
@@ -2489,15 +2483,15 @@ components:
             compacted:
               type: number
           required:
-          - start
-          - end
+            - start
+            - end
       required:
-      - status
-      - input
-      - output
-      - title
-      - metadata
-      - time
+        - status
+        - input
+        - output
+        - title
+        - metadata
+        - time
     ToolStateError:
       type: object
       properties:
@@ -2524,19 +2518,19 @@ components:
             end:
               type: number
           required:
-          - start
-          - end
+            - start
+            - end
       required:
-      - status
-      - input
-      - error
-      - time
+        - status
+        - input
+        - error
+        - time
     ToolState:
       anyOf:
-      - $ref: '#/components/schemas/ToolStatePending'
-      - $ref: '#/components/schemas/ToolStateRunning'
-      - $ref: '#/components/schemas/ToolStateCompleted'
-      - $ref: '#/components/schemas/ToolStateError'
+        - $ref: '#/components/schemas/ToolStatePending'
+        - $ref: '#/components/schemas/ToolStateRunning'
+        - $ref: '#/components/schemas/ToolStateCompleted'
+        - $ref: '#/components/schemas/ToolStateError'
     ToolPart:
       type: object
       properties:
@@ -2556,13 +2550,13 @@ components:
         state:
           $ref: '#/components/schemas/ToolState'
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - callID
-      - tool
-      - state
+        - id
+        - sessionID
+        - messageID
+        - type
+        - callID
+        - tool
+        - state
     StepStartPart:
       type: object
       properties:
@@ -2576,10 +2570,10 @@ components:
           type: string
           const: step-start
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
+        - id
+        - sessionID
+        - messageID
+        - type
     StepFinishPart:
       type: object
       properties:
@@ -2611,20 +2605,20 @@ components:
                 write:
                   type: number
               required:
-              - read
-              - write
+                - read
+                - write
           required:
-          - input
-          - output
-          - reasoning
-          - cache
+            - input
+            - output
+            - reasoning
+            - cache
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - cost
-      - tokens
+        - id
+        - sessionID
+        - messageID
+        - type
+        - cost
+        - tokens
     SnapshotPart:
       type: object
       properties:
@@ -2640,11 +2634,11 @@ components:
         snapshot:
           type: string
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - snapshot
+        - id
+        - sessionID
+        - messageID
+        - type
+        - snapshot
     PatchPart:
       type: object
       properties:
@@ -2664,12 +2658,12 @@ components:
           items:
             type: string
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - hash
-      - files
+        - id
+        - sessionID
+        - messageID
+        - type
+        - hash
+        - files
     AgentPart:
       type: object
       properties:
@@ -2698,26 +2692,26 @@ components:
               minimum: -9007199254740991
               maximum: 9007199254740991
           required:
-          - value
-          - start
-          - end
+            - value
+            - start
+            - end
       required:
-      - id
-      - sessionID
-      - messageID
-      - type
-      - name
+        - id
+        - sessionID
+        - messageID
+        - type
+        - name
     Part:
       anyOf:
-      - $ref: '#/components/schemas/TextPart'
-      - $ref: '#/components/schemas/ReasoningPart'
-      - $ref: '#/components/schemas/FilePart'
-      - $ref: '#/components/schemas/ToolPart'
-      - $ref: '#/components/schemas/StepStartPart'
-      - $ref: '#/components/schemas/StepFinishPart'
-      - $ref: '#/components/schemas/SnapshotPart'
-      - $ref: '#/components/schemas/PatchPart'
-      - $ref: '#/components/schemas/AgentPart'
+        - $ref: '#/components/schemas/TextPart'
+        - $ref: '#/components/schemas/ReasoningPart'
+        - $ref: '#/components/schemas/FilePart'
+        - $ref: '#/components/schemas/ToolPart'
+        - $ref: '#/components/schemas/StepStartPart'
+        - $ref: '#/components/schemas/StepFinishPart'
+        - $ref: '#/components/schemas/SnapshotPart'
+        - $ref: '#/components/schemas/PatchPart'
+        - $ref: '#/components/schemas/AgentPart'
     TextPartInput:
       type: object
       properties:
@@ -2738,10 +2732,10 @@ components:
             end:
               type: number
           required:
-          - start
+            - start
       required:
-      - type
-      - text
+        - type
+        - text
     FilePartInput:
       type: object
       properties:
@@ -2759,9 +2753,9 @@ components:
         source:
           $ref: '#/components/schemas/FilePartSource'
       required:
-      - type
-      - mime
-      - url
+        - type
+        - mime
+        - url
     AgentPartInput:
       type: object
       properties:
@@ -2786,12 +2780,12 @@ components:
               minimum: -9007199254740991
               maximum: 9007199254740991
           required:
-          - value
-          - start
-          - end
+            - value
+            - start
+            - end
       required:
-      - type
-      - name
+        - type
+        - name
     Command:
       type: object
       properties:
@@ -2808,8 +2802,8 @@ components:
         subtask:
           type: boolean
       required:
-      - name
-      - template
+        - name
+        - template
     Model:
       type: object
       properties:
@@ -2839,8 +2833,8 @@ components:
             cache_write:
               type: number
           required:
-          - input
-          - output
+            - input
+            - output
         limit:
           type: object
           properties:
@@ -2849,8 +2843,8 @@ components:
             output:
               type: number
           required:
-          - context
-          - output
+            - context
+            - output
         experimental:
           type: boolean
         options:
@@ -2864,18 +2858,18 @@ components:
             npm:
               type: string
           required:
-          - npm
+            - npm
       required:
-      - id
-      - name
-      - release_date
-      - attachment
-      - reasoning
-      - temperature
-      - tool_call
-      - cost
-      - limit
-      - options
+        - id
+        - name
+        - release_date
+        - attachment
+        - reasoning
+        - temperature
+        - tool_call
+        - cost
+        - limit
+        - options
     Provider:
       type: object
       properties:
@@ -2898,10 +2892,10 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Model'
       required:
-      - name
-      - env
-      - id
-      - models
+        - name
+        - env
+        - id
+        - models
     Symbol:
       type: object
       properties:
@@ -2917,12 +2911,12 @@ components:
             range:
               $ref: '#/components/schemas/Range'
           required:
-          - uri
-          - range
+            - uri
+            - range
       required:
-      - name
-      - kind
-      - location
+        - name
+        - kind
+        - location
     FileNode:
       type: object
       properties:
@@ -2935,16 +2929,16 @@ components:
         type:
           type: string
           enum:
-          - file
-          - directory
+            - file
+            - directory
         ignored:
           type: boolean
       required:
-      - name
-      - path
-      - absolute
-      - type
-      - ignored
+        - name
+        - path
+        - absolute
+        - type
+        - ignored
     FileContent:
       type: object
       properties:
@@ -2981,19 +2975,19 @@ components:
                     items:
                       type: string
                 required:
-                - oldStart
-                - oldLines
-                - newStart
-                - newLines
-                - lines
+                  - oldStart
+                  - oldLines
+                  - newStart
+                  - newLines
+                  - lines
             index:
               type: string
           required:
-          - oldFileName
-          - newFileName
-          - hunks
+            - oldFileName
+            - newFileName
+            - hunks
       required:
-      - content
+        - content
     File:
       type: object
       properties:
@@ -3010,14 +3004,14 @@ components:
         status:
           type: string
           enum:
-          - added
-          - deleted
-          - modified
+            - added
+            - deleted
+            - modified
       required:
-      - path
-      - added
-      - removed
-      - status
+        - path
+        - added
+        - removed
+        - status
     Agent:
       type: object
       properties:
@@ -3027,12 +3021,12 @@ components:
           type: string
         mode:
           anyOf:
-          - type: string
-            const: subagent
-          - type: string
-            const: primary
-          - type: string
-            const: all
+            - type: string
+              const: subagent
+            - type: string
+              const: primary
+            - type: string
+              const: all
         builtIn:
           type: boolean
         topP:
@@ -3044,35 +3038,35 @@ components:
           properties:
             edit:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
-            bash:
-              type: object
-              propertyNames:
-                type: string
-              additionalProperties:
-                anyOf:
                 - type: string
                   const: ask
                 - type: string
                   const: allow
                 - type: string
                   const: deny
+            bash:
+              type: object
+              propertyNames:
+                type: string
+              additionalProperties:
+                anyOf:
+                  - type: string
+                    const: ask
+                  - type: string
+                    const: allow
+                  - type: string
+                    const: deny
             webfetch:
               anyOf:
-              - type: string
-                const: ask
-              - type: string
-                const: allow
-              - type: string
-                const: deny
+                - type: string
+                  const: ask
+                - type: string
+                  const: allow
+                - type: string
+                  const: deny
           required:
-          - edit
-          - bash
+            - edit
+            - bash
         model:
           type: object
           properties:
@@ -3081,8 +3075,8 @@ components:
             providerID:
               type: string
           required:
-          - modelID
-          - providerID
+            - modelID
+            - providerID
         prompt:
           type: string
         tools:
@@ -3097,12 +3091,12 @@ components:
             type: string
           additionalProperties: {}
       required:
-      - name
-      - mode
-      - builtIn
-      - permission
-      - tools
-      - options
+        - name
+        - mode
+        - builtIn
+        - permission
+        - tools
+        - options
     OAuth:
       type: object
       properties:
@@ -3116,10 +3110,10 @@ components:
         expires:
           type: number
       required:
-      - type
-      - refresh
-      - access
-      - expires
+        - type
+        - refresh
+        - access
+        - expires
     ApiAuth:
       type: object
       properties:
@@ -3129,8 +3123,8 @@ components:
         key:
           type: string
       required:
-      - type
-      - key
+        - type
+        - key
     WellKnownAuth:
       type: object
       properties:
@@ -3142,14 +3136,14 @@ components:
         token:
           type: string
       required:
-      - type
-      - key
-      - token
+        - type
+        - key
+        - token
     Auth:
       anyOf:
-      - $ref: '#/components/schemas/OAuth'
-      - $ref: '#/components/schemas/ApiAuth'
-      - $ref: '#/components/schemas/WellKnownAuth'
+        - $ref: '#/components/schemas/OAuth'
+        - $ref: '#/components/schemas/ApiAuth'
+        - $ref: '#/components/schemas/WellKnownAuth'
     Event.installation.updated:
       type: object
       properties:
@@ -3162,10 +3156,10 @@ components:
             version:
               type: string
           required:
-          - version
+            - version
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.lsp.client.diagnostics:
       type: object
       properties:
@@ -3180,11 +3174,11 @@ components:
             path:
               type: string
           required:
-          - serverID
-          - path
+            - serverID
+            - path
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.message.updated:
       type: object
       properties:
@@ -3197,10 +3191,10 @@ components:
             info:
               $ref: '#/components/schemas/Message'
           required:
-          - info
+            - info
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.message.removed:
       type: object
       properties:
@@ -3215,11 +3209,11 @@ components:
             messageID:
               type: string
           required:
-          - sessionID
-          - messageID
+            - sessionID
+            - messageID
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.message.part.updated:
       type: object
       properties:
@@ -3232,10 +3226,10 @@ components:
             part:
               $ref: '#/components/schemas/Part'
           required:
-          - part
+            - part
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.message.part.removed:
       type: object
       properties:
@@ -3252,12 +3246,12 @@ components:
             partID:
               type: string
           required:
-          - sessionID
-          - messageID
-          - partID
+            - sessionID
+            - messageID
+            - partID
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.session.compacted:
       type: object
       properties:
@@ -3270,10 +3264,10 @@ components:
             sessionID:
               type: string
           required:
-          - sessionID
+            - sessionID
       required:
-      - type
-      - properties
+        - type
+        - properties
     Permission:
       type: object
       properties:
@@ -3283,10 +3277,10 @@ components:
           type: string
         pattern:
           anyOf:
-          - type: string
-          - type: array
-            items:
-              type: string
+            - type: string
+            - type: array
+              items:
+                type: string
         sessionID:
           type: string
         messageID:
@@ -3306,15 +3300,15 @@ components:
             created:
               type: number
           required:
-          - created
+            - created
       required:
-      - id
-      - type
-      - sessionID
-      - messageID
-      - title
-      - metadata
-      - time
+        - id
+        - type
+        - sessionID
+        - messageID
+        - title
+        - metadata
+        - time
     Event.permission.updated:
       type: object
       properties:
@@ -3324,8 +3318,8 @@ components:
         properties:
           $ref: '#/components/schemas/Permission'
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.permission.replied:
       type: object
       properties:
@@ -3342,12 +3336,12 @@ components:
             response:
               type: string
           required:
-          - sessionID
-          - permissionID
-          - response
+            - sessionID
+            - permissionID
+            - response
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.file.edited:
       type: object
       properties:
@@ -3360,10 +3354,10 @@ components:
             file:
               type: string
           required:
-          - file
+            - file
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.session.idle:
       type: object
       properties:
@@ -3376,10 +3370,10 @@ components:
             sessionID:
               type: string
           required:
-          - sessionID
+            - sessionID
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.session.updated:
       type: object
       properties:
@@ -3392,10 +3386,10 @@ components:
             info:
               $ref: '#/components/schemas/Session'
           required:
-          - info
+            - info
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.session.deleted:
       type: object
       properties:
@@ -3408,10 +3402,10 @@ components:
             info:
               $ref: '#/components/schemas/Session'
           required:
-          - info
+            - info
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.session.error:
       type: object
       properties:
@@ -3425,13 +3419,13 @@ components:
               type: string
             error:
               anyOf:
-              - $ref: '#/components/schemas/ProviderAuthError'
-              - $ref: '#/components/schemas/UnknownError'
-              - $ref: '#/components/schemas/MessageOutputLengthError'
-              - $ref: '#/components/schemas/MessageAbortedError'
+                - $ref: '#/components/schemas/ProviderAuthError'
+                - $ref: '#/components/schemas/UnknownError'
+                - $ref: '#/components/schemas/MessageOutputLengthError'
+                - $ref: '#/components/schemas/MessageAbortedError'
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.server.connected:
       type: object
       properties:
@@ -3442,8 +3436,8 @@ components:
           type: object
           properties: {}
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.file.watcher.updated:
       type: object
       properties:
@@ -3457,18 +3451,18 @@ components:
               type: string
             event:
               anyOf:
-              - type: string
-                const: add
-              - type: string
-                const: change
-              - type: string
-                const: unlink
+                - type: string
+                  const: add
+                - type: string
+                  const: change
+                - type: string
+                  const: unlink
           required:
-          - file
-          - event
+            - file
+            - event
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event.ide.installed:
       type: object
       properties:
@@ -3481,26 +3475,26 @@ components:
             ide:
               type: string
           required:
-          - ide
+            - ide
       required:
-      - type
-      - properties
+        - type
+        - properties
     Event:
       anyOf:
-      - $ref: '#/components/schemas/Event.installation.updated'
-      - $ref: '#/components/schemas/Event.lsp.client.diagnostics'
-      - $ref: '#/components/schemas/Event.message.updated'
-      - $ref: '#/components/schemas/Event.message.removed'
-      - $ref: '#/components/schemas/Event.message.part.updated'
-      - $ref: '#/components/schemas/Event.message.part.removed'
-      - $ref: '#/components/schemas/Event.session.compacted'
-      - $ref: '#/components/schemas/Event.permission.updated'
-      - $ref: '#/components/schemas/Event.permission.replied'
-      - $ref: '#/components/schemas/Event.file.edited'
-      - $ref: '#/components/schemas/Event.session.idle'
-      - $ref: '#/components/schemas/Event.session.updated'
-      - $ref: '#/components/schemas/Event.session.deleted'
-      - $ref: '#/components/schemas/Event.session.error'
-      - $ref: '#/components/schemas/Event.server.connected'
-      - $ref: '#/components/schemas/Event.file.watcher.updated'
-      - $ref: '#/components/schemas/Event.ide.installed'
+        - $ref: '#/components/schemas/Event.installation.updated'
+        - $ref: '#/components/schemas/Event.lsp.client.diagnostics'
+        - $ref: '#/components/schemas/Event.message.updated'
+        - $ref: '#/components/schemas/Event.message.removed'
+        - $ref: '#/components/schemas/Event.message.part.updated'
+        - $ref: '#/components/schemas/Event.message.part.removed'
+        - $ref: '#/components/schemas/Event.session.compacted'
+        - $ref: '#/components/schemas/Event.permission.updated'
+        - $ref: '#/components/schemas/Event.permission.replied'
+        - $ref: '#/components/schemas/Event.file.edited'
+        - $ref: '#/components/schemas/Event.session.idle'
+        - $ref: '#/components/schemas/Event.session.updated'
+        - $ref: '#/components/schemas/Event.session.deleted'
+        - $ref: '#/components/schemas/Event.session.error'
+        - $ref: '#/components/schemas/Event.server.connected'
+        - $ref: '#/components/schemas/Event.file.watcher.updated'
+        - $ref: '#/components/schemas/Event.ide.installed'
