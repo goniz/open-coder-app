@@ -24,32 +24,32 @@ struct WorkspaceInteractionView: View {
           .transition(.opacity)
         }
 
-        TabView(
-          selection: Binding(
-            get: { store.selectedTab },
-            set: { store.send(.tabSelected($0)) }
-          )
-        ) {
-          WorkspaceLiveOutputTabView(workspace: store.workspace)
-            .tabItem { Label("Live Output", systemImage: "text.alignleft") }
-            .tag(WorkspaceInteractionFeature.Tab.liveOutput)
+         TabView(
+           selection: Binding(
+             get: { store.selectedTab },
+             set: { store.send(.tabSelected($0)) }
+           )
+         ) {
+           activityView
+             .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
+             .tag(WorkspaceInteractionFeature.Tab.activity)
 
-          activityView
-            .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
-            .tag(WorkspaceInteractionFeature.Tab.activity)
+           ChatView(store: store.scope(state: \.chat, action: \.chat))
+             .tabItem { Label("Chat", systemImage: "message") }
+             .tag(WorkspaceInteractionFeature.Tab.chat)
 
-          ChatView(store: store.scope(state: \.chat, action: \.chat))
-            .tabItem { Label("Chat", systemImage: "message") }
-            .tag(WorkspaceInteractionFeature.Tab.chat)
+           terminalView
+             .tabItem { Label("Terminal", systemImage: "terminal") }
+             .tag(WorkspaceInteractionFeature.Tab.terminal)
 
-          terminalView
-            .tabItem { Label("Terminal", systemImage: "terminal") }
-            .tag(WorkspaceInteractionFeature.Tab.terminal)
+           filesView
+             .tabItem { Label("Files", systemImage: "folder") }
+             .tag(WorkspaceInteractionFeature.Tab.files)
 
-          filesView
-            .tabItem { Label("Files", systemImage: "folder") }
-            .tag(WorkspaceInteractionFeature.Tab.files)
-        }
+           WorkspaceLiveOutputTabView(workspace: store.workspace)
+             .tabItem { Label("Live Output", systemImage: "text.alignleft") }
+             .tag(WorkspaceInteractionFeature.Tab.liveOutput)
+         }
       }
       .navigationTitle(store.workspace.name)
       .task { await store.send(.task).finish() }
