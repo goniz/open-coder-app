@@ -3,6 +3,8 @@ import DependencyClients
 import Foundation
 import Models
 
+private typealias Send = WorkspacesFeature.Action
+
 extension WorkspacesFeature {
   func handleWorkspacesLoaded(state: inout State, workspaces: [WorkspaceState]) -> Effect<Action> {
     // Preserve online state and metadata when reloading from storage
@@ -103,90 +105,120 @@ extension WorkspacesFeature {
     }
   }
 
-  func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
-    guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+   private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
+     state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
+     state.workspaces[index].openCodeSession = nil
+     state.workspaces[index].openCodeSessions = []
+     state.workspaces[index].forwardedPort = nil
+     state.workspaces[index].remotePort = nil
+     state.selectedWorkspace = id
+     state.interactionInitialTab = .activity
+     state.showingWorkspaceInteraction = true
+   }
 
-    state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
-    state.workspaces[index].openCodeSession = nil
-    state.workspaces[index].openCodeSessions = []
-    state.workspaces[index].forwardedPort = nil
-    state.workspaces[index].remotePort = nil
-    state.selectedWorkspace = id
-    state.interactionInitialTab = .activity
-    state.showingWorkspaceInteraction = true
-    let workspace = state.workspaces[index].workspace
+   private func createSSHConfigErrorEffect(
+     cleanup: Effect<Action>,
+     workspaceID: WorkspaceState.ID
+   ) -> Effect<Action> {
+     .merge(
+       cleanup,
+       .run { send in
+         let errorMessage =
+           "No SSH server configuration found for this workspace. "
+           + "Please associate this workspace with a server."
+         await send(.workspaceOpened(workspaceID, .failure(.connectionFailed(errorMessage))))
+       }
+     )
+   }
 
-    state.workspaceInteraction = WorkspaceInteractionFeature.State(
-      workspace: workspace,
-      onlineState: state.workspaces[index].onlineState,
-      selectedTab: state.interactionInitialTab,
-      sessionID: nil
-    )
+   func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
+     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
-    let cleanup = stopPortForward(&state, id: id)
+     resetWorkspaceState(&state, index: index, id: id)
+     let workspace = state.workspaces[index].workspace
 
-    guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
-      return .merge(
-        cleanup,
-        .run { send in
-          let errorMessage =
-            "No SSH server configuration found for this workspace. "
-            + "Please associate this workspace with a server."
-          await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
-        }
-      )
-    }
+     state.workspaceInteraction = WorkspaceInteractionFeature.State(
+       workspace: workspace,
+       onlineState: state.workspaces[index].onlineState,
+       selectedTab: state.interactionInitialTab,
+       sessionID: nil
+     )
 
-    return .merge(
-      cleanup,
-      spawnWorkspaceSession(
-        workspace: workspace,
-        workspaceID: id,
-        serverConfig: serverConfig
-      )
-    )
-  }
+     let cleanup = stopPortForward(&state, id: id)
 
-  func handleWorkspaceOpened(
-    state: inout State,
-    id: WorkspaceState.ID,
-    result: Result<WorkspaceService.SpawnResult, SSHError>
-  ) -> Effect<Action> {
-    guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+     guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
+       return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
+     }
 
-    var workspaceState = state.workspaces[index]
-    let isSelected = state.selectedWorkspace == id
+     return .merge(
+       cleanup,
+       spawnWorkspaceSession(
+         workspace: workspace,
+         workspaceID: id,
+         serverConfig: serverConfig
+       )
+     )
+   }
 
-    switch result {
-    case .success(let spawnResult):
-      if spawnResult.online {
-        workspaceState.onlineState = .online(port: spawnResult.port)
-        workspaceState.lastConnectedAt = Date()
-        workspaceState.isRefreshing = false
-      } else {
-        workspaceState.onlineState = .error(
-          spawnResult.error?.localizedDescription ?? "Unknown error"
-        )
-        workspaceState.isRefreshing = false
-      }
-    case .failure(let error):
-      workspaceState.onlineState = .error(error.localizedDescription)
-      workspaceState.isRefreshing = false
-    }
+   private func updateWorkspaceStateWithSpawnResult(
+     _ state: inout State,
+     index: Int,
+     result: Result<WorkspaceService.SpawnResult, SSHError>,
+     isSelected: Bool
+   ) -> Bool {
+     var workspaceState = state.workspaces[index]
 
-    state.workspaces[index] = workspaceState
+     switch result {
+     case .success(let spawnResult):
+       if spawnResult.online {
+         workspaceState.onlineState = .online(port: spawnResult.port)
+         workspaceState.lastConnectedAt = Date()
+         workspaceState.isRefreshing = false
+       } else {
+         workspaceState.onlineState = .error(
+           spawnResult.error?.localizedDescription ?? "Unknown error"
+         )
+         workspaceState.isRefreshing = false
+       }
+     case .failure(let error):
+       workspaceState.onlineState = .error(error.localizedDescription)
+       workspaceState.isRefreshing = false
+     }
 
-    if isSelected {
-      state.workspaceInteraction?.onlineState = workspaceState.onlineState
-      state.workspaceInteraction?.workspace = workspaceState.workspace
-    }
+     state.workspaces[index] = workspaceState
 
-    if case .online = workspaceState.onlineState {
-      return .none
-    } else {
-      return stopPortForward(&state, id: id)
-    }
-  }
+     if isSelected {
+       state.workspaceInteraction?.onlineState = workspaceState.onlineState
+       state.workspaceInteraction?.workspace = workspaceState.workspace
+     }
+
+     switch workspaceState.onlineState {
+     case .online: return true
+     case .idle, .spawning, .error: return false
+     }
+   }
+
+   func handleWorkspaceOpened(
+     state: inout State,
+     id: WorkspaceState.ID,
+     result: Result<WorkspaceService.SpawnResult, SSHError>
+   ) -> Effect<Action> {
+     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+
+     let isSelected = state.selectedWorkspace == id
+     let isOnline = updateWorkspaceStateWithSpawnResult(
+       &state,
+       index: index,
+       result: result,
+       isSelected: isSelected
+     )
+
+     if isOnline {
+       return .none
+     } else {
+       return stopPortForward(&state, id: id)
+     }
+   }
 
   func handleHideWorkspaceInteraction(state: inout State) -> Effect<Action> {
     state.showingWorkspaceInteraction = false
@@ -219,75 +251,61 @@ extension WorkspacesFeature {
     )
   }
 
-  func handleWorkspaceRefreshed(
-    state: inout State,
-    id: WorkspaceState.ID,
-    sessions: [SessionMeta],
-    openCodeSessions: [OpenCodeSession]
-  ) -> Effect<Action> {
-    guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+   func handleWorkspaceRefreshed(
+     state: inout State,
+     id: WorkspaceState.ID,
+     sessions: [SessionMeta],
+     openCodeSessions: [OpenCodeSession]
+   ) -> Effect<Action> {
+     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
-    state.workspaces[index].sessions = sessions
-    state.workspaces[index].openCodeSessions = openCodeSessions
-    state.workspaces[index].openCodeSession = openCodeSessions.first
-    state.workspaces[index].isRefreshing = false
-    let interactionWorkspace = state.workspaces[index].workspace
+     state.workspaces[index].sessions = sessions
+     state.workspaces[index].openCodeSessions = openCodeSessions
+     state.workspaces[index].openCodeSession = openCodeSessions.first
+     state.workspaces[index].isRefreshing = false
+     let interactionWorkspace = state.workspaces[index].workspace
 
-    guard state.selectedWorkspace == id else { return .none }
+     guard state.selectedWorkspace == id else { return .none }
 
-    state.workspaceInteraction?.workspace = interactionWorkspace
+     state.workspaceInteraction?.workspace = interactionWorkspace
 
-    return .send(
-      .workspaceInteraction(.openCodeSessionUpdated(openCodeSessions.first))
-    )
-  }
+     return .send(
+       .workspaceInteraction(.openCodeSessionUpdated(openCodeSessions.first))
+     )
+   }
 
-  func handleCleanAndRetry(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
-    guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+   func handleCleanAndRetry(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
+     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
-    var workspaceState = state.workspaces[index]
-    workspaceState.onlineState = .spawning(phase: .sshConnection)
-    workspaceState.openCodeSession = nil
-    workspaceState.openCodeSessions = []
-    workspaceState.forwardedPort = nil
-    workspaceState.remotePort = nil
-    state.workspaces[index] = workspaceState
-    let workspace = workspaceState.workspace
+     resetWorkspaceState(&state, index: index, id: id)
+     let workspace = state.workspaces[index].workspace
 
-    let cleanup = stopPortForward(&state, id: id)
+     let cleanup = stopPortForward(&state, id: id)
 
-    guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
-      return .merge(
-        cleanup,
-        .run { send in
-          let errorMessage =
-            "No SSH server configuration found for this workspace. "
-            + "Please associate this workspace with a server."
-          await send(.workspaceOpened(id, .failure(.connectionFailed(errorMessage))))
-        }
-      )
-    }
+     guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
+       return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
+     }
 
-    if state.selectedWorkspace == id {
-      state.workspaceInteraction?.workspace = workspace
-    }
+     if state.selectedWorkspace == id {
+       state.workspaceInteraction?.workspace = workspace
+     }
 
-    let spawnEffect = spawnWorkspaceSession(
-      workspace: workspace,
-      workspaceID: id,
-      serverConfig: serverConfig
-    )
+     let spawnEffect = spawnWorkspaceSession(
+       workspace: workspace,
+       workspaceID: id,
+       serverConfig: serverConfig
+     )
 
-    if state.selectedWorkspace == id {
-      return .merge(
-        cleanup,
-        .send(.workspaceInteraction(.openCodeSessionUpdated(nil))),
-        spawnEffect
-      )
-    }
+     if state.selectedWorkspace == id {
+       return .merge(
+         cleanup,
+         .send(.workspaceInteraction(.openCodeSessionUpdated(nil))),
+         spawnEffect
+       )
+     }
 
-    return .merge(cleanup, spawnEffect)
-  }
+     return .merge(cleanup, spawnEffect)
+   }
 
   func handleSpawnPhaseUpdated(
     state: inout State,
@@ -307,71 +325,67 @@ extension WorkspacesFeature {
     return .none
   }
 
-  func spawnWorkspaceSession(
-    workspace: Workspace,
-    workspaceID: WorkspaceState.ID,
-    serverConfig: SSHServerConfiguration
-  ) -> Effect<Action> {
-    let portForwardingClient = portForwarding
-    let baseConfiguration = openCodeConfiguration
-    let apiFactory = openCodeAPIFactory
+   func spawnWorkspaceSession(
+     workspace: Workspace,
+     workspaceID: WorkspaceState.ID,
+     serverConfig: SSHServerConfiguration
+   ) -> Effect<Action> {
+     return .run { send in
+       do {
+         await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
+         let workspaceService = WorkspaceService(config: serverConfig)
+         await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
+         let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
 
-    return .run { send in
-      do {
-        await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
-        let workspaceService = WorkspaceService(config: serverConfig)
-        await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
-        let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
+         guard spawnResult.online else {
+           await send(.workspaceOpened(workspaceID, .success(spawnResult)))
+           return
+         }
 
-        guard spawnResult.online else {
-          await send(.workspaceOpened(workspaceID, .success(spawnResult)))
-          return
-        }
+         await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
+         let token = try await portForwarding.startForward(
+           workspace: workspace,
+           serverConfig: serverConfig,
+           remotePort: spawnResult.port
+         )
 
-        await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
-        let token = try await portForwardingClient.startForward(
-          workspace: workspace,
-          serverConfig: serverConfig,
-          remotePort: spawnResult.port
-        )
+         await send(.workspacePortForwardEstablished(workspaceID, token))
+         await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
 
-        await send(.workspacePortForwardEstablished(workspaceID, token))
-        await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
+         let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)")!
+         let apiConfiguration = OpenCodeConfiguration(
+           serverURL: serverURL,
+           timeout: openCodeConfiguration.timeout,
+           retryCount: openCodeConfiguration.retryCount
+         )
+         let apiClient = openCodeAPIFactory.make(apiConfiguration)
 
-        let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)")!
-        let apiConfiguration = OpenCodeConfiguration(
-          serverURL: serverURL,
-          timeout: baseConfiguration.timeout,
-          retryCount: baseConfiguration.retryCount
-        )
-        let apiClient = apiFactory.make(apiConfiguration)
+         do {
+           _ = try await apiClient.getConfig()
+         } catch {
+           let connectionError = SSHError.connectionFailed(
+             "Failed to connect to OpenCode server API: \(error.localizedDescription)"
+           )
+           await send(.workspaceOpened(workspaceID, .failure(connectionError)))
+           return
+         }
 
-        do {
-          _ = try await apiClient.getConfig()
-        } catch {
-          let connectionError = SSHError.connectionFailed(
-            "Failed to connect to OpenCode server API: \(error.localizedDescription)"
-          )
-          await send(.workspaceOpened(workspaceID, .failure(connectionError)))
-          return
-        }
-
-        let forwardedResult = WorkspaceService.SpawnResult(
-          port: token.localPort,
-          online: true,
-          error: spawnResult.error
-        )
-        await send(.workspaceOpened(workspaceID, .success(forwardedResult)))
-        await send(.refreshWorkspace(workspaceID))
-      } catch {
-        if let sshError = error as? SSHError {
-          await send(.workspaceOpened(workspaceID, .failure(sshError)))
-        } else {
-          let connectionError = SSHError.connectionFailed(error.localizedDescription)
-          await send(.workspaceOpened(workspaceID, .failure(connectionError)))
-        }
-      }
-    }
-  }
+         let forwardedResult = WorkspaceService.SpawnResult(
+           port: token.localPort,
+           online: true,
+           error: spawnResult.error
+         )
+         await send(.workspaceOpened(workspaceID, .success(forwardedResult)))
+         await send(.refreshWorkspace(workspaceID))
+       } catch {
+         if let sshError = error as? SSHError {
+           await send(.workspaceOpened(workspaceID, .failure(sshError)))
+         } else {
+           let connectionError = SSHError.connectionFailed(error.localizedDescription)
+           await send(.workspaceOpened(workspaceID, .failure(connectionError)))
+         }
+       }
+     }
+   }
 
 }
