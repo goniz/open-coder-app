@@ -11,6 +11,19 @@ struct WorkspaceInteractionView: View {
       VStack(spacing: 0) {
         header
 
+        if case .spawning = store.onlineState {
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Startup Status")
+              .font(.subheadline)
+              .fontWeight(.semibold)
+              .foregroundStyle(.secondary)
+            ConnectionStatusStepsView(onlineState: store.onlineState)
+          }
+          .padding(.horizontal)
+          .padding(.vertical, 12)
+          .transition(.opacity)
+        }
+
         TabView(
           selection: Binding(
             get: { store.selectedTab },

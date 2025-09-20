@@ -2,7 +2,6 @@ import Foundation
 import NIOCore
 import NIOPosix
 import NIOSSH
-import DependencyClients
 import Models
 
 package struct LivePortForwardingClient: PortForwardingClient {
@@ -24,16 +23,17 @@ package struct LivePortForwardingClient: PortForwardingClient {
 }
 
 private actor PortForwardListenerManager {
-private struct Handle {
-  let group: EventLoopGroup
-  let channel: Channel
-  let serverConfig: Models.SSHServerConfiguration
-  let token: PortForwardToken
-}
+  private struct Handle {
+    let group: EventLoopGroup
+    let channel: Channel
+    let serverConfig: Models.SSHServerConfiguration
+    let token: PortForwardToken
+  }
 
   private var handles: [UUID: Handle] = [:]
 
-  func startForward(serverConfig: Models.SSHServerConfiguration, remotePort: Int) async throws -> PortForwardToken {
+  func startForward(serverConfig: Models.SSHServerConfiguration, remotePort: Int) async throws
+    -> PortForwardToken {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 
     let bootstrap = ServerBootstrap(group: group)
@@ -82,10 +82,12 @@ private struct Handle {
       do {
         let connectionManager = await SSHConnectionPool.shared.manager(for: serverConfig)
         let remoteChannel = try await connectionManager.withConnection { connection -> Channel in
-          try await self.createDirectChannel(
-            connection: connection,
-            remotePort: remotePort,
-            localChannel: channel
+          try await connection.createDirectTCPIPChannel(
+            targetHost: "127.0.0.1",
+            targetPort: remotePort,
+            configurePipeline: { childChannel in
+              childChannel.pipeline.addHandler(SSHDirectTCPIPHandler(peer: channel))
+            }
           )
         }
 
@@ -115,29 +117,6 @@ private struct Handle {
     }
 
     return promise.futureResult
-  }
-
-  nonisolated private func createDirectChannel(
-    connection: SSHConnection,
-    remotePort: Int,
-    localChannel: Channel
-  ) async throws -> Channel {
-    let eventLoop = connection.channel.eventLoop
-    let channelPromise = eventLoop.makePromise(of: Channel.self)
-    let originatorAddress = try SocketAddress(ipAddress: "127.0.0.1", port: 0)
-
-    try await eventLoop.submit {
-      let sshHandler = try connection.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
-      let channelType = SSHChannelType.directTCPIP(
-        .init(targetHost: "127.0.0.1", targetPort: remotePort, originatorAddress: originatorAddress)
-      )
-
-      sshHandler.createChannel(channelPromise, channelType: channelType) { childChannel, _ in
-        childChannel.pipeline.addHandler(SSHDirectTCPIPHandler(peer: localChannel))
-      }
-    }.get()
-
-    return try await channelPromise.futureResult.get()
   }
 }
 
@@ -232,8 +211,4 @@ private final class SSHDirectTCPIPHandler: ChannelDuplexHandler, @unchecked Send
     }
     context.close(promise: nil)
   }
-}
-
-extension PortForwardingClientKey {
-  package static let liveValue: PortForwardingClient = LivePortForwardingClient()
 }

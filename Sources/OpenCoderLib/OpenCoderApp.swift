@@ -21,7 +21,6 @@ public struct OpenCoderApp: App {
           withDependencies: {
             $0.openCodeConfiguration = configuration
             $0.openCodeAPI = LiveOpenCodeAPIClient(configuration: configuration)
-            $0.portForwarding = LivePortForwardingClient()
           }
         )
       )

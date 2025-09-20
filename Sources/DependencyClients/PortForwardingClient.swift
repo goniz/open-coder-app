@@ -25,7 +25,7 @@ package protocol PortForwardingClient: Sendable {
 }
 
 package enum PortForwardingClientKey: DependencyKey {
-  package static let liveValue: PortForwardingClient = UnimplementedPortForwardingClient()
+  package static let liveValue: PortForwardingClient = LivePortForwardingClient()
   package static let testValue: PortForwardingClient = UnimplementedPortForwardingClient()
 }
 

@@ -47,26 +47,30 @@ package enum WorkspaceOnlineState: Equatable {
 }
 
 package enum SpawnPhase: String, CaseIterable {
-  case ssh = "SSH"
-  case launch = "Launch"
-  case health = "Health"
-  case attach = "Attach"
+  case sshConnection = "SSH Connection"
+  case openCodeSpawn = "OpenCode Spawn"
+  case portForwarding = "SSH Port Forwarding"
+  case apiHandshake = "OpenCode API"
 
   package var description: String {
     switch self {
-    case .ssh: return "Establishing SSH connection..."
-    case .launch: return "Launching opencode server..."
-    case .health: return "Waiting for health check..."
-    case .attach: return "Attaching to session..."
+    case .sshConnection:
+      return "Establishing SSH connection..."
+    case .openCodeSpawn:
+      return "Launching OpenCode workspace services..."
+    case .portForwarding:
+      return "Configuring SSH port forwarding..."
+    case .apiHandshake:
+      return "Connecting to OpenCode server API..."
     }
   }
 
   package var progress: Double {
     switch self {
-    case .ssh: return 0.25
-    case .launch: return 0.5
-    case .health: return 0.75
-    case .attach: return 1.0
+    case .sshConnection: return 0.25
+    case .openCodeSpawn: return 0.5
+    case .portForwarding: return 0.75
+    case .apiHandshake: return 1.0
     }
   }
 }

@@ -149,6 +149,14 @@ struct WorkspaceRowView: View {
         sessionsPreview
       }
 
+      if case .spawning = workspaceState.onlineState {
+        ConnectionStatusStepsView(
+          onlineState: workspaceState.onlineState,
+          presentation: .inline
+        )
+        .padding(.top, 8)
+      }
+
       if case .error(let errorMessage) = workspaceState.onlineState {
         errorMessageView(errorMessage)
       }

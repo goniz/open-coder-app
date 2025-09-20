@@ -1818,6 +1818,48 @@ package struct SSHConnection: Sendable {
       .flatMap { $0 }
     return try await future.get()
   }
+
+  /// Open a direct-tcpip channel that can be configured by the caller.
+  /// - Parameters:
+  ///   - targetHost: Remote host to connect to from the SSH server.
+  ///   - targetPort: Remote port to connect to.
+  ///   - originatorAddress: Optional originator address metadata sent to the server.
+  ///   - configurePipeline: Handler used to configure the child channel once created.
+  /// - Returns: The active direct channel.
+  func createDirectTCPIPChannel(
+    targetHost: String,
+    targetPort: Int,
+    originatorAddress: SocketAddress? = nil,
+    configurePipeline: @escaping @Sendable (Channel) -> EventLoopFuture<Void>
+  ) async throws -> Channel {
+    guard isHealthy else {
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
+    }
+
+    let promise = channel.eventLoop.makePromise(of: Channel.self)
+    let originAddress = try originatorAddress
+      ?? SocketAddress(ipAddress: "127.0.0.1", port: 0)
+    let channelType = SSHChannelType.directTCPIP(
+      .init(targetHost: targetHost, targetPort: targetPort, originatorAddress: originAddress)
+    )
+
+    let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+      let sshHandler = try self.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+      sshHandler.createChannel(promise, channelType: channelType) { childChannel, _ in
+        configurePipeline(childChannel)
+      }
+    }
+
+    try await creationFuture.get()
+
+    let directChannel = try await promise.futureResult.get()
+    guard directChannel.isActive else {
+      throw SSHError.connectionFailed("Direct TCP/IP channel inactive after creation")
+    }
+
+    return directChannel
+  }
 }
 
 // MARK: - Dependency Injection

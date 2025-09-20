@@ -106,7 +106,7 @@ extension WorkspacesFeature {
   func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
-    state.workspaces[index].onlineState = .spawning(phase: .launch)
+    state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
     state.workspaces[index].openCodeSession = nil
     state.workspaces[index].openCodeSessions = []
     state.workspaces[index].forwardedPort = nil
@@ -246,7 +246,7 @@ extension WorkspacesFeature {
     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
     var workspaceState = state.workspaces[index]
-    workspaceState.onlineState = .spawning(phase: .launch)
+    workspaceState.onlineState = .spawning(phase: .sshConnection)
     workspaceState.openCodeSession = nil
     workspaceState.openCodeSessions = []
     workspaceState.forwardedPort = nil
@@ -312,11 +312,15 @@ extension WorkspacesFeature {
     workspaceID: WorkspaceState.ID,
     serverConfig: SSHServerConfiguration
   ) -> Effect<Action> {
+    let portForwardingClient = portForwarding
+    let baseConfiguration = openCodeConfiguration
+    let apiFactory = openCodeAPIFactory
+
     return .run { send in
       do {
-        await send(.spawnPhaseUpdated(workspaceID, .ssh))
+        await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
         let workspaceService = WorkspaceService(config: serverConfig)
-        await send(.spawnPhaseUpdated(workspaceID, .launch))
+        await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
         let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
 
         guard spawnResult.online else {
@@ -324,15 +328,33 @@ extension WorkspacesFeature {
           return
         }
 
-        await send(.spawnPhaseUpdated(workspaceID, .health))
-        let token = try await portForwarding.startForward(
+        await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
+        let token = try await portForwardingClient.startForward(
           workspace: workspace,
           serverConfig: serverConfig,
           remotePort: spawnResult.port
         )
 
         await send(.workspacePortForwardEstablished(workspaceID, token))
-        await send(.spawnPhaseUpdated(workspaceID, .attach))
+        await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
+
+        let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)")!
+        let apiConfiguration = OpenCodeConfiguration(
+          serverURL: serverURL,
+          timeout: baseConfiguration.timeout,
+          retryCount: baseConfiguration.retryCount
+        )
+        let apiClient = apiFactory.make(apiConfiguration)
+
+        do {
+          _ = try await apiClient.getConfig()
+        } catch {
+          let connectionError = SSHError.connectionFailed(
+            "Failed to connect to OpenCode server API: \(error.localizedDescription)"
+          )
+          await send(.workspaceOpened(workspaceID, .failure(connectionError)))
+          return
+        }
 
         let forwardedResult = WorkspaceService.SpawnResult(
           port: token.localPort,
