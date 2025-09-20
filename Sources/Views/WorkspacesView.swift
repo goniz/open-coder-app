@@ -47,18 +47,11 @@ struct WorkspacesView: View {
           set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
         )
       ) {
-        if let workspaceId = store.selectedWorkspace,
-          let workspace = store.workspaces.first(where: { $0.id == workspaceId }) {
-          WorkspaceInteractionView(
-            store: .init(
-              initialState: .init(
-                workspace: workspace.workspace,
-                onlineState: workspace.onlineState,
-                selectedTab: store.interactionInitialTab
-              ),
-              reducer: { WorkspaceInteractionFeature() }
-            )
-          )
+        if let interactionStore = store.scope(
+          state: \.workspaceInteraction,
+          action: \.workspaceInteraction
+        ) {
+          WorkspaceInteractionView(store: interactionStore)
         }
       }
     }

@@ -5,16 +5,19 @@ import OpenAPIAsyncHTTPClient
 import HTTPTypes
 import DependencyClients
 import Dependencies
+import Models
 
 package struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
   private let client: Client
+  private let configuration: OpenCodeConfiguration
 
   package init(
-    serverURL: URL = URL(string: "http://localhost:8080")!,
+    configuration: OpenCodeConfiguration = .development,
     transport: any ClientTransport = AsyncHTTPClientTransport()
   ) {
+    self.configuration = configuration
     self.client = Client(
-      serverURL: serverURL,
+      serverURL: configuration.serverURL,
       transport: transport
     )
   }
@@ -374,8 +377,8 @@ extension LiveOpenCodeAPIClient {
   }
 }
 
-// MARK: - Live Implementation Registration
-
-extension OpenCodeAPIClientKey {
-  package static let liveValue: OpenCodeAPIClientProtocol = LiveOpenCodeAPIClient()
+extension OpenCodeAPIClientFactoryKey {
+  package static let liveValue = OpenCodeAPIClientFactory { configuration in
+    LiveOpenCodeAPIClient(configuration: configuration)
+  }
 }

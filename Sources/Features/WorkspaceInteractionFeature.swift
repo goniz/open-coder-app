@@ -18,17 +18,27 @@ package struct WorkspaceInteractionFeature {
     package var workspace: Workspace
     package var onlineState: WorkspaceOnlineState
     package var selectedTab: Tab
-    package var chat = ChatFeature.State()
+    package var chat: ChatFeature.State
     package var serverConnection: ConnectionState = .disconnected
+    package var forwardedPort: Int?
 
     package init(
       workspace: Workspace,
       onlineState: WorkspaceOnlineState,
-      selectedTab: Tab = .activity
+      selectedTab: Tab = .activity,
+      sessionID: String? = nil,
+      forwardedPort: Int? = nil
     ) {
       self.workspace = workspace
       self.onlineState = onlineState
       self.selectedTab = selectedTab
+      if let forwardedPort {
+        let serverURL = URL(string: "http://127.0.0.1:\(forwardedPort)")
+        self.chat = ChatFeature.State(sessionID: sessionID, serverURL: serverURL)
+      } else {
+        self.chat = ChatFeature.State(sessionID: sessionID)
+      }
+      self.forwardedPort = forwardedPort
     }
   }
 
@@ -37,6 +47,8 @@ package struct WorkspaceInteractionFeature {
     case serverConnectionRefreshed(ConnectionState)
     case tabSelected(Tab)
     case chat(ChatFeature.Action)
+    case openCodeSessionUpdated(OpenCodeSession?)
+    case forwardedPortUpdated(Int?)
   }
 
   package init() {}
@@ -68,6 +80,18 @@ package struct WorkspaceInteractionFeature {
 
     case let .tabSelected(tab):
       state.selectedTab = tab
+      return .none
+
+    case let .openCodeSessionUpdated(session):
+      return .send(.chat(.updateSession(session?.id)))
+
+    case let .forwardedPortUpdated(port):
+      state.forwardedPort = port
+      if let port {
+        state.chat.serverURL = URL(string: "http://127.0.0.1:\(port)")
+      } else {
+        state.chat.serverURL = nil
+      }
       return .none
 
     case .chat:

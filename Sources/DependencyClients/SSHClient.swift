@@ -1631,8 +1631,8 @@ package actor SSHConnectionManager {
 }
 
 package struct SSHConnection: Sendable {
-  let channel: Channel
-  let eventLoopGroup: EventLoopGroup
+  package let channel: Channel
+  package let eventLoopGroup: EventLoopGroup
 
   var isActive: Bool {
     channel.isActive
