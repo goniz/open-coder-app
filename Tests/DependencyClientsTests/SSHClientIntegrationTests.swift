@@ -124,7 +124,7 @@ final class SSHClientIntegrationTests: XCTestCase {
       if let handle = try? FileHandle(forWritingTo: authorizedKeys) {
         try handle.seekToEnd()
         if let data = ("\n" + pubLine + "\n").data(using: .utf8) {
-          try handle.write(contentsOf: data)
+          try handle.write(data)
         }
         try handle.close()
       }
@@ -344,7 +344,7 @@ final class SSHClientIntegrationTests: XCTestCase {
     if let handle = try? FileHandle(forWritingTo: authorizedKeys) {
       try handle.seekToEnd()
       if let data = ("\n" + pubLine + "\n").data(using: .utf8) {
-        try handle.write(contentsOf: data)
+        try handle.write(data)
       }
       try handle.close()
     }

@@ -1,6 +1,39 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "[%@]" : {
+
+    },
+    "%@ • %lld lines" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ • %2$lld lines"
+          }
+        }
+      }
+    },
+    "%@@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@@%2$@"
+          }
+        }
+      }
+    },
+    "%@@%@:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@@%2$@:%3$@"
+          }
+        }
+      }
+    },
     "%@@%@:%lld" : {
       "localizations" : {
         "en" : {
@@ -10,6 +43,24 @@
           }
         }
       }
+    },
+    "%lld lines" : {
+
+    },
+    "+%lld more" : {
+
+    },
+    "Accept" : {
+
+    },
+    "Accept and Continue" : {
+
+    },
+    "Activity" : {
+
+    },
+    "Add a server first in the Servers tab" : {
+
     },
     "Add Project" : {
 
@@ -32,6 +83,9 @@
     "Auto Save" : {
 
     },
+    "Browse" : {
+
+    },
     "Build" : {
 
     },
@@ -41,7 +95,19 @@
     "Chat" : {
 
     },
+    "Clear" : {
+
+    },
+    "Click the button below to test the connection to your server." : {
+
+    },
+    "Configuration" : {
+
+    },
     "Configure your first SSH server connection to get started coding remotely." : {
+
+    },
+    "Connect" : {
 
     },
     "Connect to your server" : {
@@ -53,22 +119,80 @@
     "Connecting..." : {
 
     },
+    "Connection" : {
+
+    },
+    "Connection Failed" : {
+
+    },
+    "Connection Successful!" : {
+
+    },
+    "Connection Test" : {
+
+    },
+    "Connection:" : {
+
+    },
+    "Create" : {
+
+    },
+    "Create Workspace" : {
+
+    },
+    "Create your first workspace to get started" : {
+
+    },
     "Delete" : {
 
     },
     "Deploy" : {
 
     },
+    "Deterministic tmux session: %@" : {
+
+    },
     "Disconnected" : {
+
+    },
+    "Done" : {
 
     },
     "Enable Notifications" : {
 
     },
+    "Enter the SSH password for %@@%@ to browse remote directories." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Enter the SSH password for %1$@@%2$@ to browse remote directories."
+          }
+        }
+      }
+    },
     "Error" : {
 
     },
+    "Error Details:" : {
+
+    },
+    "File browser coming soon" : {
+
+    },
+    "Files" : {
+
+    },
+    "Fingerprint:" : {
+
+    },
     "General" : {
+
+    },
+    "Generate New Key" : {
+
+    },
+    "Hide hidden files" : {
 
     },
     "Home" : {
@@ -85,16 +209,100 @@
     "Host" : {
 
     },
+    "Host Fingerprint" : {
+
+    },
+    "Host/IP" : {
+
+    },
+    "Idle" : {
+
+    },
+    "Idle TTL: %lld minutes" : {
+
+    },
+    "Import" : {
+
+    },
+    "Import Key" : {
+
+    },
+    "Import Private Key" : {
+
+    },
+    "Interactive terminal coming soon" : {
+
+    },
+    "Key Authentication" : {
+
+    },
+    "Live Activity Logs" : {
+
+    },
+    "Live Logs" : {
+
+    },
+    "Live Output" : {
+
+    },
+    "Loading directory..." : {
+
+    },
+    "Name" : {
+
+    },
+    "Name:" : {
+
+    },
+    "New Session" : {
+
+    },
+    "Next" : {
+
+    },
+    "No servers available" : {
+
+    },
     "No servers configured" : {
+
+    },
+    "No sessions available" : {
+
+    },
+    "No sessions available. Create a new session to start chatting..." : {
+
+    },
+    "No workspaces configured" : {
 
     },
     "Notifications" : {
 
     },
+    "Online" : {
+
+    },
+    "Open" : {
+
+    },
     "Password" : {
 
     },
+    "Password Authentication" : {
+
+    },
+    "Please verify the host fingerprint matches your expected fingerprint for %@." : {
+
+    },
+    "Please verify this fingerprint matches the expected fingerprint for this server." : {
+
+    },
     "Port" : {
+
+    },
+    "Preview:" : {
+
+    },
+    "Previous" : {
 
     },
     "Private Key Path" : {
@@ -103,13 +311,46 @@
     "Projects" : {
 
     },
+    "Ready to Test" : {
+
+    },
+    "Recent Sessions:" : {
+
+    },
+    "Remote Path" : {
+
+    },
     "Reset to Defaults" : {
+
+    },
+    "Retry" : {
 
     },
     "Save" : {
 
     },
+    "Select" : {
+
+    },
+    "Select a session to start chatting..." : {
+
+    },
+    "Select Key File" : {
+
+    },
+    "Select Remote Path" : {
+
+    },
+    "Select Server" : {
+
+    },
+    "Select your private key file (typically ~/.ssh/id_ed25519 or id_rsa)" : {
+
+    },
     "Send" : {
+
+    },
+    "Server %@ is ready to use." : {
 
     },
     "Server Configuration" : {
@@ -118,16 +359,25 @@
     "Server Details" : {
 
     },
+    "Server Information" : {
+
+    },
     "Server Name" : {
 
     },
-    "Server Name (optional)" : {
+    "Server: %@" : {
 
     },
     "Servers" : {
 
     },
+    "Session:" : {
+
+    },
     "Settings" : {
+
+    },
+    "Show hidden files" : {
 
     },
     "Skip for now" : {
@@ -136,28 +386,70 @@
     "SSH Key" : {
 
     },
+    "SSH Password Required" : {
+
+    },
     "Start Task" : {
+
+    },
+    "Startup Status" : {
+
+    },
+    "Terminal" : {
 
     },
     "Test" : {
 
     },
+    "Test Again" : {
+
+    },
     "Test Connection" : {
+
+    },
+    "Testing connection to %@..." : {
 
     },
     "Theme" : {
 
     },
+    "TMUX Tab" : {
+
+    },
     "Type a message..." : {
 
     },
-    "Use SSH Key" : {
+    "Use Key Authentication" : {
 
     },
     "Username" : {
 
     },
+    "Username is required" : {
+
+    },
+    "Verify Host Fingerprint" : {
+
+    },
+    "View Logs" : {
+
+    },
+    "Waiting for live output…" : {
+
+    },
+    "Waiting for workspace connection..." : {
+
+    },
     "Welcome to OpenCoder" : {
+
+    },
+    "Workspace activity will appear here" : {
+
+    },
+    "Workspace Information" : {
+
+    },
+    "Workspaces" : {
 
     }
   },
