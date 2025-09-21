@@ -7,30 +7,30 @@ struct ChatView: View {
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: 12) {
       if store.sessionID == nil {
         Text("Workspace session is initializing...")
-          .font(.callout)
+          .font(.subheadline)
           .foregroundStyle(.secondary)
       }
 
       ScrollView {
-        LazyVStack(alignment: .leading, spacing: 12) {
+        LazyVStack(alignment: .leading, spacing: 8) {
           ForEach(store.messages) { message in
             ChatBubble(message: message)
           }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 12)
       }
 
       if let errorMessage = store.errorMessage {
         Text(errorMessage)
-          .font(.footnote)
+          .font(.caption)
           .foregroundStyle(Color.red)
-          .padding(.horizontal)
+          .padding(.horizontal, 12)
       }
 
-      HStack(spacing: 12) {
+      HStack(spacing: 8) {
         TextField("Type a message...", text: $store.currentMessage)
           .textFieldStyle(RoundedBorderTextFieldStyle())
           .disabled(store.sessionID == nil)
@@ -41,7 +41,7 @@ struct ChatView: View {
         .buttonStyle(.borderedProminent)
         .disabled(store.sessionID == nil || store.isLoading)
       }
-      .padding(.horizontal)
+      .padding(.horizontal, 12)
     }
     .overlay(alignment: .topTrailing) {
       if store.isLoading {
@@ -76,9 +76,9 @@ private struct ChatBubble: View {
 
   private var content: some View {
     Text(messageText())
-      .frame(maxWidth: 320, alignment: .leading)
-      .padding(12)
-      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .frame(maxWidth: 280, alignment: .leading)
+      .padding(8)
+      .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
   }
 
   private func messageText() -> String {

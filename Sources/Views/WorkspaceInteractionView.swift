@@ -12,15 +12,15 @@ struct WorkspaceInteractionView: View {
         header
 
         if case .spawning = store.onlineState {
-          VStack(alignment: .leading, spacing: 8) {
+          VStack(alignment: .leading, spacing: 4) {
             Text("Startup Status")
-              .font(.subheadline)
+              .font(.caption)
               .fontWeight(.semibold)
               .foregroundStyle(.secondary)
             ConnectionStatusStepsView(onlineState: store.onlineState)
           }
-          .padding(.horizontal)
-          .padding(.vertical, 12)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
           .transition(.opacity)
         }
 
@@ -59,21 +59,22 @@ struct WorkspaceInteractionView: View {
 
   private var header: some View {
     HStack {
-      VStack(alignment: .leading, spacing: 4) {
+      VStack(alignment: .leading, spacing: 2) {
         Text("\(store.workspace.user)@\(store.workspace.host)")
-          .font(.subheadline)
+          .font(.caption)
           .foregroundColor(.secondary)
         Text(store.workspace.remotePath)
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.secondary)
       }
       Spacer()
-      HStack(spacing: 8) {
+      HStack(spacing: 4) {
         serverBadge
         statusPill
       }
     }
-    .padding()
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
     .background(.quaternary)
   }
 
@@ -88,14 +89,14 @@ struct WorkspaceInteractionView: View {
       }
     }()
 
-    return HStack(spacing: 6) {
-      Circle().fill(color).frame(width: 8, height: 8)
-      Text(text).font(.caption)
+    return HStack(spacing: 4) {
+      Circle().fill(color).frame(width: 6, height: 6)
+      Text(text).font(.caption2)
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
+    .padding(.horizontal, 6)
+    .padding(.vertical, 2)
     .background(color.opacity(0.15))
-    .cornerRadius(12)
+    .cornerRadius(8)
   }
 
   private var serverBadge: some View {
@@ -118,32 +119,34 @@ struct WorkspaceInteractionView: View {
       }
     }()
 
-    return HStack(spacing: 6) {
-      Circle().fill(color).frame(width: 8, height: 8)
-      Text(text).font(.caption)
+    return HStack(spacing: 4) {
+      Circle().fill(color).frame(width: 6, height: 6)
+      Text(text).font(.caption2)
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
+    .padding(.horizontal, 6)
+    .padding(.vertical, 2)
     .background(color.opacity(0.15))
-    .cornerRadius(12)
+    .cornerRadius(8)
   }
 
   private var activityView: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         if store.activityEvents.isEmpty {
-          VStack(spacing: 12) {
+          VStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
-              .font(.largeTitle)
+              .font(.title2)
               .foregroundColor(.secondary)
             Text("Activity")
-              .font(.title2)
+              .font(.headline)
               .fontWeight(.medium)
             Text("Workspace activity will appear here")
+              .font(.subheadline)
               .foregroundColor(.secondary)
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .padding()
+          .padding(.horizontal, 16)
+          .padding(.vertical, 12)
         } else {
           LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.activityEvents.reversed()) { event in
@@ -157,31 +160,37 @@ struct WorkspaceInteractionView: View {
   }
 
   private var terminalView: some View {
-    VStack(spacing: 12) {
+    VStack(spacing: 8) {
       Image(systemName: "terminal")
-        .font(.largeTitle)
+        .font(.title2)
         .foregroundColor(.secondary)
       Text("Terminal")
-        .font(.title2)
+        .font(.headline)
         .fontWeight(.medium)
       Text("Interactive terminal coming soon")
+        .font(.subheadline)
         .foregroundColor(.secondary)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
   }
 
   private var filesView: some View {
-    VStack(spacing: 12) {
+    VStack(spacing: 8) {
       Image(systemName: "folder")
-        .font(.largeTitle)
+        .font(.title2)
         .foregroundColor(.secondary)
       Text("Files")
-        .font(.title2)
+        .font(.headline)
         .fontWeight(.medium)
       Text("File browser coming soon")
+        .font(.subheadline)
         .foregroundColor(.secondary)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
   }
 }
 
@@ -189,29 +198,29 @@ struct ActivityEventRow: View {
   let event: ActivityEvent
 
   var body: some View {
-    HStack(alignment: .top, spacing: 12) {
-      VStack(alignment: .center, spacing: 4) {
+    HStack(alignment: .top, spacing: 8) {
+      VStack(alignment: .center, spacing: 2) {
         Image(systemName: event.type.icon)
           .foregroundColor(event.isError ? .red : event.type.color)
-          .font(.system(size: 16))
+          .font(.system(size: 14))
         Text(event.formattedTimestamp)
           .font(.caption2)
           .foregroundColor(.secondary)
       }
-      .frame(width: 60)
+      .frame(width: 50)
 
-      VStack(alignment: .leading, spacing: 4) {
+      VStack(alignment: .leading, spacing: 2) {
         Text(event.type.rawValue)
-          .font(.subheadline)
+          .font(.caption)
           .fontWeight(.semibold)
           .foregroundColor(event.isError ? .red : .primary)
         Text(event.message)
-          .font(.body)
+          .font(.subheadline)
           .foregroundColor(.secondary)
       }
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
   }
 }
 

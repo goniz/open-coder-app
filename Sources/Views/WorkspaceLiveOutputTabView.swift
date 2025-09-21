@@ -23,11 +23,11 @@ struct WorkspaceLiveOutputTabView: View {
           LazyVStack(alignment: .leading, spacing: 2) {
             ForEach(Array(outputLines.enumerated()), id: \.offset) { index, line in
               Text(line)
-                .font(.system(.caption, design: .monospaced))
+                .font(.system(.caption2, design: .monospaced))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
                 .id(index)
             }
           }
@@ -37,15 +37,16 @@ struct WorkspaceLiveOutputTabView: View {
         .foregroundColor(.green)
         .overlay(alignment: .center) {
           if isWaitingForOutput {
-            VStack(spacing: 12) {
+            VStack(spacing: 8) {
               ProgressView()
               Text("Waiting for live output…")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundColor(.secondary)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
           }
         }
         .onChange(of: outputLines.count) { oldValue, newValue in
@@ -64,16 +65,16 @@ struct WorkspaceLiveOutputTabView: View {
   }
 
   private var windowSelector: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .center, spacing: 12) {
-        VStack(alignment: .leading, spacing: 2) {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(alignment: .center, spacing: 8) {
+        VStack(alignment: .leading, spacing: 1) {
           Text("TMUX Tab")
-            .font(.caption)
+            .font(.caption2)
             .foregroundColor(.secondary)
 
           if tmuxWindows.isEmpty {
             Text(windowsError ?? "No tmux tabs found yet.")
-              .font(.footnote)
+              .font(.caption)
               .foregroundColor(.secondary)
           } else {
             Picker(
@@ -101,45 +102,45 @@ struct WorkspaceLiveOutputTabView: View {
             Task { await loadTmuxWindows(force: true) }
           } label: {
             Image(systemName: "arrow.clockwise")
-              .font(.footnote)
+              .font(.caption)
           }
           .buttonStyle(.borderless)
           .disabled(isLoadingWindows)
         }
       }
-      .padding(.horizontal)
-      .padding(.top, 12)
+      .padding(.horizontal, 12)
+      .padding(.top, 8)
 
       Divider()
-        .padding(.horizontal)
+        .padding(.horizontal, 12)
     }
   }
 
   private var controlsView: some View {
-    HStack(spacing: 16) {
+    HStack(spacing: 12) {
       Button(
         action: { isFollowing.toggle() },
         label: {
           Image(systemName: isFollowing ? "pause.fill" : "play.fill")
-            .font(.title3)
+            .font(.body)
         }
       )
 
       Button(action: copyOutput) {
         Image(systemName: "doc.on.doc")
-          .font(.title3)
+          .font(.body)
       }
 
       Button(action: clearOutput) {
         Image(systemName: "trash")
-          .font(.title3)
+          .font(.body)
       }
 
       Button {
         Task { await loadTmuxWindows(force: true) }
       } label: {
         Image(systemName: "arrow.triangle.2.circlepath")
-          .font(.title3)
+          .font(.body)
       }
       .disabled(isLoadingWindows)
 
@@ -147,15 +148,16 @@ struct WorkspaceLiveOutputTabView: View {
 
       if let selectedWindow {
         Text("\(selectedWindow) • \(outputLines.count) lines")
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.secondary)
       } else {
         Text("\(outputLines.count) lines")
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.secondary)
       }
     }
-    .padding()
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
     .background(Color.secondary.opacity(0.1))
   }
 
