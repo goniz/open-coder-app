@@ -8,10 +8,79 @@ struct ChatView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
+      // Session selection dropdown
+      HStack {
+        Menu {
+          // New Session button as first item
+          Button {
+            store.send(.newSession)
+          } label: {
+            HStack {
+              Image(systemName: "plus")
+              Text("New Session")
+            }
+          }
+
+          if !store.sessions.isEmpty {
+            Divider()
+
+            ForEach(store.sessions) { session in
+              Button(session.displayTitle) {
+                store.send(.selectSession(session.id))
+              }
+            }
+          }
+
+          if store.sessions.isEmpty && !store.isLoadingSessions {
+            Text("No sessions available")
+              .foregroundStyle(.secondary)
+          }
+        } label: {
+          HStack {
+            Text(store.currentSessionTitle)
+              .font(.headline)
+            Image(systemName: "chevron.down")
+              .font(.caption)
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+          .background(Color.gray.opacity(0.1))
+          .cornerRadius(8)
+        }
+        .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
+
+        Spacer()
+
+        if store.isLoadingSessions {
+          ProgressView()
+            .scaleEffect(0.8)
+        }
+
+        Button("Refresh") {
+          store.send(.fetchSessions)
+        }
+        .buttonStyle(.bordered)
+        .disabled(store.isLoadingSessions)
+      }
+      .padding(.horizontal, 12)
+
       if store.sessionID == nil {
-        Text("Workspace session is initializing...")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
+        if store.serverURL == nil {
+          Text("Waiting for workspace connection...")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+        } else if store.sessions.isEmpty && !store.isLoadingSessions {
+          Text("No sessions available. Create a new session to start chatting...")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+        } else {
+          Text("Select a session to start chatting...")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+        }
       }
 
       ScrollView {
@@ -51,6 +120,9 @@ struct ChatView: View {
     }
     .task {
       await store.send(.task).finish()
+    }
+    .task {
+      await store.send(.fetchSessions).finish()
     }
   }
 }

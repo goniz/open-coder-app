@@ -62,116 +62,6 @@ package struct WorkspaceInteractionFeature {
 
   package init() {}
 
-  private func createConnectionEvent(
-    from previousStatus: ConnectionState,
-    to newStatus: ConnectionState
-  ) -> ActivityEvent? {
-    switch (previousStatus, newStatus) {
-    case (.disconnected, .connecting):
-      return ActivityEvent(
-        type: .sshConnection,
-        message: "Connecting to SSH server..."
-      )
-    case (.connecting, .connected):
-      return ActivityEvent(
-        type: .sshConnection,
-        message: "SSH connection established successfully"
-      )
-    case (.connected, .disconnected):
-      return ActivityEvent(
-        type: .sshConnection,
-        message: "SSH connection lost",
-        isError: true
-      )
-    case (.connecting, .error), (.connected, .error), (.disconnected, .error):
-      if case let .error(message) = newStatus {
-        return ActivityEvent(
-          type: .sshConnection,
-          message: "SSH connection error: \(message)",
-          isError: true
-        )
-      }
-      return nil
-    default:
-      return nil
-    }
-  }
-
-  private func createOnlineStateEvent(
-    from previousState: WorkspaceOnlineState,
-    to newState: WorkspaceOnlineState
-  ) -> ActivityEvent? {
-    // Handle spawning phase transitions
-    if let event = createSpawningEvent(from: previousState, to: newState) {
-      return event
-    }
-
-    // Handle online to idle transition
-    if case (.online, .idle) = (previousState, newState) {
-      return ActivityEvent(
-        type: .workspaceOnline,
-        message: "Workspace went idle",
-        isError: true
-      )
-    }
-
-    // Handle error states
-    if case .error = newState {
-      return createErrorEvent(for: newState)
-    }
-
-    return nil
-  }
-
-  private func createSpawningEvent(
-    from previousState: WorkspaceOnlineState,
-    to newState: WorkspaceOnlineState
-  ) -> ActivityEvent? {
-    switch (previousState, newState) {
-    case (.idle, .spawning(.sshConnection)):
-      return ActivityEvent(
-        type: .sshConnection,
-        message: "Starting workspace initialization..."
-      )
-    case (.spawning(.sshConnection), .spawning(.openCodeSpawn)):
-      return ActivityEvent(
-        type: .openCodeSpawn,
-        message: "OpenCode workspace services are starting..."
-      )
-    case (.spawning(.openCodeSpawn), .spawning(.portForwarding)):
-      return ActivityEvent(
-        type: .portForwarding,
-        message: "Setting up SSH port forwarding..."
-      )
-    case (.spawning(.portForwarding), .spawning(.apiHandshake)):
-      return ActivityEvent(
-        type: .apiConnection,
-        message: "Connecting to OpenCode API..."
-      )
-    case (.spawning(.apiHandshake), .online):
-      if case let .online(port) = newState {
-        return ActivityEvent(
-          type: .workspaceOnline,
-          message: "Workspace is now online and ready on port \(port)"
-        )
-      }
-      return nil
-    default:
-      return nil
-    }
-  }
-
-  private func createErrorEvent(for state: WorkspaceOnlineState) -> ActivityEvent? {
-    if case let .error(message) = state {
-      return ActivityEvent(
-        type: .workspaceError,
-        message: "Workspace error: \(message)",
-        isError: true
-      )
-    }
-    return nil
-  }
-
   package var body: some ReducerOf<Self> {
     Scope(state: \.chat, action: \.chat) {
       ChatFeature()
@@ -237,6 +127,12 @@ package struct WorkspaceInteractionFeature {
 
   private func handleTabSelected(state: inout State, tab: Tab) -> Effect<Action> {
     state.selectedTab = tab
+
+    // Fetch sessions when chat tab is selected
+    if tab == .chat {
+      return .send(.chat(.fetchSessions))
+    }
+
     return .none
   }
 
@@ -253,7 +149,15 @@ package struct WorkspaceInteractionFeature {
         type: .portForwarding,
         message: "SSH port forwarding established on port \(port)"
       )
-      return .send(.addActivityEvent(event))
+      // Fetch sessions now that we have a server URL, especially if we're on the chat tab
+      if state.selectedTab == .chat {
+        return .merge(
+          .send(.addActivityEvent(event)),
+          .send(.chat(.fetchSessions))
+        )
+      } else {
+        return .send(.addActivityEvent(event))
+      }
     } else {
       state.chat.serverURL = nil
     }
@@ -286,5 +190,119 @@ package struct WorkspaceInteractionFeature {
       }
     }
     return .none
+  }
+}
+
+// MARK: - Activity Event Creation
+
+private extension WorkspaceInteractionFeature {
+  func createConnectionEvent(
+    from previousStatus: ConnectionState,
+    to newStatus: ConnectionState
+  ) -> ActivityEvent? {
+    switch (previousStatus, newStatus) {
+    case (.disconnected, .connecting):
+      return ActivityEvent(
+        type: .sshConnection,
+        message: "Connecting to SSH server..."
+      )
+    case (.connecting, .connected):
+      return ActivityEvent(
+        type: .sshConnection,
+        message: "SSH connection established successfully"
+      )
+    case (.connected, .disconnected):
+      return ActivityEvent(
+        type: .sshConnection,
+        message: "SSH connection lost",
+        isError: true
+      )
+    case (.connecting, .error), (.connected, .error), (.disconnected, .error):
+      if case let .error(message) = newStatus {
+        return ActivityEvent(
+          type: .sshConnection,
+          message: "SSH connection error: \(message)",
+          isError: true
+        )
+      }
+      return nil
+    default:
+      return nil
+    }
+  }
+
+  func createOnlineStateEvent(
+    from previousState: WorkspaceOnlineState,
+    to newState: WorkspaceOnlineState
+  ) -> ActivityEvent? {
+    // Handle spawning phase transitions
+    if let event = createSpawningEvent(from: previousState, to: newState) {
+      return event
+    }
+
+    // Handle online to idle transition
+    if case (.online, .idle) = (previousState, newState) {
+      return ActivityEvent(
+        type: .workspaceOnline,
+        message: "Workspace went idle",
+        isError: true
+      )
+    }
+
+    // Handle error states
+    if case .error = newState {
+      return createErrorEvent(for: newState)
+    }
+
+    return nil
+  }
+
+  func createSpawningEvent(
+    from previousState: WorkspaceOnlineState,
+    to newState: WorkspaceOnlineState
+  ) -> ActivityEvent? {
+    switch (previousState, newState) {
+    case (.idle, .spawning(.sshConnection)):
+      return ActivityEvent(
+        type: .sshConnection,
+        message: "Starting workspace initialization..."
+      )
+    case (.spawning(.sshConnection), .spawning(.openCodeSpawn)):
+      return ActivityEvent(
+        type: .openCodeSpawn,
+        message: "OpenCode workspace services are starting..."
+      )
+    case (.spawning(.openCodeSpawn), .spawning(.portForwarding)):
+      return ActivityEvent(
+        type: .portForwarding,
+        message: "Setting up SSH port forwarding..."
+      )
+    case (.spawning(.portForwarding), .spawning(.apiHandshake)):
+      return ActivityEvent(
+        type: .apiConnection,
+        message: "Connecting to OpenCode API..."
+      )
+    case (.spawning(.apiHandshake), .online):
+      if case let .online(port) = newState {
+        return ActivityEvent(
+          type: .workspaceOnline,
+          message: "Workspace is now online and ready on port \(port)"
+        )
+      }
+      return nil
+    default:
+      return nil
+    }
+  }
+
+  func createErrorEvent(for state: WorkspaceOnlineState) -> ActivityEvent? {
+    if case let .error(message) = state {
+      return ActivityEvent(
+        type: .workspaceError,
+        message: "Workspace error: \(message)",
+        isError: true
+      )
+    }
+    return nil
   }
 }

@@ -38,13 +38,28 @@ package struct OpenCodeSession: Equatable, Identifiable, Sendable {
   package let createdAt: Date
   package let updatedAt: Date
   package let isActive: Bool
+  package let title: String?
 
-  package init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true) {
+  package init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true, title: String? = nil) {
     self.id = id
     self.createdAt = createdAt
     self.updatedAt = updatedAt
     self.isActive = isActive
+    self.title = title
   }
+
+  package var displayTitle: String {
+    return title ?? DateFormatter.sessionTitle.string(from: createdAt)
+  }
+}
+
+private extension DateFormatter {
+  static let sessionTitle: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+  }()
 }
 
 package struct OpenCodeProject: Equatable, Identifiable, Sendable {
@@ -171,7 +186,8 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     let session = OpenCodeSession(
       id: UUID().uuidString,
       createdAt: Date(),
-      updatedAt: Date()
+      updatedAt: Date(),
+      title: "New Session"
     )
     return session
   }

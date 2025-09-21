@@ -41,7 +41,8 @@ extension LiveOpenCodeAPIClient {
             id: sessionData.id,
             createdAt: Date(), // API doesn't provide timestamps in current schema
             updatedAt: Date(),
-            isActive: true // Assume active if listed
+            isActive: true, // Assume active if listed
+            title: nil // API doesn't provide title, will use formatted date
           )
         }
       }
@@ -62,7 +63,8 @@ extension LiveOpenCodeAPIClient {
           id: sessionData.id,
           createdAt: Date(),
           updatedAt: Date(),
-          isActive: true
+          isActive: true,
+          title: nil
         )
       }
     case .badRequest:
@@ -96,7 +98,8 @@ extension LiveOpenCodeAPIClient {
           id: sessionData.id,
           createdAt: Date(),
           updatedAt: Date(),
-          isActive: true
+          isActive: true,
+          title: nil
         )
       }
     case .undocumented:
