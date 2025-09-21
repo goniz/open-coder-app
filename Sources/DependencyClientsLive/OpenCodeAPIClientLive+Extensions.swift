@@ -97,36 +97,43 @@ extension LiveOpenCodeAPIClient {
 // MARK: - Configuration Operations Extension
 
 extension LiveOpenCodeAPIClient {
-  package func getConfig() async throws -> OpenCodeConfig {
-    log("🔗 OpenCode API: Getting configuration")
+   package func getConfig() async throws -> OpenCodeConfig {
+     log("🔗 OpenCode API: Getting configuration")
 
-    let input = Operations.config_period_get.Input()
+     let input = Operations.config_period_get.Input()
 
-    do {
-      let response = try await client.config_period_get(input)
+     do {
+       let response = try await client.config_period_get(input)
 
-      switch response {
-      case let .ok(okResponse):
-        switch okResponse.body {
-        case .json:
-          // Return basic config for now
-          let config = OpenCodeConfig(
-            version: "0.10.1",
-            environment: "development",
-            features: ["sessions", "projects", "chat"]
-          )
-          log("✅ OpenCode API: Successfully retrieved configuration")
-          return config
-        }
-      case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: Get config failed with status code: \(statusCode)", level: .error)
-        throw OpenCodeAPIError.serverError("Failed to get config: \(statusCode)")
-      }
-    } catch {
-      log("❌ OpenCode API: Get config failed: \(error.localizedDescription)", level: .error)
-      throw error
-    }
-  }
+       switch response {
+       case let .ok(okResponse):
+         switch okResponse.body {
+         case let .json(configData):
+           // Parse the actual JSON response
+           let version = configData._dollar_schema?
+             .split(separator: "/").last?
+             .split(separator: "#").first
+             .map(String.init) ?? "0.10.1"
+           let environment = "development" // Default environment
+           let features = ["sessions", "projects", "chat"] // Default features
+
+           let config = OpenCodeConfig(
+             version: version,
+             environment: environment,
+             features: features
+           )
+           log("✅ OpenCode API: Successfully retrieved configuration (version: \(version))")
+           return config
+         }
+       case let .undocumented(statusCode, _):
+         log("❌ OpenCode API: Get config failed with status code: \(statusCode)", level: .error)
+         throw OpenCodeAPIError.serverError("Failed to get config: \(statusCode)")
+       }
+     } catch {
+       log("❌ OpenCode API: Get config failed: \(error.localizedDescription)", level: .error)
+       throw error
+     }
+   }
 
   package func listProviders() async throws -> OpenCodeProviders {
     log("🔗 OpenCode API: Listing providers")
