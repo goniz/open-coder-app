@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 package struct Workspace: Identifiable, Codable, Equatable {
   package let id: UUID
@@ -155,5 +156,62 @@ package struct SessionMetaDTO: Codable {
       updatedAt: updatedAt,
       workspaceId: workspaceId
     )
+  }
+}
+
+package struct ActivityEvent: Identifiable, Equatable {
+  package let id: UUID
+  package let timestamp: Date
+  package let type: EventType
+  package let message: String
+  package let isError: Bool
+
+  package init(
+    id: UUID = UUID(),
+    timestamp: Date = Date(),
+    type: EventType,
+    message: String,
+    isError: Bool = false
+  ) {
+    self.id = id
+    self.timestamp = timestamp
+    self.type = type
+    self.message = message
+    self.isError = isError
+  }
+
+  package enum EventType: String, CaseIterable {
+    case sshConnection = "SSH Connection"
+    case openCodeSpawn = "OpenCode Spawn"
+    case portForwarding = "Port Forwarding"
+    case apiConnection = "API Connection"
+    case workspaceOnline = "Workspace Online"
+    case workspaceError = "Workspace Error"
+
+    package var icon: String {
+      switch self {
+      case .sshConnection: return "network"
+      case .openCodeSpawn: return "terminal"
+      case .portForwarding: return "arrow.triangle.branch"
+      case .apiConnection: return "link"
+      case .workspaceOnline: return "checkmark.circle"
+      case .workspaceError: return "exclamationmark.triangle"
+      }
+    }
+
+    package var color: Color {
+      switch self {
+      case .sshConnection, .openCodeSpawn, .portForwarding, .apiConnection, .workspaceOnline:
+        return .green
+      case .workspaceError:
+        return .red
+      }
+    }
+  }
+
+  package var formattedTimestamp: String {
+    let formatter = DateFormatter()
+    formatter.timeStyle = .medium
+    return formatter.string(from: timestamp)
   }
 }

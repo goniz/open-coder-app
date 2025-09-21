@@ -105,16 +105,16 @@ extension WorkspacesFeature {
     }
   }
 
-   private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
-     state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
-     state.workspaces[index].openCodeSession = nil
-     state.workspaces[index].openCodeSessions = []
-     state.workspaces[index].forwardedPort = nil
-     state.workspaces[index].remotePort = nil
-     state.selectedWorkspace = id
-     state.interactionInitialTab = .activity
-     state.showingWorkspaceInteraction = true
-   }
+    private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
+      state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
+      state.workspaces[index].openCodeSession = nil
+      state.workspaces[index].openCodeSessions = []
+      state.workspaces[index].forwardedPort = nil
+      state.workspaces[index].remotePort = nil
+      state.selectedWorkspace = id
+      state.interactionInitialTab = .activity
+      state.showingWorkspaceInteraction = true
+    }
 
    private func createSSHConfigErrorEffect(
      cleanup: Effect<Action>,
@@ -137,12 +137,12 @@ extension WorkspacesFeature {
      resetWorkspaceState(&state, index: index, id: id)
      let workspace = state.workspaces[index].workspace
 
-     state.workspaceInteraction = WorkspaceInteractionFeature.State(
-       workspace: workspace,
-       onlineState: state.workspaces[index].onlineState,
-       selectedTab: state.interactionInitialTab,
-       sessionID: nil
-     )
+      state.workspaceInteraction = WorkspaceInteractionFeature.State(
+        workspace: workspace,
+        onlineState: .idle, // Start with idle, then transition to spawning
+        selectedTab: state.interactionInitialTab,
+        sessionID: nil
+      )
 
      let cleanup = stopPortForward(&state, id: id)
 
@@ -150,14 +150,15 @@ extension WorkspacesFeature {
        return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
      }
 
-     return .merge(
-       cleanup,
-       spawnWorkspaceSession(
-         workspace: workspace,
-         workspaceID: id,
-         serverConfig: serverConfig
-       )
-     )
+      return .merge(
+        cleanup,
+        .send(.workspaceInteraction(.onlineStateChanged(.spawning(phase: .sshConnection)))),
+        spawnWorkspaceSession(
+          workspace: workspace,
+          workspaceID: id,
+          serverConfig: serverConfig
+        )
+      )
    }
 
    private func updateWorkspaceStateWithSpawnResult(

@@ -129,17 +129,31 @@ struct WorkspaceInteractionView: View {
   }
 
   private var activityView: some View {
-    VStack(spacing: 12) {
-      Image(systemName: "chart.line.uptrend.xyaxis")
-        .font(.largeTitle)
-        .foregroundColor(.secondary)
-      Text("Activity")
-        .font(.title2)
-        .fontWeight(.medium)
-      Text("Workspace activity will appear here")
-        .foregroundColor(.secondary)
+    ScrollView {
+      VStack(alignment: .leading, spacing: 0) {
+        if store.activityEvents.isEmpty {
+          VStack(spacing: 12) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+              .font(.largeTitle)
+              .foregroundColor(.secondary)
+            Text("Activity")
+              .font(.title2)
+              .fontWeight(.medium)
+            Text("Workspace activity will appear here")
+              .foregroundColor(.secondary)
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .padding()
+        } else {
+          LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(store.activityEvents.reversed()) { event in
+              ActivityEventRow(event: event)
+              Divider()
+            }
+          }
+        }
+      }
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private var terminalView: some View {
@@ -171,6 +185,36 @@ struct WorkspaceInteractionView: View {
   }
 }
 
+struct ActivityEventRow: View {
+  let event: ActivityEvent
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 12) {
+      VStack(alignment: .center, spacing: 4) {
+        Image(systemName: event.type.icon)
+          .foregroundColor(event.isError ? .red : event.type.color)
+          .font(.system(size: 16))
+        Text(event.formattedTimestamp)
+          .font(.caption2)
+          .foregroundColor(.secondary)
+      }
+      .frame(width: 60)
+
+      VStack(alignment: .leading, spacing: 4) {
+        Text(event.type.rawValue)
+          .font(.subheadline)
+          .fontWeight(.semibold)
+          .foregroundColor(event.isError ? .red : .primary)
+        Text(event.message)
+          .font(.body)
+          .foregroundColor(.secondary)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+  }
+}
+
 #Preview {
   WorkspaceInteractionView(
     store: .init(
@@ -181,7 +225,25 @@ struct WorkspaceInteractionView: View {
           user: "dev",
           remotePath: "/home/dev/project"
         ),
-        onlineState: .online(port: 8080)
+        onlineState: .online(port: 8080),
+        activityEvents: [
+          ActivityEvent(
+            type: .sshConnection,
+            message: "SSH connection established successfully"
+          ),
+          ActivityEvent(
+            type: .openCodeSpawn,
+            message: "OpenCode workspace services are starting..."
+          ),
+          ActivityEvent(
+            type: .portForwarding,
+            message: "SSH port forwarding established on port 8080"
+          ),
+          ActivityEvent(
+            type: .workspaceOnline,
+            message: "Workspace is now online and ready on port 8080"
+          )
+        ]
       ),
       reducer: { WorkspaceInteractionFeature() }
     )
