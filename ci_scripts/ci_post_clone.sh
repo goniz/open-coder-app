@@ -11,6 +11,9 @@ echo "🔧 Xcode Cloud post-clone setup..."
 echo "📦 Configuring macro package trust..."
 defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
+echo "Configuring package plugin trust..."
+defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+
 # Set up environment for custom workflows
 echo "🌍 Setting up environment..."
 export CI=true
