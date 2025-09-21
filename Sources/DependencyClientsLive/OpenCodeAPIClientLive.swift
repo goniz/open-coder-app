@@ -43,10 +43,10 @@ extension LiveOpenCodeAPIClient {
             // Convert API response to domain model using actual properties
             return OpenCodeSession(
               id: sessionData.id,
-              createdAt: Date(), // API doesn't provide timestamps in current schema
-              updatedAt: Date(),
+              createdAt: Date(timeIntervalSince1970: sessionData.time.created),
+              updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
               isActive: true, // Assume active if listed
-              title: nil // API doesn't provide title, will use formatted date
+              title: sessionData.title
             )
           }
           log("✅ OpenCode API: Successfully retrieved \(sessions.count) sessions")
@@ -76,10 +76,10 @@ extension LiveOpenCodeAPIClient {
         case let .json(sessionData):
           let session = OpenCodeSession(
             id: sessionData.id,
-            createdAt: Date(),
-            updatedAt: Date(),
+            createdAt: Date(timeIntervalSince1970: sessionData.time.created),
+            updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
             isActive: true,
-            title: nil
+            title: sessionData.title
           )
           log("✅ OpenCode API: Successfully created session with ID: \(session.id)")
           return session
@@ -129,10 +129,10 @@ extension LiveOpenCodeAPIClient {
       case let .json(sessionData):
         return OpenCodeSession(
           id: sessionData.id,
-          createdAt: Date(),
-          updatedAt: Date(),
+          createdAt: Date(timeIntervalSince1970: sessionData.time.created),
+          updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
           isActive: true,
-          title: nil
+          title: sessionData.title
         )
       }
     case .undocumented:
@@ -337,5 +337,3 @@ extension LiveOpenCodeAPIClient {
   }
 
 }
-
-

@@ -36,16 +36,16 @@ struct ChatView: View {
               .foregroundStyle(.secondary)
           }
         } label: {
-          HStack {
+          HStack(spacing: 8) {
             Text(store.currentSessionTitle)
-              .font(.headline)
+              .font(.title2)
+              .fontWeight(.bold)
+              .lineLimit(1)
             Image(systemName: "chevron.down")
-              .font(.caption)
+              .font(.title2)
+              .foregroundStyle(.secondary)
           }
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
-          .background(Color.gray.opacity(0.1))
-          .cornerRadius(8)
+          .frame(width: 350)
         }
         .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
 
@@ -55,12 +55,6 @@ struct ChatView: View {
           ProgressView()
             .scaleEffect(0.8)
         }
-
-        Button("Refresh") {
-          store.send(.fetchSessions)
-        }
-        .buttonStyle(.bordered)
-        .disabled(store.isLoadingSessions)
       }
       .padding(.horizontal, 12)
 
