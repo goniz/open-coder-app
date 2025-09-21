@@ -125,9 +125,9 @@ struct WorkspaceRowView: View {
   let onCleanAndRetry: () -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 8) {
       HStack {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
           Text(workspaceState.workspace.name)
             .font(.headline)
 
@@ -172,44 +172,44 @@ struct WorkspaceRowView: View {
   }
 
   private var statePill: some View {
-    HStack(spacing: 6) {
+    HStack(spacing: 4) {
       switch workspaceState.onlineState {
       case .idle:
         Circle()
           .fill(Color.gray)
-          .frame(width: 8, height: 8)
+          .frame(width: 6, height: 6)
         Text("Idle")
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.secondary)
 
       case .spawning(let phase):
         ProgressView()
-          .scaleEffect(0.6)
+          .scaleEffect(0.5)
         Text(phase.rawValue)
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.orange)
 
       case .online:
         Circle()
           .fill(Color.green)
-          .frame(width: 8, height: 8)
+          .frame(width: 6, height: 6)
         Text("Online")
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.green)
 
       case .error:
         Circle()
           .fill(Color.red)
-          .frame(width: 8, height: 8)
+          .frame(width: 6, height: 6)
         Text("Error")
-          .font(.caption)
+          .font(.caption2)
           .foregroundColor(.red)
       }
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
+    .padding(.horizontal, 6)
+    .padding(.vertical, 2)
     .background(Color.secondary.opacity(0.1))
-    .cornerRadius(12)
+    .cornerRadius(8)
   }
 
   private var sessionsPreview: some View {
