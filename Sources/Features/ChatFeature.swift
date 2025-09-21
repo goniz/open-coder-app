@@ -14,6 +14,15 @@ package struct ChatFeature {
     package var errorMessage: String?
     package var sessionID: String?
     package var serverURL: URL?
+    package var sessions: [OpenCodeSession] = []
+    package var isLoadingSessions = false
+    package var currentSessionTitle: String {
+      guard let sessionID = sessionID,
+            let session = sessions.first(where: { $0.id == sessionID }) else {
+        return "Select Session"
+      }
+      return session.displayTitle
+    }
 
     package init(sessionID: String? = nil, serverURL: URL? = nil) {
       self.sessionID = sessionID
@@ -30,6 +39,13 @@ package struct ChatFeature {
     case messageReceived(OpenCodeMessage)
     case messageSendFailed(String)
     case updateSession(String?)
+    case fetchSessions
+    case sessionsLoaded([OpenCodeSession])
+    case sessionsFailed(String)
+    case selectSession(String)
+    case newSession
+    case sessionCreated(OpenCodeSession)
+    case sessionCreationFailed(String)
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
@@ -67,6 +83,38 @@ package struct ChatFeature {
 
     case let .updateSession(sessionID):
       return handleUpdateSession(state: &state, sessionID: sessionID)
+
+    case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
+         .newSession, .sessionCreated, .sessionCreationFailed:
+      return handleSessionActions(state: &state, action: action)
+    }
+  }
+
+  private func handleSessionActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .fetchSessions:
+      return handleFetchSessions(state: &state)
+
+    case let .sessionsLoaded(sessions):
+      return handleSessionsLoaded(state: &state, sessions: sessions)
+
+    case let .sessionsFailed(errorMessage):
+      return handleSessionsFailed(state: &state, errorMessage: errorMessage)
+
+    case let .selectSession(sessionID):
+      return handleSelectSession(state: &state, sessionID: sessionID)
+
+    case .newSession:
+      return handleNewSession(state: &state)
+
+    case let .sessionCreated(session):
+      return handleSessionCreated(state: &state, session: session)
+
+    case let .sessionCreationFailed(errorMessage):
+      return handleSessionCreationFailed(state: &state, errorMessage: errorMessage)
+
+    default:
+      return .none
     }
   }
 
@@ -176,5 +224,90 @@ private extension ChatFeature {
     guard let sessionID, let serverURL = state.serverURL else { return .none }
     state.isLoading = true
     return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL)
+  }
+
+  func handleFetchSessions(state: inout State) -> Effect<Action> {
+    guard let serverURL = state.serverURL else {
+      state.errorMessage = "Waiting for workspace connection..."
+      return .none
+    }
+    state.isLoadingSessions = true
+    state.errorMessage = nil
+
+    let baseConfiguration = openCodeConfiguration
+    let configuration = OpenCodeConfiguration(
+      serverURL: serverURL,
+      timeout: baseConfiguration.timeout,
+      retryCount: baseConfiguration.retryCount
+    )
+    let apiClient = openCodeAPIFactory.make(configuration)
+
+    return .run { send in
+      do {
+        let sessions = try await apiClient.listSessions()
+        await send(.sessionsLoaded(sessions))
+      } catch {
+        await send(.sessionsFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  func handleSessionsLoaded(state: inout State, sessions: [OpenCodeSession]) -> Effect<Action> {
+    state.sessions = sessions
+    state.isLoadingSessions = false
+    state.errorMessage = nil
+
+    // Auto-select the latest session if no session is currently selected
+    if state.sessionID == nil, let latestSession = sessions.max(by: { $0.updatedAt < $1.updatedAt }) {
+      return .send(.selectSession(latestSession.id))
+    }
+
+    return .none
+  }
+
+  func handleSessionsFailed(state: inout State, errorMessage: String) -> Effect<Action> {
+    state.isLoadingSessions = false
+    state.errorMessage = errorMessage
+    return .none
+  }
+
+  func handleSelectSession(state: inout State, sessionID: String) -> Effect<Action> {
+    return .send(.updateSession(sessionID))
+  }
+
+  func handleNewSession(state: inout State) -> Effect<Action> {
+    guard let serverURL = state.serverURL else { return .none }
+    state.isLoading = true
+    state.errorMessage = nil
+
+    let baseConfiguration = openCodeConfiguration
+    let configuration = OpenCodeConfiguration(
+      serverURL: serverURL,
+      timeout: baseConfiguration.timeout,
+      retryCount: baseConfiguration.retryCount
+    )
+    let apiClient = openCodeAPIFactory.make(configuration)
+
+    return .run { send in
+      do {
+        let session = try await apiClient.createSession()
+        await send(.sessionCreated(session))
+      } catch {
+        await send(.sessionCreationFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  func handleSessionCreated(state: inout State, session: OpenCodeSession) -> Effect<Action> {
+    state.isLoading = false
+    // Add the new session to the list and select it
+    state.sessions.append(session)
+    return .send(.selectSession(session.id))
+  }
+
+  func handleSessionCreationFailed(state: inout State, errorMessage: String) -> Effect<Action> {
+    state.isLoading = false
+    state.errorMessage = errorMessage
+    return .none
   }
 }

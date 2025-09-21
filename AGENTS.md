@@ -32,6 +32,11 @@ This ensures code quality and prevents issues from propagating through the codeb
 - Dependency hierarchy: Models → DependencyClients → Features → Views → OpenCoderLib
 - Test targets for Features, Models, and Views modules
 
+## Generated API Files
+- Auto-generated API files are created during the build process from OpenAPI specifications in `OpenAPIGenerated/`.
+- Key files include `Types.swift` which contains type definitions for API models.
+- After running `swift build`, generated files can be found in the `.build/` directory under the appropriate target.
+
 ## Code Style
 - Swift 6.0 with strict concurrency
 - Package access level for public APIs within modules

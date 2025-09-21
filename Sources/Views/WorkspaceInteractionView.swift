@@ -52,14 +52,17 @@ struct WorkspaceInteractionView: View {
          }
       }
       .navigationTitle(store.workspace.name)
+      #if os(iOS)
+      .navigationBarTitleDisplayMode(.inline)
+      #endif
       .task { await store.send(.task).finish() }
       .task(id: store.onlineState) { await store.send(.task).finish() }
     }
   }
 
   private var header: some View {
-    HStack {
-      VStack(alignment: .leading, spacing: 2) {
+    HStack(alignment: .center, spacing: 8) {
+      VStack(alignment: .leading, spacing: 1) {
         Text("\(store.workspace.user)@\(store.workspace.host)")
           .font(.caption)
           .foregroundColor(.secondary)
@@ -73,8 +76,8 @@ struct WorkspaceInteractionView: View {
         statusPill
       }
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
     .background(.quaternary)
   }
 
@@ -89,14 +92,14 @@ struct WorkspaceInteractionView: View {
       }
     }()
 
-    return HStack(spacing: 4) {
-      Circle().fill(color).frame(width: 6, height: 6)
+    return HStack(spacing: 3) {
+      Circle().fill(color).frame(width: 5, height: 5)
       Text(text).font(.caption2)
     }
-    .padding(.horizontal, 6)
-    .padding(.vertical, 2)
+    .padding(.horizontal, 4)
+    .padding(.vertical, 1)
     .background(color.opacity(0.15))
-    .cornerRadius(8)
+    .cornerRadius(6)
   }
 
   private var serverBadge: some View {
@@ -119,14 +122,14 @@ struct WorkspaceInteractionView: View {
       }
     }()
 
-    return HStack(spacing: 4) {
-      Circle().fill(color).frame(width: 6, height: 6)
+    return HStack(spacing: 3) {
+      Circle().fill(color).frame(width: 5, height: 5)
       Text(text).font(.caption2)
     }
-    .padding(.horizontal, 6)
-    .padding(.vertical, 2)
+    .padding(.horizontal, 4)
+    .padding(.vertical, 1)
     .background(color.opacity(0.15))
-    .cornerRadius(8)
+    .cornerRadius(6)
   }
 
   private var activityView: some View {

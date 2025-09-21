@@ -45,3 +45,6 @@ generate-opencode-api:
     export OPENCODE_VERSION && \
     opencode generate | yq -P ".info.version = env(OPENCODE_VERSION) | .paths |= with_entries(.value |= with_entries(.value.parameters |= unique_by(.name + .in)))" > opencode_api_generated.yaml && \
     mv opencode_api_generated.yaml Sources/OpenAPIGenerated/openapi.yaml
+
+watch:
+    python3 scripts/watch_sources.py

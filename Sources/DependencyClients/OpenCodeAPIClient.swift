@@ -3,6 +3,7 @@ import OpenAPIGenerated
 import OpenAPIRuntime
 import HTTPTypes
 import Dependencies
+import Models
 
 // MARK: - Protocol Definition
 
@@ -38,13 +39,28 @@ package struct OpenCodeSession: Equatable, Identifiable, Sendable {
   package let createdAt: Date
   package let updatedAt: Date
   package let isActive: Bool
+  package let title: String?
 
-  package init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true) {
+  package init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true, title: String? = nil) {
     self.id = id
     self.createdAt = createdAt
     self.updatedAt = updatedAt
     self.isActive = isActive
+    self.title = title
   }
+
+  package var displayTitle: String {
+    return title ?? DateFormatter.sessionTitle.string(from: createdAt)
+  }
+}
+
+private extension DateFormatter {
+  static let sessionTitle: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+  }()
 }
 
 package struct OpenCodeProject: Equatable, Identifiable, Sendable {
@@ -163,16 +179,27 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 
   package init() {}
 
+  private func log(_ message: String, level: LogLevel = .info) {
+    Task { @MainActor in
+      AppLogger.shared.log(message, level: level, category: .api)
+    }
+  }
+
   package func listSessions() async throws -> [OpenCodeSession] {
+    log("🧪 Mock API: Listing sessions (mock)")
+    log("✅ Mock API: Returned \(sessions.count) mock sessions")
     return sessions
   }
 
   package func createSession() async throws -> OpenCodeSession {
+    log("🧪 Mock API: Creating session (mock)")
     let session = OpenCodeSession(
       id: UUID().uuidString,
       createdAt: Date(),
-      updatedAt: Date()
+      updatedAt: Date(),
+      title: "New Session"
     )
+    log("✅ Mock API: Created mock session with ID: \(session.id)")
     return session
   }
 
