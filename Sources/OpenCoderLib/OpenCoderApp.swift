@@ -20,7 +20,9 @@ public struct OpenCoderApp: App {
           reducer: { AppFeature() },
           withDependencies: {
             $0.openCodeConfiguration = configuration
-            $0.openCodeAPI = LiveOpenCodeAPIClient(configuration: configuration)
+            $0.openCodeAPIFactory = OpenCodeAPIClientFactory { config in
+              LiveOpenCodeAPIClient(configuration: config)
+            }
           }
         )
       )

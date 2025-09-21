@@ -3,6 +3,7 @@ import OpenAPIGenerated
 import OpenAPIRuntime
 import HTTPTypes
 import Dependencies
+import Models
 
 // MARK: - Protocol Definition
 
@@ -178,17 +179,27 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 
   package init() {}
 
+  private func log(_ message: String, level: LogLevel = .info) {
+    Task { @MainActor in
+      AppLogger.shared.log(message, level: level, category: .api)
+    }
+  }
+
   package func listSessions() async throws -> [OpenCodeSession] {
+    log("🧪 Mock API: Listing sessions (mock)")
+    log("✅ Mock API: Returned \(sessions.count) mock sessions")
     return sessions
   }
 
   package func createSession() async throws -> OpenCodeSession {
+    log("🧪 Mock API: Creating session (mock)")
     let session = OpenCodeSession(
       id: UUID().uuidString,
       createdAt: Date(),
       updatedAt: Date(),
       title: "New Session"
     )
+    log("✅ Mock API: Created mock session with ID: \(session.id)")
     return session
   }
 
