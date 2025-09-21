@@ -12,6 +12,7 @@ package struct CodingTask: Identifiable, Equatable, Codable {
   package var startTime: Date?
   package var endTime: Date?
   package var estimatedDuration: TimeInterval?
+  package var sessionID: String?
 
   package var mockProgressSteps: [ProgressStep] = []
   package var currentStepIndex: Int = 0
@@ -36,7 +37,8 @@ package struct CodingTask: Identifiable, Equatable, Codable {
     type: TaskType,
     command: String,
     mockProgressSteps: [ProgressStep] = [],
-    estimatedDuration: TimeInterval? = nil
+    estimatedDuration: TimeInterval? = nil,
+    sessionID: String? = nil
   ) {
     self.id = id
     self.serverID = serverID
@@ -45,6 +47,7 @@ package struct CodingTask: Identifiable, Equatable, Codable {
     self.command = command
     self.mockProgressSteps = mockProgressSteps
     self.estimatedDuration = estimatedDuration
+    self.sessionID = sessionID
   }
 }
 

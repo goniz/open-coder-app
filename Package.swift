@@ -40,6 +40,27 @@ let swiftNIOSSH = SourceControlDependency(
   ),
   productName: "NIOSSH"
 )
+let swiftOpenAPIGenerator = SourceControlDependency(
+  package: .package(
+    url: "https://github.com/apple/swift-openapi-generator",
+    from: "1.0.0"
+  ),
+  productName: "OpenAPIGenerator"
+)
+let swiftOpenAPIRuntime = SourceControlDependency(
+  package: .package(
+    url: "https://github.com/apple/swift-openapi-runtime",
+    from: "1.0.0"
+  ),
+  productName: "OpenAPIRuntime"
+)
+let swiftOpenAPITransport = SourceControlDependency(
+  package: .package(
+    url: "https://github.com/swift-server/swift-openapi-async-http-client",
+    from: "1.0.0"
+  ),
+  productName: "OpenAPIAsyncHTTPClient"
+)
 
 // MARK: - Modules. Ordered by dependency hierarchy.
 
@@ -47,13 +68,25 @@ let models = SingleTargetLibrary(
   name: "Models",
   dependencies: []
 )
+let openAPIGenerated = SingleTargetLibrary(
+  name: "OpenAPIGenerated",
+  dependencies: [
+    swiftOpenAPIRuntime.targetDependency,
+  ],
+  plugins: [
+    .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
+  ]
+)
 let dependencyClients = SingleTargetLibrary(
   name: "DependencyClients",
   dependencies: [
+    tca.targetDependency,
     dependencies.targetDependency,
     dependenciesMacros.targetDependency,
     models.targetDependency,
     swiftNIOSSH.targetDependency,
+    swiftOpenAPIRuntime.targetDependency,
+    openAPIGenerated.targetDependency,
   ]
 )
 let features = SingleTargetLibrary(
@@ -82,6 +115,8 @@ let dependencyClientsLive = SingleTargetLibrary(
     dependencies.targetDependency,
     dependenciesMacros.targetDependency,
     dependencyClients.targetDependency,
+    openAPIGenerated.targetDependency,
+    swiftOpenAPITransport.targetDependency,
   ]
 )
 let openCoder = SingleTargetLibrary(
@@ -107,6 +142,7 @@ let package = Package(
     dependencyClientsLive.product,
     features.product,
     models.product,
+    openAPIGenerated.product,
     openCoder.product,
     views.product,
   ],
@@ -115,6 +151,9 @@ let package = Package(
     swiftDependencies,
     customDump.package,
     swiftNIOSSH.package,
+    swiftOpenAPIGenerator.package,
+    swiftOpenAPIRuntime.package,
+    swiftOpenAPITransport.package,
   ],
   targets: [
     dependencyClients.target,
@@ -124,6 +163,7 @@ let package = Package(
     features.testTarget,
     models.target,
     models.testTarget,
+    openAPIGenerated.target,
     openCoder.target,
     views.target,
     views.testTarget,

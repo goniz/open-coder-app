@@ -9,6 +9,10 @@ package final class AppLogger: ObservableObject {
   private let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "OpenCoder", category: "AppLogger")
 
+  package var latestEntryID: LogEntry.ID? {
+    logEntries.last?.id
+  }
+
   private init() {}
 
   package func log(_ message: String, level: LogLevel = .info, category: LogCategory = .general) {

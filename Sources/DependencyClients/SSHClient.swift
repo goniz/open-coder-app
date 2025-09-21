@@ -113,9 +113,11 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       var buf = mutBuffer
       let count: UInt32 = buf.readInteger(endianness: .big) ?? 0
       guard count >= 1 else { throw SSHError.commandFailed("SFTP REALPATH returned no results") }
-      guard let filename = readString(&buf) else { throw SSHError.commandFailed("Invalid REALPATH response") }
+      guard let filename = readString(&buf) else {
+        throw SSHError.commandFailed("Invalid REALPATH response")
+      }
       // Consume longname and attrs to keep buffer consistent
-      _ = readString(&buf) // longname
+      _ = readString(&buf)  // longname
       var tmpBuf = buf
       _ = parseAttrs(&tmpBuf)
       return filename
@@ -157,7 +159,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
       return .names(results)
     } else if typeByte == PacketType.status.rawValue {
       let (code, message) = parseStatus(mutBuffer)
-      if code == 1 { // SSH_FX_EOF
+      if code == 1 {  // SSH_FX_EOF
         return .eof
       }
       throw SSHError.commandFailed("SFTP READDIR failed (code: \(code)): \(message)")
@@ -227,7 +229,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
         versionPromise?.succeed(version)
         versionPromise = nil
         // Consume any remaining extension bytes in packet
-        if packetLength > 5 { // type(1) + version(4)
+        if packetLength > 5 {  // type(1) + version(4)
           _ = inboundBuffer.readSlice(length: Int(packetLength) - 5)
         }
         continue
@@ -320,22 +322,22 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
     var mode: UInt32?
     var size: UInt64?
     var mtime: UInt32?
-    if (flags & 0x00000001) != 0 { // size
+    if (flags & 0x0000_0001) != 0 {  // size
       size = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000002) != 0 { // uid/gid
+    if (flags & 0x0000_0002) != 0 {  // uid/gid
       let _: UInt32? = buffer.readInteger(endianness: .big)
       let _: UInt32? = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000004) != 0 { // permissions (mode)
+    if (flags & 0x0000_0004) != 0 {  // permissions (mode)
       mode = buffer.readInteger(endianness: .big)
     }
-    if (flags & 0x00000008) != 0 { // atime/mtime
-      let _: UInt32? = buffer.readInteger(endianness: .big) // atime
-      mtime = buffer.readInteger(endianness: .big) // mtime
+    if (flags & 0x0000_0008) != 0 {  // atime/mtime
+      let _: UInt32? = buffer.readInteger(endianness: .big)  // atime
+      mtime = buffer.readInteger(endianness: .big)  // mtime
     }
     // Skip extended attributes if present (rare)
-    if (flags & 0x80000000) != 0 {
+    if (flags & 0x8000_0000) != 0 {
       let count: UInt32 = buffer.readInteger(endianness: .big) ?? 0
       for _ in 0..<count {
         _ = readString(&buffer)
@@ -433,7 +435,7 @@ package enum SSHError: LocalizedError, Equatable {
 }
 
 // Helper function to extract detailed error information from NIOSSH errors
-private func detailedErrorDescription(_ error: Error) -> String {
+private func detailedErrorDescription(_ error: any Swift.Error) -> String {
   // Map ChannelError to friendly descriptions first
   if let chErr = error as? ChannelError {
     switch chErr {
@@ -485,8 +487,13 @@ package struct SSHClient: SSHClientProtocol {
   package init() {}
 
   package static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
-    // Perform a minimal round-trip exec to confirm auth and channel operation
-    _ = try await SSHClient().exec("true", config: config)
+    // Use the connection pool for testing connection
+    let pool = SSHConnectionPool.shared
+    let manager = await pool.manager(for: config)
+    try await manager.withConnection { connection in
+      // Just verify the connection is healthy by executing a simple command
+      _ = try await connection.exec("true")
+    }
   }
 
   package func exec(_ command: String) async throws -> String {
@@ -501,9 +508,11 @@ package struct SSHClient: SSHClientProtocol {
   private func preflightAuth(_ config: Models.SSHServerConfiguration) throws {
     if config.useKeyAuthentication {
       let trimmed = config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines)
-      let hasKeyFile = !trimmed.isEmpty && FileManager.default.fileExists(
-        atPath: (trimmed as NSString).expandingTildeInPath
-      )
+      let hasKeyFile =
+        !trimmed.isEmpty
+        && FileManager.default.fileExists(
+          atPath: (trimmed as NSString).expandingTildeInPath
+        )
       let hasKeyData = (config.privateKeyData != nil)
       if !hasKeyFile && !hasKeyData {
         throw SSHConnectionError.privateKeyPathEmpty
@@ -515,168 +524,19 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  // swiftlint:disable:next function_body_length cyclomatic_complexity
   package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
-    await AppLogger.shared.log("Executing SSH command: \(command)", level: .debug, category: .ssh)
+    await AppLogger.shared.log(
+      "Executing SSH command via connection pool: \(command)", level: .debug, category: .ssh)
+
     // Fail fast if configuration cannot possibly authenticate with our supported methods.
     do { try preflightAuth(config) } catch { throw error }
-    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-    var mainChannel: Channel?
-    var sessionChannel: Channel?
 
-    do {
-      let port = config.port > 0 ? config.port : 22
-      let userAuthDelegate = SSHUserAuthDelegate(config: config)
-      let serverAuthDelegate = AcceptAllHostKeysDelegate(host: config.host, port: port)
+    // Use the connection pool to get a managed connection for this config
+    let pool = SSHConnectionPool.shared
+    let manager = await pool.manager(for: config)
 
-      let bootstrap = ClientBootstrap(group: eventLoopGroup)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
-        .channelInitializer { channel in
-          let sshHandler = NIOSSHHandler(
-            role: .client(
-              .init(
-                userAuthDelegate: userAuthDelegate,
-                serverAuthDelegate: serverAuthDelegate
-              )),
-            allocator: channel.allocator,
-            inboundChildChannelInitializer: nil
-          )
-          return channel.eventLoop.makeCompletedFuture {
-            try channel.pipeline.syncOperations.addHandler(sshHandler)
-          }
-        }
-
-      mainChannel = try await bootstrap.connect(host: config.host, port: port).get()
-
-      guard let channel = mainChannel else {
-        throw SSHError.connectionFailed("Failed to establish SSH connection")
-      }
-
-      // Create a session channel to execute the command
-      let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
-
-      // Create the session via the SSH handler on the event loop
-      let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
-        let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
-        sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-          // Add command output handler to capture stdout/stderr
-          let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
-          return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-            Task {
-              await AppLogger.shared.log(
-                "SSH session channel created and handler attached",
-                level: .debug,
-                category: .ssh
-              )
-            }
-            return childChannel.eventLoop.makeSucceededFuture(())
-          }
-        }
-      }
-      try await creationFuture.get()
-
-      sessionChannel = try await withTimeout(seconds: 15) {
-        try await sessionPromise.futureResult.get()
-      }
-
-      guard let session = sessionChannel else {
-        throw SSHError.connectionFailed("Failed to create SSH session channel")
-      }
-
-      guard session.isActive else {
-        throw SSHError.connectionFailed("Session channel became inactive before exec request")
-      }
-
-      // Now send the exec request after the channel is established
-      let execRequest = SSHChannelRequestEvent.ExecRequest(
-        command: command,
-        wantReply: true
-      )
-      let noPromise: EventLoopPromise<Void>? = nil
-      session.triggerUserOutboundEvent(execRequest, promise: noPromise)
-      await AppLogger.shared.log(
-        "Command exec request sent: \(command.prefix(100))",
-        level: .debug,
-        category: .ssh
-      )
-
-      // Wait for command execution to complete (timeout after 30 seconds)
-      let result = try await withTimeout(seconds: 30) {
-        return try await getCommandOutput(from: session)
-      }
-
-      // Clean up session channel first, then main channel (best effort; ignore already-closed errors)
-      do {
-        try await session.close().get()
-      } catch {
-        await AppLogger.shared.log(
-          "Session channel cleanup warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      do {
-        try await channel.close().get()
-      } catch {
-        await AppLogger.shared.log(
-          "Main channel cleanup warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      do {
-        try await eventLoopGroup.shutdownGracefully()
-      } catch {
-        await AppLogger.shared.log(
-          "EventLoopGroup shutdown warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-
-      await AppLogger.shared.log(
-        "SSH command completed successfully", level: .debug, category: .ssh)
-      return result
-    } catch {
-      // Clean up on error
-      try? await sessionChannel?.close().get()
-      try? await mainChannel?.close().get()
-      try? await eventLoopGroup.shutdownGracefully()
-
-      // Handle CancellationError specifically and convert to meaningful SSH error
-      if error is CancellationError {
-        let cancellationError = SSHError.commandFailed(
-          "SSH operation was cancelled. This may be due to network issues, server timeout, or taking too long."
-        )
-        await AppLogger.shared.log(
-          "SSH command cancelled: \(cancellationError.localizedDescription)", level: .error,
-          category: .ssh
-        )
-        throw cancellationError
-      }
-
-      // Map channel-closure errors to a clearer message
-      if let chErr = error as? ChannelError {
-        switch chErr {
-        case .eof, .inputClosed, .outputClosed, .alreadyClosed:
-          let mapped = SSHError.connectionFailed(
-            "SSH channel closed unexpectedly. Verify the server is reachable and your credentials are correct."
-          )
-          await AppLogger.shared.log(
-            "SSH command failed (mapped channel close): \(mapped.localizedDescription)",
-            level: .error,
-            category: .ssh
-          )
-          throw mapped
-        default:
-          break
-        }
-      }
-
-      await AppLogger.shared.log(
-        "SSH command failed: \(detailedErrorDescription(error))", level: .error, category: .ssh)
-      throw error
+    return try await manager.withConnection { connection in
+      try await connection.exec(command)
     }
   }
 
@@ -922,7 +782,11 @@ package struct SSHClient: SSHClientProtocol {
 
   package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo] {
-    await AppLogger.shared.log("Listing directory via SFTP: \(path)", level: .info, category: .fileSystem)
+    await AppLogger.shared.log(
+      "Listing directory via SFTP (using connection pool): \(path)",
+      level: .info,
+      category: .fileSystem
+    )
     let files = try await sftpListDirectory(path, config: config)
     await AppLogger.shared.log(
       "SFTP listed \(files.count) items in: \(path)", level: .info, category: .fileSystem)
@@ -932,102 +796,40 @@ package struct SSHClient: SSHClientProtocol {
   // MARK: - SFTP directory listing
 
   // Shared helper to open an SFTP session, initialize, run an operation, and clean up
-  // swiftlint:disable function_body_length
+  // Uses the connection pool to reuse SSH connections and creates SFTP channels on demand
   private func withSFTP<T: Sendable>(
     config: Models.SSHServerConfiguration,
     operation: @escaping @Sendable (_ channel: Channel, _ handler: SFTPHandler) async throws -> T
   ) async throws -> T {
-    let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-    var mainChannel: Channel?
-    var sessionChannel: Channel?
-    do {
-      let port = config.port > 0 ? config.port : 22
-      let userAuthDelegate = SSHUserAuthDelegate(config: config)
-      let serverAuthDelegate = AcceptAllHostKeysDelegate(host: config.host, port: port)
+    // Use the connection pool to get a managed connection for this config
+    let pool = SSHConnectionPool.shared
+    let manager = await pool.manager(for: config)
 
-      let bootstrap = ClientBootstrap(group: eventLoopGroup)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
-        .channelInitializer { channel in
-          let sshHandler = NIOSSHHandler(
-            role: .client(
-              .init(
-                userAuthDelegate: userAuthDelegate,
-                serverAuthDelegate: serverAuthDelegate
-              )),
-            allocator: channel.allocator,
-            inboundChildChannelInitializer: nil
+    return try await manager.withConnection { mainConnection in
+      // Create SFTP channel on the existing SSH connection
+      let (sftpChannel, sftpHandler) = try await mainConnection.createSFTPChannel()
+
+      do {
+        let result = try await operation(sftpChannel, sftpHandler)
+
+        // Clean up SFTP channel only (keep main connection for reuse)
+        do { try await sftpChannel.close().get() } catch {
+          await AppLogger.shared.log(
+            "SFTP channel cleanup warning: \(error.localizedDescription)",
+            level: .debug,
+            category: .ssh
           )
-          return channel.eventLoop.makeCompletedFuture { try channel.pipeline.syncOperations.addHandler(sshHandler) }
         }
 
-      mainChannel = try await bootstrap.connect(host: config.host, port: port).get()
-      guard let channel = mainChannel else { throw SSHError.connectionFailed("Failed to establish SSH connection") }
-
-      try await Task.sleep(nanoseconds: 300_000_000)
-
-      let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
-      // Create the SFTP session channel on the channel's event loop to avoid syncOperations off-EL
-      let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
-        let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
-        sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-          // Add the handler after we obtain the child channel below
-          return childChannel.eventLoop.makeSucceededFuture(())
-        }
+        return result
+      } catch {
+        // Clean up SFTP channel on error
+        try? await sftpChannel.close().get()
+        throw error
       }
-      try await creationFuture.get()
-
-      let sftpChannel: Channel = try await withTimeout(seconds: 15) {
-        try await sessionPromise.futureResult.get()
-      }
-      sessionChannel = sftpChannel
-
-      // Now add our SFTP handler on the child channel's event loop
-      let sftpHandler = SFTPHandler(eventLoop: sftpChannel.eventLoop)
-      let addFuture: EventLoopFuture<Void> = sftpChannel.eventLoop.submit {
-        try sftpChannel.pipeline.syncOperations.addHandler(sftpHandler)
-      }
-      try await addFuture.get()
-
-      let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(subsystem: "sftp", wantReply: true)
-      let subsystemPromise = sftpChannel.eventLoop.makePromise(of: Void.self)
-      sftpChannel.triggerUserOutboundEvent(subsystemRequest, promise: subsystemPromise)
-      try await subsystemPromise.futureResult.get()
-      _ = try await sftpHandler.initialize(on: sftpChannel, version: 3)
-
-      let result = try await operation(sftpChannel, sftpHandler)
-
-      // Best-effort cleanup; ignore already-closed errors
-      do { try await sftpChannel.close().get() } catch {
-        await AppLogger.shared.log(
-          "SFTP channel cleanup warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      do { try await channel.close().get() } catch {
-        await AppLogger.shared.log(
-          "Main channel cleanup warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      do { try await eventLoopGroup.shutdownGracefully() } catch {
-        await AppLogger.shared.log(
-          "EventLoopGroup shutdown warning: \(error.localizedDescription)",
-          level: .debug,
-          category: .ssh
-        )
-      }
-      return result
-    } catch {
-      try? await sessionChannel?.close().get()
-      try? await mainChannel?.close().get()
-      try? await eventLoopGroup.shutdownGracefully()
-      throw error
     }
   }
-  // swiftlint:enable function_body_length
+  // swiftlint:disable function_body_length
 
   private func sftpListDirectory(
     _ path: String,
@@ -1035,12 +837,14 @@ package struct SSHClient: SSHClientProtocol {
   ) async throws -> [RemoteFileInfo] {
     return try await withSFTP(config: config) { sftpChannel, sftpHandler in
       let handle = try await sftpHandler.openDirectory(on: sftpChannel, path: path)
-      let entries = try await sftpReadAllEntries(handler: sftpHandler, channel: sftpChannel, handle: handle)
+      let entries = try await sftpReadAllEntries(
+        handler: sftpHandler, channel: sftpChannel, handle: handle)
       try await sftpHandler.closeHandle(on: sftpChannel, handle: handle)
 
       let files: [RemoteFileInfo] = entries.compactMap { entry in
         if entry.filename == "." || entry.filename == ".." { return nil }
-        let fullPath = path.hasSuffix("/") ? "\(path)\(entry.filename)" : "\(path)/\(entry.filename)"
+        let fullPath =
+          path.hasSuffix("/") ? "\(path)\(entry.filename)" : "\(path)/\(entry.filename)"
         let isDir: Bool
         if let mode = entry.mode {
           isDir = (mode & 0o170000) == 0o040000
@@ -1048,9 +852,10 @@ package struct SSHClient: SSHClientProtocol {
           isDir = entry.longname.first == "d"
         }
         let size = entry.size.map { Int64($0) } ?? 0
-        let lastModified: Date = entry.mtime.map {
-          Date(timeIntervalSince1970: TimeInterval($0))
-        } ?? Date(timeIntervalSince1970: 0)
+        let lastModified: Date =
+          entry.mtime.map {
+            Date(timeIntervalSince1970: TimeInterval($0))
+          } ?? Date(timeIntervalSince1970: 0)
         return RemoteFileInfo(
           name: entry.filename,
           path: fullPath,
@@ -1143,16 +948,18 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
   private var receivedExit = false
   private var exitStatusCode: Int32 = -1
   private let completionPromise: EventLoopPromise<String>
+  private let command: String
 
   var completionFuture: EventLoopFuture<String> {
     return completionPromise.futureResult
   }
 
-  init(eventLoop: EventLoop) {
+  init(eventLoop: EventLoop, command: String) {
     self.completionPromise = eventLoop.makePromise(of: String.self)
+    self.command = command
     Task {
       await AppLogger.shared.log(
-        "CommandOutputHandler initialized",
+        "CommandOutputHandler initialized for command: \(command.prefix(80))",
         level: .debug,
         category: .ssh
       )
@@ -1295,9 +1102,16 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if exitStatusCode == 0 {
           completionPromise.succeed(output)
         } else {
-          let message = errorOutput.isEmpty
-            ? "Command failed with exit code \(exitStatusCode)"
-            : errorOutput
+          let trimmedCommand =
+            command.count > 200
+            ? "\(command.prefix(200))…"
+            : command
+          let message: String
+          if errorOutput.isEmpty {
+            message = "`\(trimmedCommand)` failed with exit code \(exitStatusCode)"
+          } else {
+            message = "`\(trimmedCommand)` failed: \(errorOutput)"
+          }
           completionPromise.fail(SSHError.commandFailed(message))
         }
       } else {
@@ -1305,11 +1119,17 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         if !output.isEmpty {
           completionPromise.succeed(output)
         } else if !errorOutput.isEmpty {
-          completionPromise.fail(SSHError.commandFailed(errorOutput))
+          let trimmedCommand =
+            command.count > 200
+            ? "\(command.prefix(200))…"
+            : command
+          let message = "`\(trimmedCommand)` failed: \(errorOutput)"
+          completionPromise.fail(SSHError.commandFailed(message))
         } else {
           completionPromise.fail(
             SSHError.connectionFailed(
-              "SSH channel closed unexpectedly - the connection may have been terminated by the server"))
+              "SSH channel closed unexpectedly - the connection may have been terminated by the server"
+            ))
         }
       }
     }
@@ -1349,7 +1169,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
         } else if availableMethods.contains(.password) {
           nextChallengePromise.fail(SSHConnectionError.passwordAuthNotAvailable)
         } else {
-          nextChallengePromise.fail(SSHConnectionError.keyAuthenticationFailed("No supported methods"))
+          nextChallengePromise.fail(
+            SSHConnectionError.keyAuthenticationFailed("No supported methods"))
         }
       }
     } catch {
@@ -1366,7 +1187,8 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
     // Load Ed25519 private key from raw bytes or OpenSSH unencrypted key file
     let keyData: Data
     if !config.privateKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-      FileManager.default.fileExists(atPath: (config.privateKeyPath as NSString).expandingTildeInPath) {
+      FileManager.default.fileExists(
+        atPath: (config.privateKeyPath as NSString).expandingTildeInPath) {
       let expanded = (config.privateKeyPath as NSString).expandingTildeInPath
       let url = URL(fileURLWithPath: expanded)
       keyData = try Data(contentsOf: url)
@@ -1402,12 +1224,16 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
   private func chooseAuthenticationOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
     throws -> NIOSSHUserAuthenticationOffer? {
     if config.useKeyAuthentication {
-      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) {
+        return keyOffer
+      }
       if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
       return nil
     } else {
       if let pwdOffer = buildPasswordOffer(availableMethods: availableMethods) { return pwdOffer }
-      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) { return keyOffer }
+      if let keyOffer = try buildPublicKeyOffer(availableMethods: availableMethods) {
+        return keyOffer
+      }
       return nil
     }
   }
@@ -1432,8 +1258,7 @@ extension SSHUserAuthDelegate {
     }
 
     throw SSHConnectionError.keyAuthenticationFailed(
-      "Unsupported private key format " +
-      "(expected 32/64-byte raw or OpenSSH ed25519 key)"
+      "Unsupported private key format " + "(expected 32/64-byte raw or OpenSSH ed25519 key)"
     )
   }
 
@@ -1442,7 +1267,8 @@ extension SSHUserAuthDelegate {
     func base64Body(from pem: String) -> Data {
       let lines = pem.split(separator: "\n").map(String.init)
       guard let start = lines.firstIndex(where: { $0.contains("BEGIN OPENSSH PRIVATE KEY") }),
-        let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start else {
+        let end = lines.firstIndex(where: { $0.contains("END OPENSSH PRIVATE KEY") }), end > start
+      else {
         return Data()
       }
       let base64 = lines[(start + 1)..<end].joined()
@@ -1495,13 +1321,16 @@ extension SSHUserAuthDelegate {
     index += magicBytes.count
 
     // ciphername, kdfname, kdfoptions
-    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(), let kdfOptions = readStringBytes() else {
+    guard let ciphername = readStringBytes(), let kdfname = readStringBytes(),
+      let kdfOptions = readStringBytes()
+    else {
       throw SSHConnectionError.keyAuthenticationFailed("Malformed OpenSSH key header")
     }
-    if String(data: ciphername, encoding: .utf8) != "none" || String(data: kdfname, encoding: .utf8) != "none" {
+    if String(data: ciphername, encoding: .utf8) != "none"
+      || String(data: kdfname, encoding: .utf8) != "none" {
       throw SSHConnectionError.keyAuthenticationFailed("Encrypted OpenSSH keys are not supported")
     }
-    _ = kdfOptions // ignored for none
+    _ = kdfOptions  // ignored for none
 
     // number of keys (uint32)
     guard let keyCount = readUInt32(), keyCount == 1 else {
@@ -1559,7 +1388,8 @@ extension SSHUserAuthDelegate {
     if privatePart.count >= 32 {
       return privatePart.prefix(32)
     }
-    throw SSHConnectionError.keyAuthenticationFailed("Invalid ed25519 private key length in OpenSSH key")
+    throw SSHConnectionError.keyAuthenticationFailed(
+      "Invalid ed25519 private key length in OpenSSH key")
   }
 }
 
@@ -1607,7 +1437,7 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
   }
 }
 
-package enum SSHConnectionError: Error, LocalizedError {
+package enum SSHConnectionError: LocalizedError {
   case publicKeyAuthNotAvailable
   case passwordAuthNotAvailable
   case privateKeyPathEmpty
@@ -1645,7 +1475,8 @@ package actor SSHConnectionManager {
     return false
   }
 
-  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T) async throws -> T {
+  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T)
+    async throws -> T {
     // Check if we have a valid and healthy connection
     if let existingConnection = self.connection, existingConnection.isHealthy {
       do {
@@ -1654,10 +1485,10 @@ package actor SSHConnectionManager {
       } catch {
         // Check if it's a channel closed error (NIOCore.ChannelError error 6)
         let errorString = String(describing: error)
-        let isChannelClosedError = errorString.contains("ChannelError") &&
-                                  (errorString.contains("error 6") ||
-                                   errorString.contains("outputClosed") ||
-                                   errorString.contains("inputClosed"))
+        let isChannelClosedError =
+          errorString.contains("ChannelError")
+          && (errorString.contains("error 6") || errorString.contains("outputClosed")
+            || errorString.contains("inputClosed"))
 
         if isChannelClosedError {
           await AppLogger.shared.log(
@@ -1685,7 +1516,7 @@ package actor SSHConnectionManager {
         self.connection = try await self.createConnection()
 
         // Add a small delay to ensure the connection is fully ready
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        try await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
       }
 
       return try await operation(self.connection!)
@@ -1697,7 +1528,7 @@ package actor SSHConnectionManager {
     baseDelay: TimeInterval,
     operation: @escaping () async throws -> T
   ) async throws -> T {
-    var lastError: Error?
+    var lastError: (any Swift.Error)?
 
     for attempt in 0...maxRetries {
       do {
@@ -1713,8 +1544,8 @@ package actor SSHConnectionManager {
         // Calculate exponential backoff delay
         let delay = baseDelay * pow(2.0, Double(attempt))
         await AppLogger.shared.log(
-          "SSH operation failed (attempt \(attempt + 1)/\(maxRetries + 1)), " +
-          "retrying in \(delay)s: \(detailedErrorDescription(error))",
+          "SSH operation failed (attempt \(attempt + 1)/\(maxRetries + 1)), "
+            + "retrying in \(delay)s: \(detailedErrorDescription(error))",
           level: .warning,
           category: .ssh
         )
@@ -1729,7 +1560,8 @@ package actor SSHConnectionManager {
       }
     }
 
-    throw lastError ?? SSHError.connectionFailed("Operation failed after \(maxRetries + 1) attempts")
+    throw lastError
+      ?? SSHError.connectionFailed("Operation failed after \(maxRetries + 1) attempts")
   }
 
   private func createConnection() async throws -> SSHConnection {
@@ -1766,7 +1598,7 @@ package actor SSHConnectionManager {
       }
 
       // Wait for SSH connection to be established and verify it's ready
-      try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+      try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
 
       // Verify the connection is actually established by checking channel state
       guard establishedChannel.isActive else {
@@ -1799,8 +1631,8 @@ package actor SSHConnectionManager {
 }
 
 package struct SSHConnection: Sendable {
-  let channel: Channel
-  let eventLoopGroup: EventLoopGroup
+  package let channel: Channel
+  package let eventLoopGroup: EventLoopGroup
 
   var isActive: Bool {
     channel.isActive
@@ -1821,10 +1653,72 @@ package struct SSHConnection: Sendable {
     }
   }
 
+  /// Create an SFTP channel on this SSH connection for file operations
+  fileprivate func createSFTPChannel() async throws -> (Channel, SFTPHandler) {
+    // Ensure the connection is healthy before creating SFTP channel
+    guard isHealthy else {
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
+    }
+
+    // Create a session channel for SFTP
+    let sessionPromise = channel.eventLoop.makePromise(of: Channel.self)
+
+    // Create the session via the SSH handler on the event loop
+    let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+      let sshHandler = try self.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+      sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
+        // Add SFTP handler to the child channel
+        let sftpHandler = SFTPHandler(eventLoop: childChannel.eventLoop)
+        return childChannel.pipeline.addHandler(sftpHandler).flatMap { _ in
+          Task {
+            await AppLogger.shared.log(
+              "SFTP session channel created via connection pool and handler attached",
+              level: .debug,
+              category: .ssh
+            )
+          }
+          return childChannel.eventLoop.makeSucceededFuture(())
+        }
+      }
+    }
+    try await creationFuture.get()
+
+    let sessionChannel = try await sessionPromise.futureResult.get()
+
+    guard sessionChannel.isActive else {
+      throw SSHError.connectionFailed("SFTP session channel inactive before subsystem request")
+    }
+
+    // Initialize SFTP subsystem
+    let subsystemRequest = SSHChannelRequestEvent.SubsystemRequest(
+      subsystem: "sftp", wantReply: true)
+    let subsystemPromise = sessionChannel.eventLoop.makePromise(of: Void.self)
+    sessionChannel.triggerUserOutboundEvent(subsystemRequest, promise: subsystemPromise)
+    try await subsystemPromise.futureResult.get()
+
+    // Get the SFTP handler from the channel pipeline
+    let sftpHandler = try await sessionChannel.eventLoop.submit {
+      try sessionChannel.pipeline.syncOperations.handler(type: SFTPHandler.self)
+    }.get()
+
+    // Initialize SFTP protocol
+    _ = try await sftpHandler.initialize(on: sessionChannel, version: 3)
+
+    await AppLogger.shared.log(
+      "SFTP subsystem initialized successfully via connection pool",
+      level: .debug,
+      category: .ssh
+    )
+
+    return (sessionChannel, sftpHandler)
+  }
+
   func exec(_ command: String) async throws -> String {
     // Ensure the connection is healthy before executing
     guard isHealthy else {
-      throw SSHError.connectionFailed("SSH connection is not healthy - channel is inactive or closing")
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
     }
 
     // Create a session channel to execute the command
@@ -1834,20 +1728,21 @@ package struct SSHConnection: Sendable {
     let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
       let sshHandler = try channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
       sshHandler.createChannel(sessionPromise, channelType: .session) { childChannel, _ in
-      // Add command output handler to capture stdout/stderr
-      let outputHandler = CommandOutputHandler(eventLoop: childChannel.eventLoop)
-      return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
-        // Signal that channel is ready
-        Task {
-          await AppLogger.shared.log(
-            "SSH session channel created via connection pool and handler attached",
-            level: .debug,
-            category: .ssh
-          )
+        // Add command output handler to capture stdout/stderr
+        let outputHandler = CommandOutputHandler(
+          eventLoop: childChannel.eventLoop, command: command)
+        return childChannel.pipeline.addHandler(outputHandler).flatMap { _ in
+          // Signal that channel is ready
+          Task {
+            await AppLogger.shared.log(
+              "SSH session channel created via connection pool and handler attached",
+              level: .debug,
+              category: .ssh
+            )
+          }
+          return childChannel.eventLoop.makeSucceededFuture(())
         }
-        return childChannel.eventLoop.makeSucceededFuture(())
       }
-    }
     }
     try await creationFuture.get()
 
@@ -1889,6 +1784,7 @@ package struct SSHConnection: Sendable {
 
     return result
   }
+  // swiftlint:enable function_body_length
 
   private func withTimeout<T: Sendable>(
     seconds: Int,
@@ -1921,6 +1817,48 @@ package struct SSHConnection: Sendable {
       }
       .flatMap { $0 }
     return try await future.get()
+  }
+
+  /// Open a direct-tcpip channel that can be configured by the caller.
+  /// - Parameters:
+  ///   - targetHost: Remote host to connect to from the SSH server.
+  ///   - targetPort: Remote port to connect to.
+  ///   - originatorAddress: Optional originator address metadata sent to the server.
+  ///   - configurePipeline: Handler used to configure the child channel once created.
+  /// - Returns: The active direct channel.
+  func createDirectTCPIPChannel(
+    targetHost: String,
+    targetPort: Int,
+    originatorAddress: SocketAddress? = nil,
+    configurePipeline: @escaping @Sendable (Channel) -> EventLoopFuture<Void>
+  ) async throws -> Channel {
+    guard isHealthy else {
+      throw SSHError.connectionFailed(
+        "SSH connection is not healthy - channel is inactive or closing")
+    }
+
+    let promise = channel.eventLoop.makePromise(of: Channel.self)
+    let originAddress = try originatorAddress
+      ?? SocketAddress(ipAddress: "127.0.0.1", port: 0)
+    let channelType = SSHChannelType.directTCPIP(
+      .init(targetHost: targetHost, targetPort: targetPort, originatorAddress: originAddress)
+    )
+
+    let creationFuture: EventLoopFuture<Void> = channel.eventLoop.submit {
+      let sshHandler = try self.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+      sshHandler.createChannel(promise, channelType: channelType) { childChannel, _ in
+        configurePipeline(childChannel)
+      }
+    }
+
+    try await creationFuture.get()
+
+    let directChannel = try await promise.futureResult.get()
+    guard directChannel.isActive else {
+      throw SSHError.connectionFailed("Direct TCP/IP channel inactive after creation")
+    }
+
+    return directChannel
   }
 }
 

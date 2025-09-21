@@ -4,6 +4,8 @@ import Crypto
 import XCTest
 import Models
 import DependencyClients
+import NIOCore
+import NIOPosix
 
 /// Integration test that launches a temporary sshd bound to a random high port
 /// using only ephemeral files under a unique temp directory. It then validates
@@ -507,6 +509,146 @@ final class SSHClientIntegrationTests: XCTestCase {
     XCTAssertEqual(lines.last, "1500")
   }
 
+  func testPortForwardingClient_roundTripData() async throws {
+    #if os(macOS)
+    #else
+    throw XCTSkip("Integration test requires macOS with /usr/sbin/sshd available")
+    #endif
+
+    guard FileManager.default.fileExists(atPath: "/usr/sbin/sshd") else {
+      throw XCTSkip("/usr/sbin/sshd not found; skipping integration test")
+    }
+
+    let currentUser = ProcessInfo.processInfo.environment["USER"] ?? NSUserName()
+
+    let baseTmp = FileManager.default.temporaryDirectory
+    let tmpDir = baseTmp.appendingPathComponent("opencode-sshd-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    let keepArtifacts = (ProcessInfo.processInfo.environment["KEEP_SSH_INTEGRATION_ARTIFACTS"] == "1")
+    defer { if !keepArtifacts { try? FileManager.default.removeItem(at: tmpDir) } }
+
+    let teardown = AsyncTearDownContext()
+
+    do {
+      let authorizedKeys = tmpDir.appendingPathComponent("authorized_keys")
+      let clientKey = tmpDir.appendingPathComponent("id_ed25519")
+      let clientPub = tmpDir.appendingPathComponent("id_ed25519.pub")
+      _ = run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-f", clientKey.path, "-N", ""], timeout: 30)
+      try setPosixPermissions(0o600, for: clientKey)
+      try Data(contentsOf: clientPub).write(to: authorizedKeys)
+      try setPosixPermissions(0o600, for: authorizedKeys)
+
+      guard let mgr = createAndStartSSHD(
+        tmpDir: tmpDir,
+        authorizedKeysPath: authorizedKeys.path,
+        currentUser: currentUser,
+        allowTcpForwarding: true
+      ) else {
+        XCTFail("Failed to launch sshd for port forwarding test")
+        await teardown.runAll()
+        return
+      }
+      defer { terminateSSHD(mgr) }
+
+      let remoteGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+      teardown.register {
+        try? await self.shutdownEventLoopGroup(remoteGroup)
+      }
+
+      let remoteReceivedPromise = remoteGroup.next().makePromise(of: String.self)
+      let remoteBootstrap = ServerBootstrap(group: remoteGroup)
+        .serverChannelOption(ChannelOptions.backlog, value: 8)
+        .serverChannelOption(
+          ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR),
+          value: 1
+        )
+        .childChannelInitializer { channel in
+          channel.pipeline.addHandler(RemoteForwardTargetHandler(receivedPromise: remoteReceivedPromise))
+        }
+        .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .childChannelOption(ChannelOptions.tcpOption(.tcp_nodelay), value: 1)
+
+      let remoteServerChannel = try await remoteBootstrap.bind(host: "127.0.0.1", port: 0).get()
+      teardown.register {
+        try? await remoteServerChannel.close().get()
+      }
+      guard let remotePort = remoteServerChannel.localAddress?.port else {
+        XCTFail("Failed to determine remote target port")
+        await teardown.runAll()
+        return
+      }
+
+      var config = Models.SSHServerConfiguration(
+        name: "local",
+        host: "localhost",
+        port: mgr.port,
+        username: currentUser,
+        useKeyAuthentication: true,
+        privateKeyPath: clientKey.path,
+        shouldMaintainConnection: false
+      )
+      config.password = ""
+
+      let workspace = Models.Workspace(
+        name: "pf-test",
+        host: "localhost",
+        user: currentUser,
+        remotePath: tmpDir.path
+      )
+
+      let portForwardClient = DependencyClients.LivePortForwardingClient()
+      let token = try await portForwardClient.startForward(
+        workspace: workspace,
+        serverConfig: config,
+        remotePort: remotePort
+      )
+      teardown.register {
+        await portForwardClient.stopForward(token)
+        await SSHConnectionPool.shared.disconnect(serverConfigID: config.id)
+      }
+
+      let clientGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+      teardown.register {
+        try? await self.shutdownEventLoopGroup(clientGroup)
+      }
+
+      let greetingPromise = clientGroup.next().makePromise(of: String.self)
+      let responsePromise = clientGroup.next().makePromise(of: String.self)
+
+      let clientBootstrap = ClientBootstrap(group: clientGroup)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .channelOption(ChannelOptions.tcpOption(.tcp_nodelay), value: 1)
+        .channelInitializer { channel in
+          channel.pipeline.addHandler(
+            LocalForwardClientHandler(
+              greetingPromise: greetingPromise,
+              responsePromise: responsePromise
+            )
+          )
+        }
+
+      let clientChannel = try await clientBootstrap.connect(host: "127.0.0.1", port: token.localPort).get()
+      teardown.register {
+        try? await clientChannel.close().get()
+      }
+
+      let greeting = try await greetingPromise.futureResult.get()
+      XCTAssertEqual(greeting, "hello-from-remote")
+
+      let remoteReceived = try await remoteReceivedPromise.futureResult.get()
+      XCTAssertEqual(remoteReceived, "ping")
+
+      let response = try await responsePromise.futureResult.get()
+      XCTAssertEqual(response, "pong")
+
+      try await clientChannel.closeFuture.get()
+      await teardown.runAll()
+    } catch {
+      await teardown.runAll()
+      throw error
+    }
+  }
+
   func testSSHClient_SFTP_listDirectory_and_homeDirectory() async throws {
     #if os(macOS)
     #else
@@ -774,7 +916,12 @@ final class SSHClientIntegrationTests: XCTestCase {
 
   // MARK: - SSHD launcher helper + public key encoding
 
-  private func createAndStartSSHD(tmpDir: URL, authorizedKeysPath: String, currentUser: String) -> ManagedSSHD? {
+  private func createAndStartSSHD(
+    tmpDir: URL,
+    authorizedKeysPath: String,
+    currentUser: String,
+    allowTcpForwarding: Bool = false
+  ) -> ManagedSSHD? {
     let hostRSA = tmpDir.appendingPathComponent("ssh_host_rsa_key")
     let hostED25519 = tmpDir.appendingPathComponent("ssh_host_ed25519_key")
     let pidFile = tmpDir.appendingPathComponent("sshd.pid")
@@ -807,7 +954,7 @@ final class SSHClientIntegrationTests: XCTestCase {
 
       Subsystem sftp internal-sftp
 
-      AllowTcpForwarding no
+      AllowTcpForwarding \(allowTcpForwarding ? "yes" : "no")
       X11Forwarding no
       PermitTunnel no
       PermitTTY yes
@@ -846,6 +993,152 @@ final class SSHClientIntegrationTests: XCTestCase {
     }
 
     return nil
+  }
+
+  private final class RemoteForwardTargetHandler: ChannelInboundHandler, @unchecked Sendable {
+    typealias InboundIn = ByteBuffer
+    typealias OutboundOut = ByteBuffer
+
+    private let receivedPromise: EventLoopPromise<String>
+    private var hasSentGreeting = false
+    private var hasCapturedMessage = false
+    private var pending = ""
+
+    init(receivedPromise: EventLoopPromise<String>) {
+      self.receivedPromise = receivedPromise
+    }
+
+    func channelActive(context: ChannelHandlerContext) {
+      guard !hasSentGreeting else { return }
+      hasSentGreeting = true
+      var buffer = context.channel.allocator.buffer(capacity: 0)
+      buffer.writeString("hello-from-remote\n")
+      context.writeAndFlush(wrapOutboundOut(buffer), promise: nil)
+    }
+
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+      guard !hasCapturedMessage else { return }
+      var incoming = unwrapInboundIn(data)
+      if let string = incoming.readString(length: incoming.readableBytes) {
+        pending.append(string)
+        processPending(context: context)
+      }
+    }
+
+    private func processPending(context: ChannelHandlerContext) {
+      while let newlineIndex = pending.firstIndex(of: "\n") {
+        let message = String(pending[..<newlineIndex])
+        pending.removeSubrange(..<pending.index(after: newlineIndex))
+        handleMessage(message: message, context: context)
+        if hasCapturedMessage { break }
+      }
+    }
+
+    private func handleMessage(message: String, context: ChannelHandlerContext) {
+      guard !hasCapturedMessage else { return }
+      hasCapturedMessage = true
+      receivedPromise.succeed(message)
+      var buffer = context.channel.allocator.buffer(capacity: 0)
+      buffer.writeString("pong\n")
+      context.writeAndFlush(wrapOutboundOut(buffer), promise: nil)
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+      if !hasCapturedMessage {
+        receivedPromise.fail(error)
+      }
+      context.close(promise: nil)
+    }
+  }
+
+  private final class LocalForwardClientHandler: ChannelInboundHandler, @unchecked Sendable {
+    typealias InboundIn = ByteBuffer
+    typealias OutboundOut = ByteBuffer
+
+    private let greetingPromise: EventLoopPromise<String>
+    private let responsePromise: EventLoopPromise<String>
+    private var pending = ""
+    private var didSeeGreeting = false
+    private var didSendPing = false
+
+    init(
+      greetingPromise: EventLoopPromise<String>,
+      responsePromise: EventLoopPromise<String>
+    ) {
+      self.greetingPromise = greetingPromise
+      self.responsePromise = responsePromise
+    }
+
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+      var incoming = unwrapInboundIn(data)
+      if let string = incoming.readString(length: incoming.readableBytes) {
+        pending.append(string)
+        processPending(context: context)
+      }
+    }
+
+    private func processPending(context: ChannelHandlerContext) {
+      while let newlineIndex = pending.firstIndex(of: "\n") {
+        let message = String(pending[..<newlineIndex])
+        pending.removeSubrange(..<pending.index(after: newlineIndex))
+        handleMessage(message: message, context: context)
+      }
+    }
+
+    private func handleMessage(message: String, context: ChannelHandlerContext) {
+      if !didSeeGreeting {
+        didSeeGreeting = true
+        greetingPromise.succeed(message)
+        if !didSendPing {
+          didSendPing = true
+          var buffer = context.channel.allocator.buffer(capacity: 0)
+          buffer.writeString("ping\n")
+          context.writeAndFlush(wrapOutboundOut(buffer), promise: nil)
+        }
+        return
+      }
+
+      responsePromise.succeed(message)
+      context.close(promise: nil)
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+      if !didSeeGreeting {
+        greetingPromise.fail(error)
+      } else {
+        responsePromise.fail(error)
+      }
+      context.close(promise: nil)
+    }
+  }
+
+  private final class AsyncTearDownContext {
+    private var actions: [() async -> Void] = []
+    private var hasRun = false
+
+    func register(_ action: @escaping () async -> Void) {
+      actions.append(action)
+    }
+
+    func runAll() async {
+      guard !hasRun else { return }
+      hasRun = true
+      for action in actions.reversed() {
+        await action()
+      }
+    }
+  }
+
+  private func shutdownEventLoopGroup(_ group: EventLoopGroup) async throws {
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+      group.shutdownGracefully { error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: ())
+        }
+      }
+    }
   }
 
   private func waitForSSHDPortOnly(port: Int, timeoutSeconds: TimeInterval) -> Bool {

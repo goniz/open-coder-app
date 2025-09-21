@@ -1,0 +1,13 @@
+{
+  "generate": {
+    "accessModifier": "package",
+    "filter": {
+      "operations": [],
+      "tags": []
+    },
+    "namingStrategy": {
+      "typeNames": "pascalCase",
+      "propertyNames": "camelCase"
+    }
+  }
+}

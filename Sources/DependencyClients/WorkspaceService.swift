@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import Foundation
 import Models
 import NIOCore
@@ -49,8 +51,7 @@ package struct WorkspaceService: Sendable {
       return try await connectionManager.withConnection { connection in
         try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
 
-        if
-          let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
+        if let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
           let port = daemonData["port"],
           await healthCheck(port: port, workspace: workspace) {
           await AppLogger.shared.log(
@@ -66,15 +67,35 @@ package struct WorkspaceService: Sendable {
         let stateDirectory = workspaceStateDirectory(for: workspace)
         let logPath = workspaceLogPath(for: workspace)
         let daemonPath = workspaceDaemonPath(for: workspace)
-        let lockPath = "\(stateDirectory)/lock"
+        let spawnScript = """
+          set -euo pipefail
+          state_dir=\(stateDirectory.escapingDoubleQuotes())
+          lock_dir="$state_dir/lock.d"
+          log_file=\(logPath.escapingDoubleQuotes())
+          run_dir=\(runDir.escapingDoubleQuotes())
 
-        let spawnCommand =
-          "mkdir -p \(stateDirectory) && exec flock \(lockPath) bash -lc \"\(opencodeCommand) | tee -a \(logPath)\""
+          mkdir -p "$state_dir"
 
-        let serveCommand = "cd \(runDir.escapingDoubleQuotes()) && \(spawnCommand)"
+          cleanup_lock() {
+            if [ -d "$lock_dir" ]; then
+              rmdir "$lock_dir" 2>/dev/null || true
+            fi
+          }
+
+          if mkdir "$lock_dir" 2>/dev/null; then
+            trap cleanup_lock EXIT INT TERM HUP
+            cd "$run_dir"
+            \(opencodeCommand) | tee -a "$log_file"
+          else
+            printf '[Live Output] Another opencode launch is already in progress.\\n'
+            exit 0
+          fi
+          """
+
+        let spawnCommand = "bash -lc \(escapeShellArgument(spawnScript))"
 
         await AppLogger.shared.log(
-          "Spawning opencode server with command: \(serveCommand)",
+          "Spawning opencode server with script:\n\(spawnScript)",
           level: .info,
           category: .workspace
         )
@@ -94,10 +115,12 @@ package struct WorkspaceService: Sendable {
 
         let maxRetries = 30
         for _ in 0..<maxRetries {
-          if let assignedPort = try await parsePortFromLogs(workspace: workspace, connection: connection) {
+          if let assignedPort = try await parsePortFromLogs(
+            workspace: workspace, connection: connection) {
             let daemonData = try JSONEncoder().encode(["port": assignedPort])
             if let daemonJson = String(data: daemonData, encoding: .utf8) {
-              let writeCommand = "mkdir -p \(stateDirectory) && echo '\(daemonJson)' > \(daemonPath)"
+              let writeCommand =
+                "mkdir -p \(stateDirectory) && echo '\(daemonJson)' > \(daemonPath)"
               _ = try await connection.exec(writeCommand)
             }
 
@@ -141,28 +164,36 @@ package struct WorkspaceService: Sendable {
     try await tmuxService.listWindows(session: workspace.tmuxSession)
   }
 
-  package func getLiveOutputStream(workspace: Models.Workspace, window: String? = nil) -> AsyncStream<String> {
+  // swiftlint:disable function_body_length
+  package func getLiveOutputStream(workspace: Models.Workspace, window: String? = nil)
+    -> AsyncStream<String> {
     AsyncStream { continuation in
       Task {
         do {
+          if let window {
+            do {
+              let snapshot = try await tmuxService.paneSnapshot(
+                session: workspace.tmuxSession,
+                window: window,
+                lineCount: 200
+              )
+              snapshot.forEach { continuation.yield($0) }
+            } catch {
+              continuation.yield(
+                "[Live Output] Failed to capture tmux output: \(error.localizedDescription)"
+              )
+            }
+          }
+
           let manager = await SSHConnectionPool.shared.manager(for: self.config)
           try await manager.withConnection { connection in
             let command: String
 
             if let window {
-              let target = "\(workspace.tmuxSession):\(window)"
-              let escapedTarget = escapeShellArgument(target)
-              let script = """
-              tmux_target=\(escapedTarget)
-              pane_tty=$(tmux display-message -p -t "$tmux_target" '#{pane_tty}' 2>/dev/null || true)
-              if [ -z "$pane_tty" ] || [ ! -e "$pane_tty" ]; then
-                printf '[Live Output] Unable to resolve tmux pane for %s.\\n' "$tmux_target"
-                exit 0
-              fi
-              tmux capture-pane -p -J -t "$tmux_target" -S -200 2>/dev/null || true
-              exec cat "$pane_tty"
-              """
-              command = "bash -lc \(escapeShellArgument(script))"
+              command = tmuxService.paneStreamingCommand(
+                session: workspace.tmuxSession,
+                window: window
+              )
             } else {
               let logPath = workspaceLogPath(for: workspace)
               command = "tail -n 200 -F \(logPath) 2>/dev/null"
@@ -170,7 +201,8 @@ package struct WorkspaceService: Sendable {
 
             let sessionPromise = connection.channel.eventLoop.makePromise(of: Channel.self)
             let creationFuture: EventLoopFuture<Void> = connection.channel.eventLoop.submit {
-              let sshHandler = try connection.channel.pipeline.syncOperations.handler(type: NIOSSHHandler.self)
+              let sshHandler = try connection.channel.pipeline.syncOperations.handler(
+                type: NIOSSHHandler.self)
               sshHandler.createChannel(sessionPromise, channelType: .session) { child, _ in
                 let handler = LineStreamHandler(
                   onLine: { continuation.yield($0) },
@@ -178,8 +210,9 @@ package struct WorkspaceService: Sendable {
                   onFinish: { _ in continuation.finish() }
                 )
                 return child.pipeline.addHandler(handler)
-              }
-            }
+    }
+  }
+  // swiftlint:enable function_body_length
             try await creationFuture.get()
             let streamChannel = try await sessionPromise.futureResult.get()
 
@@ -205,7 +238,7 @@ package struct WorkspaceService: Sendable {
         let stateDirectory = workspaceStateDirectory(for: workspace)
         let daemonPath = workspaceDaemonPath(for: workspace)
         let logPath = workspaceLogPath(for: workspace)
-        let cleanupCommand = "rm -f \(daemonPath) \(logPath) \(stateDirectory)/lock"
+        let cleanupCommand = "rm -f \(daemonPath) \(logPath); rm -rf \(stateDirectory)/lock.d"
         _ = try await connection.exec(cleanupCommand)
         try await tmuxService.killSession(workspace.tmuxSession)
       }
@@ -229,36 +262,46 @@ package struct WorkspaceService: Sendable {
   }
 }
 
-private extension WorkspaceService {
-  func workspaceStateDirectory(for workspace: Models.Workspace) -> String {
+extension WorkspaceService {
+  fileprivate func workspaceStateDirectory(for workspace: Models.Workspace) -> String {
     "$HOME/.opencoder/workspaces/\(workspace.id.uuidString)"
   }
 
-  func workspaceDaemonPath(for workspace: Models.Workspace) -> String {
+  fileprivate func workspaceDaemonPath(for workspace: Models.Workspace) -> String {
     "\(workspaceStateDirectory(for: workspace))/daemon.json"
   }
 
-  func workspaceLogPath(for workspace: Models.Workspace) -> String {
+  fileprivate func workspaceLogPath(for workspace: Models.Workspace) -> String {
     "\(workspaceStateDirectory(for: workspace))/live.log"
   }
 
-  func readDaemonData(workspace: Models.Workspace, connection: SSHConnection) async throws -> [String: Int]? {
+  fileprivate func readDaemonData(workspace: Models.Workspace, connection: SSHConnection)
+    async throws -> [String: Int]? {
     let daemonPath = workspaceDaemonPath(for: workspace)
-    let command = "cat \(daemonPath) 2>/dev/null"
+    let escapedDaemonPath = daemonPath.escapingDoubleQuotes()
+    let command = """
+      if [ -f "\(escapedDaemonPath)" ]; then
+        cat "\(escapedDaemonPath)" 2>/dev/null
+      else
+        printf ''
+      fi
+      """
     let output = try await connection.exec(command)
-    guard !output.isEmpty else { return nil }
-    guard let data = output.data(using: .utf8) else { return nil }
+    let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedOutput.isEmpty else { return nil }
+    guard let data = trimmedOutput.data(using: .utf8) else { return nil }
     return try JSONDecoder().decode([String: Int].self, from: data)
   }
 
-  func parsePortFromLogs(workspace: Models.Workspace, connection: SSHConnection) async throws -> Int? {
+  fileprivate func parsePortFromLogs(workspace: Models.Workspace, connection: SSHConnection)
+    async throws -> Int? {
     let logPath = workspaceLogPath(for: workspace)
     let command = "tail -n 50 \(logPath) 2>/dev/null || echo ''"
     let logContent = try await connection.exec(command)
-    let pattern = #"(?i)(opencode|opencode\s*ai|opencode-ai).*server listening on http://[^:]+:(\d+)"#
+    let pattern =
+      #"(?i)(opencode|opencode\s*ai|opencode-ai).*server listening on http://[^:]+:(\d+)"#
 
-    if
-      let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
       let match = regex.firstMatch(
         in: logContent, range: NSRange(logContent.startIndex..., in: logContent)),
       let portRange = Range(match.range(at: 2), in: logContent) {
@@ -271,7 +314,7 @@ private extension WorkspaceService {
     return nil
   }
 
-  func healthCheck(port: Int, workspace: Models.Workspace) async -> Bool {
+  fileprivate func healthCheck(port: Int, workspace: Models.Workspace) async -> Bool {
     port > 0
   }
 }
@@ -284,12 +327,12 @@ private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendabl
   private var finished = false
   private let onLine: @Sendable (String) -> Void
   private let onErrorLine: @Sendable (String) -> Void
-  private let onFinish: @Sendable (Error?) -> Void
+  private let onFinish: @Sendable ((any Swift.Error)?) -> Void
 
   init(
     onLine: @escaping @Sendable (String) -> Void,
     onErrorLine: @escaping @Sendable (String) -> Void,
-    onFinish: @escaping @Sendable (Error?) -> Void
+    onFinish: @escaping @Sendable ((any Swift.Error)?) -> Void
   ) {
     self.onLine = onLine
     self.onErrorLine = onErrorLine
@@ -300,12 +343,14 @@ private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendabl
     let channelData = self.unwrapInboundIn(data)
     switch channelData.type {
     case .channel:
-      if case .byteBuffer(var buf) = channelData.data, let bytes = buf.readBytes(length: buf.readableBytes) {
+      if case .byteBuffer(var buf) = channelData.data,
+        let bytes = buf.readBytes(length: buf.readableBytes) {
         stdoutBuffer.append(contentsOf: bytes)
         flushLines(buffer: &stdoutBuffer, emit: onLine)
       }
     case .stdErr:
-      if case .byteBuffer(var buf) = channelData.data, let bytes = buf.readBytes(length: buf.readableBytes) {
+      if case .byteBuffer(var buf) = channelData.data,
+        let bytes = buf.readBytes(length: buf.readableBytes) {
         stderrBuffer.append(contentsOf: bytes)
         flushLines(buffer: &stderrBuffer, emit: onErrorLine)
       }
@@ -322,7 +367,8 @@ private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendabl
           flushRemainder()
           onFinish(nil)
         } else {
-          let err = SSHError.commandFailed("Command finished with exit code: \(exitStatus.exitStatus)")
+          let err: any Swift.Error = SSHError.commandFailed(
+            "Command finished with exit code: \(exitStatus.exitStatus)")
           onFinish(err)
         }
       }
@@ -330,7 +376,7 @@ private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendabl
       if !finished {
         finished = true
         flushRemainder()
-        onFinish(SSHError.commandFailed("Command terminated by signal"))
+        onFinish(SSHError.commandFailed("Command terminated by signal") as any Swift.Error)
       }
     }
   }
@@ -373,8 +419,8 @@ private final class LineStreamHandler: ChannelInboundHandler, @unchecked Sendabl
   }
 }
 
-private extension String {
-  func escapingDoubleQuotes() -> String {
+extension String {
+  fileprivate func escapingDoubleQuotes() -> String {
     replacingOccurrences(of: "\"", with: "\\\"")
   }
 }

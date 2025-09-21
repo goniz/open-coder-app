@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 package struct Workspace: Identifiable, Codable, Equatable {
   package let id: UUID
@@ -6,7 +7,7 @@ package struct Workspace: Identifiable, Codable, Equatable {
   package var host: String
   package var user: String
   package var remotePath: String
-  package var tmuxSession: String
+  package var tmuxSession: TmuxSessionName
   package var idleTTLMinutes: Int
   package var serverID: UUID?
 
@@ -16,7 +17,7 @@ package struct Workspace: Identifiable, Codable, Equatable {
     host: String,
     user: String,
     remotePath: String,
-    tmuxSession: String = "",
+    tmuxSession: TmuxSessionName? = nil,
     idleTTLMinutes: Int = 30,
     serverID: UUID? = nil
   ) {
@@ -25,17 +26,17 @@ package struct Workspace: Identifiable, Codable, Equatable {
     self.host = host
     self.user = user
     self.remotePath = remotePath
-    self.tmuxSession =
-      tmuxSession.isEmpty
-      ? Self.generateTmuxSessionName(user: user, host: host, path: remotePath) : tmuxSession
+    if let tmuxSession {
+      self.tmuxSession = tmuxSession
+    } else {
+      self.tmuxSession = TmuxSessionName(workspaceName: name, path: remotePath)
+    }
     self.idleTTLMinutes = idleTTLMinutes
     self.serverID = serverID
   }
 
-  package static func generateTmuxSessionName(user: String, host: String, path: String) -> String {
-    let pathHash = String(path.hashValue)
-    let shortHash = String(pathHash.prefix(8))
-    return "ocw-\(user)-\(host)-\(shortHash)"
+  package static func generateTmuxSessionName(name: String, path: String) -> String {
+    TmuxSessionName.generate(workspaceName: name, path: path)
   }
 }
 
@@ -47,26 +48,30 @@ package enum WorkspaceOnlineState: Equatable {
 }
 
 package enum SpawnPhase: String, CaseIterable {
-  case ssh = "SSH"
-  case launch = "Launch"
-  case health = "Health"
-  case attach = "Attach"
+  case sshConnection = "SSH Connection"
+  case openCodeSpawn = "OpenCode Spawn"
+  case portForwarding = "SSH Port Forwarding"
+  case apiHandshake = "OpenCode API"
 
   package var description: String {
     switch self {
-    case .ssh: return "Establishing SSH connection..."
-    case .launch: return "Launching opencode server..."
-    case .health: return "Waiting for health check..."
-    case .attach: return "Attaching to session..."
+    case .sshConnection:
+      return "Establishing SSH connection..."
+    case .openCodeSpawn:
+      return "Launching OpenCode workspace services..."
+    case .portForwarding:
+      return "Configuring SSH port forwarding..."
+    case .apiHandshake:
+      return "Connecting to OpenCode server API..."
     }
   }
 
   package var progress: Double {
     switch self {
-    case .ssh: return 0.25
-    case .launch: return 0.5
-    case .health: return 0.75
-    case .attach: return 1.0
+    case .sshConnection: return 0.25
+    case .openCodeSpawn: return 0.5
+    case .portForwarding: return 0.75
+    case .apiHandshake: return 1.0
     }
   }
 }
@@ -99,7 +104,7 @@ package struct WorkspaceDTO: Codable {
   let host: String
   let user: String
   let remotePath: String
-  let tmuxSession: String
+  let tmuxSession: TmuxSessionName
   let idleTTLMinutes: Int
   let serverID: UUID?
 
@@ -151,5 +156,62 @@ package struct SessionMetaDTO: Codable {
       updatedAt: updatedAt,
       workspaceId: workspaceId
     )
+  }
+}
+
+package struct ActivityEvent: Identifiable, Equatable {
+  package let id: UUID
+  package let timestamp: Date
+  package let type: EventType
+  package let message: String
+  package let isError: Bool
+
+  package init(
+    id: UUID = UUID(),
+    timestamp: Date = Date(),
+    type: EventType,
+    message: String,
+    isError: Bool = false
+  ) {
+    self.id = id
+    self.timestamp = timestamp
+    self.type = type
+    self.message = message
+    self.isError = isError
+  }
+
+  package enum EventType: String, CaseIterable {
+    case sshConnection = "SSH Connection"
+    case openCodeSpawn = "OpenCode Spawn"
+    case portForwarding = "Port Forwarding"
+    case apiConnection = "API Connection"
+    case workspaceOnline = "Workspace Online"
+    case workspaceError = "Workspace Error"
+
+    package var icon: String {
+      switch self {
+      case .sshConnection: return "network"
+      case .openCodeSpawn: return "terminal"
+      case .portForwarding: return "arrow.triangle.branch"
+      case .apiConnection: return "link"
+      case .workspaceOnline: return "checkmark.circle"
+      case .workspaceError: return "exclamationmark.triangle"
+      }
+    }
+
+    package var color: Color {
+      switch self {
+      case .sshConnection, .openCodeSpawn, .portForwarding, .apiConnection, .workspaceOnline:
+        return .green
+      case .workspaceError:
+        return .red
+      }
+    }
+  }
+
+  package var formattedTimestamp: String {
+    let formatter = DateFormatter()
+    formatter.timeStyle = .medium
+    return formatter.string(from: timestamp)
   }
 }
