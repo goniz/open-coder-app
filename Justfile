@@ -1,20 +1,39 @@
 build:
-    swift build -Xswiftc -warnings-as-errors --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    @echo "Building OpenCoderCore (macOS + iOS)..."
+    cd Packages/OpenCoderCore && swift build
+    @echo "Building OpenCoderUI (iOS)..."
+    cd Packages/OpenCoderUI && swift build --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    @echo "Building OpenCoderApp (iOS)..."
+    cd Packages/OpenCoderApp && swift build --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
 
 test:
-    swift test --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    @echo "Testing OpenCoderCore..."
+    cd Packages/OpenCoderCore && swift test
+    @echo "Testing OpenCoderUI..."
+    cd Packages/OpenCoderUI && swift test --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    @echo "Testing OpenCoderApp..."
+    cd Packages/OpenCoderApp && swift test --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+
+build-core-macos:
+    cd Packages/OpenCoderCore && swift build
 
 update:
     swift package update
 
 lint:
-    swiftlint Sources --strict
+    swiftlint Packages/OpenCoderCore/Sources --strict
+    swiftlint Packages/OpenCoderUI/Sources --strict  
+    swiftlint Packages/OpenCoderApp/Sources --strict
 
 fix:
-    swiftlint Sources --fix
+    swiftlint Packages/OpenCoderCore/Sources --fix
+    swiftlint Packages/OpenCoderUI/Sources --fix
+    swiftlint Packages/OpenCoderApp/Sources --fix
 
 fmt:
-    swift-format --in-place --recursive Sources/
+    swift-format --in-place --recursive Packages/OpenCoderCore/Sources/
+    swift-format --in-place --recursive Packages/OpenCoderUI/Sources/
+    swift-format --in-place --recursive Packages/OpenCoderApp/Sources/
 
 build-ios:
     cd Xcode && fastlane build
@@ -44,7 +63,7 @@ generate-opencode-api:
     OPENCODE_VERSION=`opencode --version` && \
     export OPENCODE_VERSION && \
     opencode generate | yq -P ".info.version = env(OPENCODE_VERSION) | .paths |= with_entries(.value |= with_entries(.value.parameters |= unique_by(.name + .in)))" > opencode_api_generated.yaml && \
-    mv opencode_api_generated.yaml Sources/OpenAPIGenerated/openapi.yaml
+    mv opencode_api_generated.yaml Packages/OpenCoderCore/Sources/OpenAPIGenerated/openapi.yaml
 
 watch:
     python3 scripts/watch_sources.py
