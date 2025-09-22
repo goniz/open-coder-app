@@ -1,8 +1,8 @@
 build:
-    swift build -Xswiftc -warnings-as-errors
+    swift build -Xswiftc -warnings-as-errors --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
 
 test:
-    swift test
+    swift test --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
 
 update:
     swift package update

@@ -144,7 +144,6 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [
     .iOS(.v17),
-    .macOS(.v15),
   ],
   products: [
     dependencyClients.product,
