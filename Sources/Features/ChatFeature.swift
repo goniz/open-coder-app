@@ -1,21 +1,68 @@
 import ComposableArchitecture
 import DependencyClients
 import Dependencies
+import ExyteChat
 import Foundation
 import Models
+
+package enum ChatUnsupportedMessagePartKind: String, Hashable, Sendable {
+  case file
+  case agent
+  case tool
+}
+
+package struct ChatDraftState: Equatable {
+  package var id: String?
+  package var text: String
+  package var attachmentCount: Int
+  package var hasUnsupportedAttachments: Bool
+
+  package init(
+    id: String? = nil,
+    text: String = "",
+    attachmentCount: Int = 0,
+    hasUnsupportedAttachments: Bool = false
+  ) {
+    self.id = id
+    self.text = text
+    self.attachmentCount = attachmentCount
+    self.hasUnsupportedAttachments = hasUnsupportedAttachments
+  }
+
+  package var trimmedText: String {
+    text.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  package var isEmpty: Bool {
+    trimmedText.isEmpty && attachmentCount == 0
+  }
+}
+
+package struct ChatMediaPickerState: Equatable {
+  package var isPresented = false
+  package var selectedAttachmentCount = 0
+}
 
 @Reducer
 package struct ChatFeature {
   @ObservableState
   package struct State: Equatable {
     package var messages: [OpenCodeMessage] = []
+    package var exyteMessages: [Message] = []
+    package var unsupportedPartKinds: Set<ChatUnsupportedMessagePartKind> = []
     package var currentMessage = ""
     package var isLoading = false
+    package var isLoadingMoreMessages = false
+    package var canLoadMoreMessages = false
+    package var isAssistantTyping = false
     package var errorMessage: String?
     package var sessionID: String?
     package var serverURL: URL?
     package var sessions: [OpenCodeSession] = []
     package var isLoadingSessions = false
+    package var pendingMessageIDs: Set<String> = []
+    package var draft = ChatDraftState()
+    package var mediaPicker = ChatMediaPickerState()
     package var currentSessionTitle: String {
       guard let sessionID = sessionID,
             let session = sessions.first(where: { $0.id == sessionID }) else {
@@ -34,10 +81,13 @@ package struct ChatFeature {
     case binding(BindingAction<State>)
     case task
     case sendMessage
+    case sendDraft(ChatDraftState)
+    case draftUpdated(ChatDraftState)
     case messagesLoaded([OpenCodeMessage])
     case messagesFailed(String)
     case messageReceived(OpenCodeMessage)
-    case messageSendFailed(String)
+    case messageSendCompleted(messageID: String)
+    case messageSendFailed(messageID: String, error: String)
     case updateSession(String?)
     case fetchSessions
     case sessionsLoaded([OpenCodeSession])
@@ -46,6 +96,12 @@ package struct ChatFeature {
     case newSession
     case sessionCreated(OpenCodeSession)
     case sessionCreationFailed(String)
+    case loadMore
+    case loadMoreCompleted([OpenCodeMessage], hasMore: Bool)
+    case loadMoreFailed(String)
+    case mediaPickerPresented(Bool)
+    case mediaPickerAttachmentsUpdated(Int)
+    case messageMenuAction(DefaultMessageMenuAction, messageID: String)
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
@@ -60,7 +116,7 @@ package struct ChatFeature {
 
   package func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
-    case .binding:
+    case .binding, .messageMenuAction:
       return .none
 
     case .task:
@@ -69,17 +125,11 @@ package struct ChatFeature {
     case .sendMessage:
       return handleSendMessage(state: &state)
 
-    case let .messagesLoaded(messages):
-      return handleMessagesLoaded(state: &state, messages: messages)
+    case let .sendDraft(draft):
+      return handleSendDraft(state: &state, draft: draft)
 
-    case let .messagesFailed(errorMessage):
-      return handleMessagesFailed(state: &state, errorMessage: errorMessage)
-
-    case let .messageReceived(message):
-      return handleMessageReceived(state: &state, message: message)
-
-    case let .messageSendFailed(errorMessage):
-      return handleMessageSendFailed(state: &state, errorMessage: errorMessage)
+    case let .draftUpdated(draft):
+      return handleDraftUpdated(state: &state, draft: draft)
 
     case let .updateSession(sessionID):
       return handleUpdateSession(state: &state, sessionID: sessionID)
@@ -87,38 +137,20 @@ package struct ChatFeature {
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
          .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
+
+    case .messagesLoaded, .messagesFailed, .messageReceived, .messageSendCompleted,
+         .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
+      return handleMessageLifecycleActions(state: &state, action: action)
+
+    case .loadMore:
+      return handleLoadMore(state: &state)
+
+    case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
+      return handleMediaPickerActions(state: &state, action: action)
     }
   }
 
-  private func handleSessionActions(state: inout State, action: Action) -> Effect<Action> {
-    switch action {
-    case .fetchSessions:
-      return handleFetchSessions(state: &state)
-
-    case let .sessionsLoaded(sessions):
-      return handleSessionsLoaded(state: &state, sessions: sessions)
-
-    case let .sessionsFailed(errorMessage):
-      return handleSessionsFailed(state: &state, errorMessage: errorMessage)
-
-    case let .selectSession(sessionID):
-      return handleSelectSession(state: &state, sessionID: sessionID)
-
-    case .newSession:
-      return handleNewSession(state: &state)
-
-    case let .sessionCreated(session):
-      return handleSessionCreated(state: &state, session: session)
-
-    case let .sessionCreationFailed(errorMessage):
-      return handleSessionCreationFailed(state: &state, errorMessage: errorMessage)
-
-    default:
-      return .none
-    }
-  }
-
-  private func loadMessagesEffect(sessionID: String, serverURL: URL) -> Effect<Action> {
+  func loadMessagesEffect(sessionID: String, serverURL: URL) -> Effect<Action> {
     let baseConfiguration = openCodeConfiguration
     let configuration = OpenCodeConfiguration(
       serverURL: serverURL,
@@ -135,179 +167,5 @@ package struct ChatFeature {
         await send(.messagesFailed(error.localizedDescription))
       }
     }
-  }
-}
-
-private extension ChatFeature {
-  func handleTask(state: inout State) -> Effect<Action> {
-    guard let sessionID = state.sessionID,
-      let serverURL = state.serverURL else { return .none }
-    state.isLoading = true
-    state.errorMessage = nil
-    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL)
-  }
-
-  func handleSendMessage(state: inout State) -> Effect<Action> {
-    guard let sessionID = state.sessionID,
-      let serverURL = state.serverURL,
-      !state.currentMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    else {
-      return .none
-    }
-
-    let content = state.currentMessage
-    state.currentMessage = ""
-    state.isLoading = true
-    state.errorMessage = nil
-
-    let userMessage = OpenCodeMessage(
-      id: UUID().uuidString,
-      sessionID: sessionID,
-      parts: [.text(content)],
-      timestamp: Date(),
-      role: .user
-    )
-    state.messages.append(userMessage)
-
-    let baseConfiguration = openCodeConfiguration
-    let configuration = OpenCodeConfiguration(
-      serverURL: serverURL,
-      timeout: baseConfiguration.timeout,
-      retryCount: baseConfiguration.retryCount
-    )
-    let apiClient = openCodeAPIFactory.make(configuration)
-
-    return .run { send in
-      do {
-        let response = try await apiClient.sendMessage(
-          sessionID: sessionID,
-          parts: [.text(content)]
-        )
-        await send(.messageReceived(response))
-      } catch {
-        await send(.messageSendFailed(error.localizedDescription))
-      }
-    }
-  }
-
-  func handleMessagesLoaded(state: inout State, messages: [OpenCodeMessage]) -> Effect<Action> {
-    state.messages = messages
-    state.isLoading = false
-    state.errorMessage = nil
-    return .none
-  }
-
-  func handleMessagesFailed(state: inout State, errorMessage: String) -> Effect<Action> {
-    state.isLoading = false
-    state.errorMessage = errorMessage
-    return .none
-  }
-
-  func handleMessageReceived(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    state.messages.append(message)
-    state.isLoading = false
-    return .none
-  }
-
-  func handleMessageSendFailed(state: inout State, errorMessage: String) -> Effect<Action> {
-    state.isLoading = false
-    state.errorMessage = errorMessage
-    return .none
-  }
-
-  func handleUpdateSession(state: inout State, sessionID: String?) -> Effect<Action> {
-    guard state.sessionID != sessionID else { return .none }
-    state.sessionID = sessionID
-    state.messages = []
-    state.errorMessage = nil
-
-    guard let sessionID, let serverURL = state.serverURL else { return .none }
-    state.isLoading = true
-    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL)
-  }
-
-  func handleFetchSessions(state: inout State) -> Effect<Action> {
-    guard let serverURL = state.serverURL else {
-      state.errorMessage = "Waiting for workspace connection..."
-      return .none
-    }
-    state.isLoadingSessions = true
-    state.errorMessage = nil
-
-    let baseConfiguration = openCodeConfiguration
-    let configuration = OpenCodeConfiguration(
-      serverURL: serverURL,
-      timeout: baseConfiguration.timeout,
-      retryCount: baseConfiguration.retryCount
-    )
-    let apiClient = openCodeAPIFactory.make(configuration)
-
-    return .run { send in
-      do {
-        let sessions = try await apiClient.listSessions()
-        await send(.sessionsLoaded(sessions))
-      } catch {
-        await send(.sessionsFailed(error.localizedDescription))
-      }
-    }
-  }
-
-  func handleSessionsLoaded(state: inout State, sessions: [OpenCodeSession]) -> Effect<Action> {
-    state.sessions = sessions
-    state.isLoadingSessions = false
-    state.errorMessage = nil
-
-    // Auto-select the latest session if no session is currently selected
-    if state.sessionID == nil, let latestSession = sessions.max(by: { $0.updatedAt < $1.updatedAt }) {
-      return .send(.selectSession(latestSession.id))
-    }
-
-    return .none
-  }
-
-  func handleSessionsFailed(state: inout State, errorMessage: String) -> Effect<Action> {
-    state.isLoadingSessions = false
-    state.errorMessage = errorMessage
-    return .none
-  }
-
-  func handleSelectSession(state: inout State, sessionID: String) -> Effect<Action> {
-    return .send(.updateSession(sessionID))
-  }
-
-  func handleNewSession(state: inout State) -> Effect<Action> {
-    guard let serverURL = state.serverURL else { return .none }
-    state.isLoading = true
-    state.errorMessage = nil
-
-    let baseConfiguration = openCodeConfiguration
-    let configuration = OpenCodeConfiguration(
-      serverURL: serverURL,
-      timeout: baseConfiguration.timeout,
-      retryCount: baseConfiguration.retryCount
-    )
-    let apiClient = openCodeAPIFactory.make(configuration)
-
-    return .run { send in
-      do {
-        let session = try await apiClient.createSession()
-        await send(.sessionCreated(session))
-      } catch {
-        await send(.sessionCreationFailed(error.localizedDescription))
-      }
-    }
-  }
-
-  func handleSessionCreated(state: inout State, session: OpenCodeSession) -> Effect<Action> {
-    state.isLoading = false
-    // Add the new session to the list and select it
-    state.sessions.append(session)
-    return .send(.selectSession(session.id))
-  }
-
-  func handleSessionCreationFailed(state: inout State, errorMessage: String) -> Effect<Action> {
-    state.isLoading = false
-    state.errorMessage = errorMessage
-    return .none
   }
 }

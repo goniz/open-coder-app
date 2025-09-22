@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import DependencyClients
+import ExyteChat
 import Features
 import SwiftUI
 
@@ -8,82 +9,20 @@ struct ChatView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      // Session selection dropdown
-      HStack {
-        Menu {
-          // New Session button as first item
-          Button {
-            store.send(.newSession)
-          } label: {
-            HStack {
-              Image(systemName: "plus")
-              Text("New Session")
-            }
-          }
-
-          if !store.sessions.isEmpty {
-            Divider()
-
-            ForEach(store.sessions) { session in
-              Button(session.displayTitle) {
-                store.send(.selectSession(session.id))
-              }
-            }
-          }
-
-          if store.sessions.isEmpty && !store.isLoadingSessions {
-            Text("No sessions available")
-              .foregroundStyle(.secondary)
-          }
-        } label: {
-          HStack(spacing: 8) {
-            Text(store.currentSessionTitle)
-              .font(.title2)
-              .fontWeight(.bold)
-              .lineLimit(1)
-            Image(systemName: "chevron.down")
-              .font(.title2)
-              .foregroundStyle(.secondary)
-          }
-          .frame(width: 350)
-        }
-        .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
-
-        Spacer()
-
-        if store.isLoadingSessions {
-          ProgressView()
-            .scaleEffect(0.8)
-        }
-      }
-      .padding(.horizontal, 12)
+      sessionSelector
 
       if store.sessionID == nil {
-        if store.serverURL == nil {
-          Text("Waiting for workspace connection...")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-        } else if store.sessions.isEmpty && !store.isLoadingSessions {
-          Text("No sessions available. Create a new session to start chatting...")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-        } else {
-          Text("Select a session to start chatting...")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-        }
+        sessionPlaceholder
       }
 
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 8) {
-          ForEach(store.messages) { message in
-            ChatBubble(message: message)
-          }
-        }
+      chatSurface
         .padding(.horizontal, 12)
+
+      if let unsupportedDescription = unsupportedMessageDescription {
+        Text(unsupportedDescription)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .padding(.horizontal, 12)
       }
 
       if let errorMessage = store.errorMessage {
@@ -92,19 +31,6 @@ struct ChatView: View {
           .foregroundStyle(Color.red)
           .padding(.horizontal, 12)
       }
-
-      HStack(spacing: 8) {
-        TextField("Type a message...", text: $store.currentMessage)
-          .textFieldStyle(RoundedBorderTextFieldStyle())
-          .disabled(store.sessionID == nil)
-
-        Button("Send") {
-          store.send(.sendMessage)
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(store.sessionID == nil || store.isLoading)
-      }
-      .padding(.horizontal, 12)
     }
     .overlay(alignment: .topTrailing) {
       if store.isLoading {
@@ -119,41 +45,90 @@ struct ChatView: View {
       await store.send(.fetchSessions).finish()
     }
   }
+
+  private var sessionSelector: some View {
+    HStack {
+      Menu {
+        Button {
+          store.send(.newSession)
+        } label: {
+          HStack {
+            Image(systemName: "plus")
+            Text("New Session")
+          }
+        }
+
+        if !store.sessions.isEmpty {
+          Divider()
+
+          ForEach(store.sessions) { session in
+            Button(session.displayTitle) {
+              store.send(.selectSession(session.id))
+            }
+          }
+        }
+
+        if store.sessions.isEmpty && !store.isLoadingSessions {
+          Text("No sessions available")
+            .foregroundStyle(.secondary)
+        }
+      } label: {
+        HStack(spacing: 8) {
+          Text(store.currentSessionTitle)
+            .font(.title2)
+            .fontWeight(.bold)
+            .lineLimit(1)
+          Image(systemName: "chevron.down")
+            .font(.title2)
+            .foregroundStyle(.secondary)
+        }
+        .frame(width: 350)
+      }
+      .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
+
+      Spacer()
+
+      if store.isLoadingSessions {
+        ProgressView()
+          .scaleEffect(0.8)
+      }
+    }
+    .padding(.horizontal, 12)
+  }
+
+  private var sessionPlaceholder: some View {
+    Group {
+      if store.serverURL == nil {
+        Text("Waiting for workspace connection...")
+      } else if store.sessions.isEmpty && !store.isLoadingSessions {
+        Text("No sessions available. Create a new session to start chatting...")
+      } else {
+        Text("Select a session to start chatting...")
+      }
+    }
+    .font(.subheadline)
+    .foregroundStyle(.secondary)
+    .padding(.horizontal, 12)
+  }
 }
 
-private struct ChatBubble: View {
-  let message: OpenCodeMessage
-
-  var body: some View {
-    HStack {
-      if message.role == .user {
-        Spacer(minLength: 32)
-        content
-          .background(Color.blue.opacity(0.2))
-          .foregroundStyle(.primary)
-      } else {
-        content
-          .background(Color.gray.opacity(0.2))
-          .foregroundStyle(.primary)
-        Spacer(minLength: 32)
-      }
+private extension ChatView {
+  var chatSurface: some View {
+    ExyteChat.ChatView(messages: store.exyteMessages) { draft in
+      let mappedDraft = ChatDraftMapper.makeStateDraft(from: draft)
+      store.send(.draftUpdated(mappedDraft))
+      store.send(.sendDraft(mappedDraft))
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
   }
 
-  private var content: some View {
-    Text(messageText())
-      .frame(maxWidth: 280, alignment: .leading)
-      .padding(8)
-      .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-  }
-
-  private func messageText() -> String {
-    message.parts.compactMap { part in
-      if case let .text(content) = part {
-        return content
-      }
-      return nil
-    }
-    .joined(separator: "\n")
+  var unsupportedMessageDescription: String? {
+    let kinds = store.unsupportedPartKinds
+    guard !kinds.isEmpty else { return nil }
+    let description = kinds
+      .sorted { $0.rawValue < $1.rawValue }
+      .map { $0.rawValue.capitalized }
+      .joined(separator: ", ")
+    return "Unsupported message content: \(description)."
   }
 }

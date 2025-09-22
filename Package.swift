@@ -61,6 +61,13 @@ let swiftOpenAPITransport = SourceControlDependency(
   ),
   productName: "OpenAPIAsyncHTTPClient"
 )
+let exyteChat = SourceControlDependency(
+  package: .package(
+    url: "https://github.com/exyte/Chat.git",
+    from: "2.6.9"
+  ),
+  productName: "ExyteChat"
+)
 
 // MARK: - Modules. Ordered by dependency hierarchy.
 
@@ -96,6 +103,7 @@ let features = SingleTargetLibrary(
     models.targetDependency,
     dependencyClients.targetDependency,
     swiftNIOSSH.targetDependency,
+    exyteChat.targetDependency,
   ]
 )
 let views = SingleTargetLibrary(
@@ -104,6 +112,7 @@ let views = SingleTargetLibrary(
     tca.targetDependency,
     models.targetDependency,
     features.targetDependency,
+    exyteChat.targetDependency,
   ],
   resources: [
     .process("Resources")
@@ -135,7 +144,7 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [
     .iOS(.v17),
-    .macOS(.v14),
+    .macOS(.v15),
   ],
   products: [
     dependencyClients.product,
@@ -154,6 +163,7 @@ let package = Package(
     swiftOpenAPIGenerator.package,
     swiftOpenAPIRuntime.package,
     swiftOpenAPITransport.package,
+    exyteChat.package,
   ],
   targets: [
     dependencyClients.target,
@@ -176,10 +186,16 @@ let package = Package(
 struct SourceControlDependency {
   var package: Package.Dependency
   var productName: String
+  var condition: TargetDependencyCondition?
 
-  init(package: Package.Dependency, productName: String) {
+  init(
+    package: Package.Dependency,
+    productName: String,
+    condition: TargetDependencyCondition? = nil
+  ) {
     self.package = package
     self.productName = productName
+    self.condition = condition
   }
 
   var targetDependency: Target.Dependency {
@@ -196,11 +212,14 @@ struct SourceControlDependency {
         fatalError("No package name found. Location: \(location)")
       }
       packageName = name
+      if packageName.hasSuffix(".git") {
+        packageName.removeLast(4)
+      }
     default:
       fatalError("Unsupported dependency kind: \(package.kind)")
     }
 
-    return .product(name: productName, package: packageName, moduleAliases: nil, condition: nil)
+    return .product(name: productName, package: packageName, moduleAliases: nil, condition: condition)
   }
 }
 
