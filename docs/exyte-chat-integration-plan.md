@@ -12,9 +12,9 @@
 - [x] (P0) Extend `ChatFeature.State` with computed/cached Exyte message arrays, typing flags, pagination booleans, and media picker state as needed.
 - [x] (P0) Expand `ChatFeature.Action`/reducer to handle Exyte callbacks (`sendDraft`, `draftUpdated`, `loadMore`, menu actions, media picker results) while preserving existing API client effects.
 - [x] (P0) Replace the legacy `ScrollView` section in `Sources/Views/ChatView.swift` with `ExyteChat.ChatView`, wire the send closure to new actions, and keep the session selector header untouched.
-- [ ] (P1) Implement custom `messageBuilder`/`inputViewBuilder` to match current bubble styling, integrate error banner/typing indicator via builders, and configure chat theming modifiers.
-- [ ] (P1) Add pagination trigger via `.enableLoadMore`, typing indicator debouncing, and hook up swipe/menu actions for reply/edit/delete to reducer logic.
-- [ ] (P1) Support media attachments end-to-end: convert `DraftMessage.attachments` to API payloads, show upload progress/status in UI, and handle failure retries.
+- [x] (P1) Implement custom `messageBuilder`/`inputViewBuilder` to match current bubble styling, integrate error banner/typing indicator via builders, and configure chat theming modifiers.
+- [x] (P1) Add pagination trigger via `.enableLoadMore`, typing indicator debouncing, and hook up swipe/menu actions for reply/edit/delete to reducer logic.
+- [x] (P1) Support media attachments end-to-end: convert `DraftMessage.attachments` to API payloads, show upload progress/status in UI, and handle failure retries.
 - [x] (P1) Surface network/error states inside the chat UI (e.g., `.showNetworkConnectionProblem(true)`, message status updates) and remove redundant overlay UI.
 - [ ] (P2) Update unit tests in `FeaturesTests.ChatFeatureTests` for new actions/effects and add mapping helper tests.
 - [ ] (P2) Create snapshot/UI tests in `ViewsTests` covering light/dark themes, user vs. assistant messages, attachments, failed sends, and typing indicators.
