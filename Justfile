@@ -8,7 +8,7 @@ build:
 
 test:
     @echo "Testing OpenCoderCore..."
-    cd Packages/OpenCoderCore && swift test
+    cd Packages/OpenCoderCore && swift test -Xswiftc -warnings-as-errors
 
 build-core-macos:
     cd Packages/OpenCoderCore && swift build -Xswiftc -warnings-as-errors

@@ -1164,12 +1164,16 @@ final class SSHClientIntegrationTests: XCTestCase {
     var blob = Data()
     func appendString(_ s: String) {
       var len = UInt32(s.utf8.count).bigEndian
-      blob.append(UnsafeBufferPointer(start: &len, count: 1))
+      withUnsafePointer(to: &len) { ptr in
+        blob.append(UnsafeBufferPointer(start: ptr, count: 1))
+      }
       blob.append(s.data(using: .utf8)!)
     }
     func appendBytes(_ bytes: Data) {
       var len = UInt32(bytes.count).bigEndian
-      blob.append(UnsafeBufferPointer(start: &len, count: 1))
+      withUnsafePointer(to: &len) { ptr in
+        blob.append(UnsafeBufferPointer(start: ptr, count: 1))
+      }
       blob.append(bytes)
     }
     appendString("ssh-ed25519")
