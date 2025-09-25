@@ -7,8 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6C8CDCFD2E69D9200080AE37 /* OpenCoderLib in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */; };
-		8AFBF6932E737C7E00E01916 /* OpenCoderLib in Frameworks */ = {isa = PBXBuildFile; productRef = 8AFBF6902E737C7E00E01916 /* OpenCoderLib */; };
+		6C8CDCFD2E69D9200080AE37 /* OpenCoderApp in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8CDCFC2E69D9200080AE37 /* OpenCoderApp */; };
+		8A1F4EFA2E8492750097509C /* OpenCoderCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8A1F4EF92E8492750097509C /* OpenCoderCore */; };
+		8A1F4EFC2E8492790097509C /* OpenCoderUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8A1F4EFB2E8492790097509C /* OpenCoderUI */; };
+		8A1F4EFE2E8492A20097509C /* OpenCoderCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8A1F4EFD2E8492A20097509C /* OpenCoderCore */; };
+		8A1F4F002E8492A60097509C /* OpenCoderUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8A1F4EFF2E8492A60097509C /* OpenCoderUI */; };
+		8AFBF6932E737C7E00E01916 /* OpenCoderApp in Frameworks */ = {isa = PBXBuildFile; productRef = 8AFBF6902E737C7E00E01916 /* OpenCoderApp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,7 +49,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C8CDCFD2E69D9200080AE37 /* OpenCoderLib in Frameworks */,
+				6C8CDCFD2E69D9200080AE37 /* OpenCoderApp in Frameworks */,
+				8A1F4EFC2E8492790097509C /* OpenCoderUI in Frameworks */,
+				8A1F4EFA2E8492750097509C /* OpenCoderCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +59,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8AFBF6932E737C7E00E01916 /* OpenCoderLib in Frameworks */,
+				8AFBF6932E737C7E00E01916 /* OpenCoderApp in Frameworks */,
+				8A1F4F002E8492A60097509C /* OpenCoderUI in Frameworks */,
+				8A1F4EFE2E8492A20097509C /* OpenCoderCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,7 +113,9 @@
 			);
 			name = OpenCoder;
 			packageProductDependencies = (
-				6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */,
+				6C8CDCFC2E69D9200080AE37 /* OpenCoderApp */,
+				8A1F4EF92E8492750097509C /* OpenCoderCore */,
+				8A1F4EFB2E8492790097509C /* OpenCoderUI */,
 			);
 			productName = OpenCoder;
 			productReference = 6C8CDCC62E69D7BF0080AE37 /* OpenCoder.app */;
@@ -128,7 +138,9 @@
 			);
 			name = "OpenCoder Preview";
 			packageProductDependencies = (
-				8AFBF6902E737C7E00E01916 /* OpenCoderLib */,
+				8AFBF6902E737C7E00E01916 /* OpenCoderApp */,
+				8A1F4EFD2E8492A20097509C /* OpenCoderCore */,
+				8A1F4EFF2E8492A60097509C /* OpenCoderUI */,
 			);
 			productName = OpenCoder;
 			productReference = 8AFBF6982E737C7E00E01916 /* OpenCoder Preview.app */;
@@ -159,6 +171,9 @@
 			mainGroup = 6C8CDCBD2E69D7BF0080AE37;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				6C8CDCF02E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderApp" */,
+				6C8CDCF12E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderCore" */,
+				6C8CDCF22E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderUI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6C8CDCC72E69D7BF0080AE37 /* Products */;
@@ -370,11 +385,11 @@
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.goniz.opencoderapp.ssh-connection";
 				INFOPLIST_KEY_CFBundleDisplayName = "Open Coder";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required to capture and share chat photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required to record audio messages in chat.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is required to browse and share chat media.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -427,11 +442,11 @@
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.goniz.opencoderapp.ssh-connection";
 				INFOPLIST_KEY_CFBundleDisplayName = "Open Coder";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required to capture and share chat photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required to record audio messages in chat.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is required to browse and share chat media.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -484,11 +499,11 @@
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.goniz.opencoderapp.ssh-connection";
 				INFOPLIST_KEY_CFBundleDisplayName = "Open Coder (Preview)";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required to capture and share chat photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required to record audio messages in chat.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is required to browse and share chat media.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -541,11 +556,11 @@
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.goniz.opencoderapp.ssh-connection";
 				INFOPLIST_KEY_CFBundleDisplayName = "Open Coder (Preview)";
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required to capture and share chat photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required to record audio messages in chat.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is required to browse and share chat media.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -602,14 +617,51 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCSwiftPackageProductDependency section */
-		6C8CDCFC2E69D9200080AE37 /* OpenCoderLib */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = OpenCoderLib;
+/* Begin XCLocalSwiftPackageReference section */
+		6C8CDCF02E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderApp" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/OpenCoderApp;
 		};
-		8AFBF6902E737C7E00E01916 /* OpenCoderLib */ = {
+		6C8CDCF12E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/OpenCoderCore;
+		};
+		6C8CDCF22E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/OpenCoderUI;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6C8CDCFC2E69D9200080AE37 /* OpenCoderApp */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = OpenCoderLib;
+			package = 6C8CDCF02E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderApp" */;
+			productName = OpenCoderApp;
+		};
+		8A1F4EF92E8492750097509C /* OpenCoderCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6C8CDCF12E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderCore" */;
+			productName = OpenCoderCore;
+		};
+		8A1F4EFB2E8492790097509C /* OpenCoderUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6C8CDCF22E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderUI" */;
+			productName = OpenCoderUI;
+		};
+		8A1F4EFD2E8492A20097509C /* OpenCoderCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6C8CDCF12E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderCore" */;
+			productName = OpenCoderCore;
+		};
+		8A1F4EFF2E8492A60097509C /* OpenCoderUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6C8CDCF22E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderUI" */;
+			productName = OpenCoderUI;
+		};
+		8AFBF6902E737C7E00E01916 /* OpenCoderApp */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6C8CDCF02E69D9200080AE37 /* XCLocalSwiftPackageReference "../Packages/OpenCoderApp" */;
+			productName = OpenCoderApp;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
