@@ -119,60 +119,29 @@ public struct ChatFeature {
     switch action {
     case .binding:
       return .none
-
     case .messageMenuAction:
-       // Menu actions not implemented yet
-       return .none
-
-    case let .serverURLUpdated(url):
-      state.serverURL = url
-      if url == nil {
-        state.sessionID = nil
-        state.messages = []
-        state.exyteMessages = []
-        state.pendingMessageIDs = []
-        state.unsupportedPartKinds = []
-        state.errorMessage = nil
-      }
       return .none
-
+    case let .serverURLUpdated(url):
+      return handleServerURLUpdated(state: &state, url: url)
     case .task:
       return handleTask(state: &state)
-
     case .sendMessage:
       return handleSendMessage(state: &state)
-
     case let .sendDraft(draft):
       return handleSendDraft(state: &state, draft: draft)
-
     case let .draftUpdated(draft):
       return handleDraftUpdated(state: &state, draft: draft)
-
-    case .messagesLoaded,
-         .messagesFailed,
-         .messageReceived,
-         .messageSendCompleted,
-         .messageSendFailed,
-         .loadMoreCompleted,
-         .loadMoreFailed:
+    case .messagesLoaded, .messagesFailed, .messageReceived, .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
       return handleMessageLifecycleActions(state: &state, action: action)
-
     case let .updateSession(sessionID):
       return handleUpdateSession(state: &state, sessionID: sessionID)
-
-    case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
-         .newSession, .sessionCreated, .sessionCreationFailed:
+    case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession, .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
-
     case .loadMore:
       return handleLoadMore(state: &state)
-
     case let .mediaPickerPresented(isPresented):
       return handleMediaPickerPresented(state: &state, isPresented: isPresented)
-
     case let .mediaPickerAttachmentsUpdated(count):
       return handleMediaPickerAttachmentsUpdated(state: &state, count: count)
     }
   }
-
-
