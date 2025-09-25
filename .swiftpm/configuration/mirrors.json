@@ -1,0 +1,9 @@
+{
+  "object" : [
+    {
+      "mirror" : "https://github.com/exyte/ExyteMediaPicker.git",
+      "original" : "https://github.com/exyte/MediaPicker.git"
+    }
+  ],
+  "version" : 1
+}

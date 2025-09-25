@@ -1,5 +1,5 @@
 {
-  "originHash" : "0e8b6e61f9e528cbeb7a6d0048c2efa82264648117a6cacafdd2b23105ac3597",
+  "originHash" : "4b4a0beda7c2da1f4bc3a1709af50776935fdf168379c59d9829c68aa4cde0b1",
   "pins" : [
     {
       "identity" : "activityindicatorview",
@@ -47,6 +47,15 @@
       }
     },
     {
+      "identity" : "exytemediapicker",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/exyte/MediaPicker.git",
+      "state" : {
+        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
+        "version" : "3.1.7"
+      }
+    },
+    {
       "identity" : "giphy-ios-sdk",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Giphy/giphy-ios-sdk",
@@ -71,15 +80,6 @@
       "state" : {
         "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
         "version" : "1.5.0"
-      }
-    },
-    {
-      "identity" : "mediapicker",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/MediaPicker.git",
-      "state" : {
-        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
-        "version" : "3.1.7"
       }
     },
     {
@@ -166,7 +166,7 @@
     {
       "identity" : "swift-collections",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-collections.git",
+      "location" : "https://github.com/apple/swift-collections",
       "state" : {
         "revision" : "8c0c0a8b49e080e54e5e328cc552821ff07cd341",
         "version" : "1.2.1"

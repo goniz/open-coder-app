@@ -1,5 +1,5 @@
 {
-  "originHash" : "1a1eb8dfc5816d2902e44e43468a5fdea88a5dc72153a82b390176c80c48237d",
+  "originHash" : "267dce9bdfcf97e530f83be3cc117c79211d3eae5e5d4b239b6580b226f13687",
   "pins" : [
     {
       "identity" : "activityindicatorview",
@@ -47,15 +47,6 @@
       }
     },
     {
-      "identity" : "exytemediapicker",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/MediaPicker.git",
-      "state" : {
-        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
-        "version" : "3.1.7"
-      }
-    },
-    {
       "identity" : "giphy-ios-sdk",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Giphy/giphy-ios-sdk",
@@ -80,6 +71,15 @@
       "state" : {
         "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "mediapicker",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/exyte/MediaPicker.git",
+      "state" : {
+        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
+        "version" : "3.1.7"
       }
     },
     {

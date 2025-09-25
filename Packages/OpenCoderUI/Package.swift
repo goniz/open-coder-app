@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "OpenCoderUI",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(
             name: "OpenCoderUI",
