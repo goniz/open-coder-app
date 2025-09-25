@@ -4,7 +4,35 @@ import Protocols
 import ExyteChat
 import Models
 
+private actor SharedAPIClientCache {
+  static let shared = SharedAPIClientCache()
+
+  private var clients: [URL: OpenCodeAPIClientProtocol] = [:]
+
+  private init() {}
+
+  func client(for serverURL: URL, factory: OpenCodeAPIClientFactory) -> OpenCodeAPIClientProtocol {
+    if let cachedClient = clients[serverURL] {
+      return cachedClient
+    }
+
+    let configuration = OpenCodeConfiguration(serverURL: serverURL)
+    let client = factory.make(configuration)
+    clients[serverURL] = client
+    return client
+  }
+
+  func removeClient(for serverURL: URL) {
+    clients.removeValue(forKey: serverURL)
+  }
+
+  func clearCache() {
+    clients.removeAll()
+  }
+}
+
 extension ChatFeature {
+
   func handleTask(state: inout State) -> Effect<Action> {
     guard let sessionID = state.sessionID,
           let serverURL = state.serverURL else {
@@ -60,8 +88,7 @@ extension ChatFeature {
 
     return .run { [openCodeAPIFactory] send in
       do {
-        let configuration = OpenCodeConfiguration(serverURL: serverURL)
-        let apiClient = openCodeAPIFactory.make(configuration)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
         _ = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
         await send(.messageSendCompleted(messageID: messageID))
       } catch {
@@ -116,8 +143,7 @@ extension ChatFeature {
     state.isLoadingSessions = true
     return .run { [openCodeAPIFactory] send in
       do {
-        let configuration = OpenCodeConfiguration(serverURL: serverURL)
-        let apiClient = openCodeAPIFactory.make(configuration)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
         let sessions = try await apiClient.listSessions()
         await send(.sessionsLoaded(sessions))
       } catch {
@@ -154,8 +180,7 @@ extension ChatFeature {
     state.isLoadingSessions = true
     return .run { [openCodeAPIFactory] send in
       do {
-        let configuration = OpenCodeConfiguration(serverURL: serverURL)
-        let apiClient = openCodeAPIFactory.make(configuration)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
         let session = try await apiClient.createSession()
         await send(.sessionCreated(session))
       } catch {
@@ -234,8 +259,7 @@ extension ChatFeature {
   private func loadMessagesEffect(sessionID: String, serverURL: URL, isLoadMore: Bool = false) -> Effect<Action> {
     .run { [openCodeAPIFactory] send in
       do {
-        let configuration = OpenCodeConfiguration(serverURL: serverURL)
-        let apiClient = openCodeAPIFactory.make(configuration)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
         let messages = try await apiClient.getMessages(sessionID: sessionID)
         if isLoadMore {
           await send(.loadMoreCompleted(messages, hasMore: false))
@@ -253,12 +277,21 @@ extension ChatFeature {
   }
 
   func handleServerURLUpdated(state: inout State, url: URL?) -> Effect<Action> {
+    let oldURL = state.serverURL
     state.serverURL = url
     state.messages = []
     state.exyteMessages = []
     state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
+
+    // Clear cached client for old URL if it changed
+    if let oldURL = oldURL, oldURL != url {
+      return .run { _ in
+        await SharedAPIClientCache.shared.removeClient(for: oldURL)
+      }
+    }
+
     return .none
   }
 

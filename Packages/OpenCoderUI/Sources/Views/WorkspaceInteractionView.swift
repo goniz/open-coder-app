@@ -4,13 +4,21 @@ import ComposableArchitecture
 
 struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
-  @StateObject private var chatStore: StoreOf<ChatFeature>
+  @State private var chatStore: StoreOf<ChatFeature>?
 
   init(store: StoreOf<WorkspaceInteractionFeature>) {
     self.store = store
-    _chatStore = StateObject(
-      wrappedValue: Store(initialState: ChatFeature.State(), reducer: { ChatFeature() })
-    )
+  }
+
+  private var chatStoreValue: StoreOf<ChatFeature> {
+    if let chatStore = chatStore {
+      return chatStore
+    }
+    let newStore = withDependencies(from: store) {
+      Store(initialState: ChatFeature.State(), reducer: { ChatFeature() })
+    }
+    chatStore = newStore
+    return newStore
   }
 
   var body: some View {
@@ -54,7 +62,7 @@ struct WorkspaceInteractionView: View {
              .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
              .tag(WorkspaceInteractionFeature.Tab.activity)
 
-           ChatView(store: chatStore)
+           ChatView(store: chatStoreValue)
              .tabItem { Label("Chat", systemImage: "message") }
              .tag(WorkspaceInteractionFeature.Tab.chat)
 
@@ -81,8 +89,8 @@ struct WorkspaceInteractionView: View {
   }
 
   private func syncChat(state: WorkspaceInteractionFeature.State) {
-    chatStore.send(.serverURLUpdated(state.openCodeServerURL))
-    chatStore.send(.updateSession(state.openCodeSessionID))
+    chatStoreValue.send(.serverURLUpdated(state.openCodeServerURL))
+    chatStoreValue.send(.updateSession(state.openCodeSessionID))
   }
 
   private var header: some View {

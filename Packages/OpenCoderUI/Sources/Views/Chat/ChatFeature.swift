@@ -108,7 +108,12 @@ public struct ChatFeature: Sendable {
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
 
-  public init() {}
+  public init() {
+    print("ChatFeature init: Factory type: \(type(of: openCodeAPIFactory))")
+    let config = OpenCodeConfiguration.development
+    let client = openCodeAPIFactory.make(config)
+    print("ChatFeature init: Client type: \(type(of: client))")
+  }
 
   public var body: some ReducerOf<Self> {
     BindingReducer()

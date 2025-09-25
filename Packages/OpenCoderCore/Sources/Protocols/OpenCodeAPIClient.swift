@@ -177,7 +177,25 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
   public var projects: [OpenCodeProject] = []
   public var messages: [String: [OpenCodeMessage]] = [:]
 
-  public init() {}
+  public init() {
+    // Add some default sessions for development
+    self.sessions = [
+      OpenCodeSession(
+        id: "mock-session-1",
+        createdAt: Date().addingTimeInterval(-3600), // 1 hour ago
+        updatedAt: Date().addingTimeInterval(-1800), // 30 minutes ago
+        isActive: true,
+        title: "Development Session"
+      ),
+      OpenCodeSession(
+        id: "mock-session-2",
+        createdAt: Date().addingTimeInterval(-7200), // 2 hours ago
+        updatedAt: Date().addingTimeInterval(-900), // 15 minutes ago
+        isActive: true,
+        title: "Testing Session"
+      )
+    ]
+  }
 
   private func log(_ message: String, level: LogLevel = .info) {
     Task { @MainActor in

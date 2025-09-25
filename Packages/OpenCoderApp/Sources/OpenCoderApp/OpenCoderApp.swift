@@ -5,7 +5,9 @@ import SwiftUI
 
 @main
 public struct OpenCoderApp: App {
-  public init() {}
+  public init() {
+    print("OpenCoderApp init: Setting up dependencies")
+  }
 
   public var body: some Scene {
     let configuration = Self.resolveConfiguration()
@@ -15,12 +17,13 @@ public struct OpenCoderApp: App {
         store: Store(
           initialState: AppFeature.State(),
           reducer: { AppFeature() },
-          withDependencies: {
-            $0.openCodeConfiguration = configuration
-            $0.openCodeAPIFactory = OpenCodeAPIClientFactory { config in
-              LiveOpenCodeAPIClient(configuration: config)
+            withDependencies: {
+              $0.openCodeConfiguration = configuration
+              $0.openCodeAPIFactory = OpenCodeAPIClientFactory { config in
+                print("Creating LiveOpenCodeAPIClient for config: \(config)")
+                return LiveOpenCodeAPIClient(configuration: config)
+              }
             }
-          }
         )
       )
     }
