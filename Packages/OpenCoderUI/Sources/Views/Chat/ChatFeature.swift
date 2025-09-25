@@ -131,11 +131,13 @@ public struct ChatFeature {
       return handleSendDraft(state: &state, draft: draft)
     case let .draftUpdated(draft):
       return handleDraftUpdated(state: &state, draft: draft)
-    case .messagesLoaded, .messagesFailed, .messageReceived, .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
+    case .messagesLoaded, .messagesFailed, .messageReceived,
+         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
       return handleMessageLifecycleActions(state: &state, action: action)
     case let .updateSession(sessionID):
       return handleUpdateSession(state: &state, sessionID: sessionID)
-    case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession, .newSession, .sessionCreated, .sessionCreationFailed:
+    case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
+         .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
     case .loadMore:
       return handleLoadMore(state: &state)
