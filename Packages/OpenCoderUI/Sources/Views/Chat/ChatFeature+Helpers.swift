@@ -88,39 +88,102 @@ extension ChatFeature {
   func handleSessionActions(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .fetchSessions:
-      return .run { send in
-        await send(.sessionsLoaded([]))
-      }
-
+      return handleFetchSessions(state: &state)
     case let .sessionsLoaded(sessions):
-      state.sessions = sessions
-
+      return handleSessionsLoaded(state: &state, sessions: sessions)
     case let .sessionsFailed(error):
-      state.errorMessage = error
-
+      return handleSessionsFailed(state: &state, error: error)
     case let .selectSession(sessionID):
-      state.sessionID = sessionID
-      state.messages = []
-      state.exyteMessages = []
-      state.pendingMessageIDs = []
-      state.unsupportedPartKinds = []
-      state.errorMessage = nil
-
+      return handleSelectSession(state: &state, sessionID: sessionID)
     case .newSession:
-      state.isLoadingSessions = true
-
+      return handleNewSession(state: &state)
     case let .sessionCreated(session):
-      state.sessions.append(session)
-      state.isLoadingSessions = false
-
+      return handleSessionCreated(state: &state, session: session)
     case let .sessionCreationFailed(error):
-      state.isLoadingSessions = false
-      state.errorMessage = error
-
+      return handleSessionCreationFailed(state: &state, error: error)
     default:
       return .none
     }
+  }
+
+  private func handleFetchSessions(state: inout State) -> Effect<Action> {
+    guard let serverURL = state.serverURL else {
+      return .run { send in
+        await send(.sessionsFailed("No server URL configured"))
+      }
+    }
+
+    state.isLoadingSessions = true
+    return .run { [openCodeAPIFactory] send in
+      do {
+        let configuration = OpenCodeConfiguration(serverURL: serverURL)
+        let apiClient = openCodeAPIFactory.make(configuration)
+        let sessions = try await apiClient.listSessions()
+        await send(.sessionsLoaded(sessions))
+      } catch {
+        await send(.sessionsFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleSessionsLoaded(state: inout State, sessions: [OpenCodeSession]) -> Effect<Action> {
+    state.sessions = sessions
+    state.isLoadingSessions = false
     return .none
+  }
+
+  private func handleSessionsFailed(state: inout State, error: String) -> Effect<Action> {
+    state.errorMessage = error
+    state.isLoadingSessions = false
+    return .none
+  }
+
+  private func handleSelectSession(state: inout State, sessionID: String) -> Effect<Action> {
+    state.sessionID = sessionID
+    clearSessionState(state: &state)
+    return .none
+  }
+
+  private func handleNewSession(state: inout State) -> Effect<Action> {
+    guard let serverURL = state.serverURL else {
+      return .run { send in
+        await send(.sessionCreationFailed("No server URL configured"))
+      }
+    }
+
+    state.isLoadingSessions = true
+    return .run { [openCodeAPIFactory] send in
+      do {
+        let configuration = OpenCodeConfiguration(serverURL: serverURL)
+        let apiClient = openCodeAPIFactory.make(configuration)
+        let session = try await apiClient.createSession()
+        await send(.sessionCreated(session))
+      } catch {
+        await send(.sessionCreationFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleSessionCreated(state: inout State, session: OpenCodeSession) -> Effect<Action> {
+    state.sessions.append(session)
+    state.sessionID = session.id
+    state.isLoadingSessions = false
+    clearSessionState(state: &state)
+    return .none
+  }
+
+  private func handleSessionCreationFailed(state: inout State, error: String) -> Effect<Action> {
+    state.isLoadingSessions = false
+    state.errorMessage = error
+    return .none
+  }
+
+  private func clearSessionState(state: inout State) {
+    state.messages = []
+    state.exyteMessages = []
+    state.pendingMessageIDs = []
+    state.unsupportedPartKinds = []
+    state.errorMessage = nil
   }
 
   func handleLoadMore(state: inout State) -> Effect<Action> {

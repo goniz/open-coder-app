@@ -118,6 +118,7 @@ private extension ChatView {
         store.send(.sendDraft(mappedDraft))
       },
       reactionDelegate: nil,
+      // swiftlint:disable:next line_length
       messageBuilder: { message, positionInUserGroup, positionInMessagesSection, positionInCommentsGroup, showContextMenuClosure, messageActionClosure, showAttachmentClosure in
         ChatMessageView(
           message: message,
@@ -156,6 +157,7 @@ private extension ChatView {
         .cornerRadius(20)
         .padding(.horizontal)
       },
+      // swiftlint:disable:next line_length
       messageMenuAction: { (action: DefaultMessageMenuAction, defaultActionClosure: (ExyteChat.Message, DefaultMessageMenuAction) -> Void, message: ExyteChat.Message) in
         switch action {
         case .copy:
