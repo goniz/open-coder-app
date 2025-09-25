@@ -2,14 +2,14 @@ import ComposableArchitecture
 import OpenCoderCore
 import SwiftUI
 
-package struct AppView: View {
+public struct AppView: View {
   let store: StoreOf<AppFeature>
 
-  package init(store: StoreOf<AppFeature>) {
+  public init(store: StoreOf<AppFeature>) {
     self.store = store
   }
 
-  package var body: some View {
+  public var body: some View {
     Group {
       if store.showOnboarding {
         OnboardingView(store: store.scope(state: \.onboarding, action: \.onboarding))

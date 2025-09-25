@@ -1,6 +1,5 @@
 import OpenCoderCore
-import OpenCoderCore
-import SwiftUI
+ import SwiftUI
 
 struct WorkspaceLiveOutputTabView: View {
   let workspace: Workspace

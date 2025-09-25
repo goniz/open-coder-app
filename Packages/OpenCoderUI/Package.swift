@@ -4,13 +4,12 @@ import PackageDescription
 
 let package = Package(
     name: "OpenCoderUI",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(
             name: "OpenCoderUI",
             targets: [
-                "Views", 
-                "IOSProtocols"
+                "OpenCoderUI"
             ]
         )
     ],
@@ -19,34 +18,30 @@ let package = Package(
         .package(path: "../OpenCoderCore"),
         
         // UI-specific
-        .package(url: "https://github.com/exyte/Chat.git", from: "2.6.9"),
+        .package(url: "https://github.com/exyte/Chat.git", from: "2.7.0"),
         
         // Re-export TCA for UI usage
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.2"),
     ],
     targets: [
         // MARK: - UI Modules
-        .target(
-            name: "Views",
-            dependencies: [
-                .product(name: "OpenCoderCore", package: "OpenCoderCore"),
-                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
-                .product(name: "ExyteChat", package: "Chat"),
-            ]
-        ),
-        .target(
-            name: "IOSProtocols",
-            dependencies: [
-                .product(name: "OpenCoderCore", package: "OpenCoderCore"),
-                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
-            ]
-        ),
-        
+         .target(
+             name: "OpenCoderUI",
+             dependencies: [
+                 .product(name: "OpenCoderCore", package: "OpenCoderCore"),
+                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+                 .product(name: "ExyteChat", package: "Chat"),
+             ],
+             path: "Sources/Views",
+             resources: [
+                 .process("Resources")
+             ]
+         ),
         // MARK: - Test Targets
         .testTarget(
             name: "ViewsTests",
             dependencies: [
-                "Views",
+                "OpenCoderUI",
             ]
         ),
     ]

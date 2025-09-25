@@ -1,7 +1,7 @@
 import SwiftUI
 import OpenCoderCore
 
-package extension AppColorType {
+public extension AppColorType {
     var color: Color {
         switch self {
         case .green:
@@ -12,8 +12,8 @@ package extension AppColorType {
     }
 }
 
-package extension ActivityEvent.EventType {
-    var color: Color {
-        return self.colorType.color
-    }
-}
+ public extension ActivityEvent.EventType {
+     var color: Color {
+         return self.colorType.color
+     }
+ }

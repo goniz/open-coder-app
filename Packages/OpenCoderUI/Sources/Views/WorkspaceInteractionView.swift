@@ -1,12 +1,28 @@
 import ComposableArchitecture
-import OpenCoderCore
-import OpenCoderCore
-import SwiftUI
+ import OpenCoderCore
+ import SwiftUI
 
 struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
+  @StateObject private var chatStore: StoreOf<ChatFeature>
+
+  init(store: StoreOf<WorkspaceInteractionFeature>) {
+    self.store = store
+    _chatStore = StateObject(
+      wrappedValue: Store(initialState: ChatFeature.State(), reducer: { ChatFeature() })
+    )
+  }
 
   var body: some View {
+    WithViewStore(store, observe: { $0 }) { viewStore in
+      content
+        .onAppear { syncChat(state: viewStore.state) }
+        .onChange(of: viewStore.openCodeServerURL) { _ in syncChat(state: viewStore.state) }
+        .onChange(of: viewStore.openCodeSessionID) { _ in syncChat(state: viewStore.state) }
+    }
+  }
+
+  private var content: some View {
     NavigationStack {
       VStack(spacing: 0) {
         header
@@ -34,7 +50,7 @@ struct WorkspaceInteractionView: View {
              .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
              .tag(WorkspaceInteractionFeature.Tab.activity)
 
-           ChatView(store: store.scope(state: \.chat, action: \.chat))
+           ChatView(store: chatStore)
              .tabItem { Label("Chat", systemImage: "message") }
              .tag(WorkspaceInteractionFeature.Tab.chat)
 
@@ -58,6 +74,11 @@ struct WorkspaceInteractionView: View {
       .task { await store.send(.task).finish() }
       .task(id: store.onlineState) { await store.send(.task).finish() }
     }
+  }
+
+  private func syncChat(state: WorkspaceInteractionFeature.State) {
+    chatStore.send(.serverURLUpdated(state.openCodeServerURL))
+    chatStore.send(.updateSession(state.openCodeSessionID))
   }
 
   private var header: some View {

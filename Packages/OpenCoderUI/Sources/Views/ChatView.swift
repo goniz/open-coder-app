@@ -1,8 +1,7 @@
 import ComposableArchitecture
-import OpenCoderCore
-import ExyteChat
-import OpenCoderCore
-import SwiftUI
+  import OpenCoderCore
+  import ExyteChat
+  import SwiftUI
 
 struct ChatView: View {
   @Bindable var store: StoreOf<ChatFeature>
