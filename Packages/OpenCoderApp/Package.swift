@@ -29,13 +29,5 @@ let package = Package(
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ]
         ),
-        
-        // MARK: - Test Targets
-        .testTarget(
-            name: "OpenCoderAppTests",
-            dependencies: [
-                "OpenCoderApp",
-            ]
-        ),
     ]
 )

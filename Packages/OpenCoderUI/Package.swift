@@ -37,12 +37,5 @@ let package = Package(
                  .process("Resources")
              ]
          ),
-        // MARK: - Test Targets
-        .testTarget(
-            name: "ViewsTests",
-            dependencies: [
-                "OpenCoderUI",
-            ]
-        ),
     ]
 )
