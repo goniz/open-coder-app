@@ -115,8 +115,15 @@ let package = Package(
         .testTarget(
             name: "ProtocolsTests",
             dependencies: [
-                "Models",
                 "Protocols",
+                .product(name: "CustomDump", package: "swift-custom-dump"),
+            ]
+        ),
+        .testTarget(
+            name: "ImplementationsTests",
+            dependencies: [
+                "Models",
+                "Protocols", 
                 "Implementations",
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "NIOCore", package: "swift-nio"),
