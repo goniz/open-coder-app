@@ -38,9 +38,7 @@ extension WorkspacesFeature {
     state.workspaceInteraction?.workspace = selectedWorkspace.workspace
     state.workspaceInteraction?.onlineState = selectedWorkspace.onlineState
     state.workspaceInteraction?.forwardedPort = selectedWorkspace.forwardedPort
-    state.workspaceInteraction?.chat.serverURL = selectedWorkspace.forwardedPort.map { port in
-      URL(string: "http://127.0.0.1:\(port)")
-    } ?? nil
+    // Chat server URL is now handled in UI layer
 
     return .merge(
       .send(.workspaceInteraction(.forwardedPortUpdated(selectedWorkspace.forwardedPort))),
@@ -89,8 +87,8 @@ extension WorkspacesFeature {
         workspace: workspace.workspace,
         onlineState: workspace.onlineState,
         selectedTab: .liveOutput,
-        sessionID: workspace.openCodeSession?.id,
-        forwardedPort: workspace.forwardedPort
+        forwardedPort: workspace.forwardedPort,
+        openCodeSessionID: workspace.openCodeSession?.id
       )
     }
     return .none
@@ -141,7 +139,8 @@ extension WorkspacesFeature {
         workspace: workspace,
         onlineState: .idle, // Start with idle, then transition to spawning
         selectedTab: state.interactionInitialTab,
-        sessionID: nil
+        forwardedPort: state.workspaces[index].forwardedPort,
+        openCodeSessionID: state.workspaces[index].openCodeSession?.id
       )
 
      let cleanup = stopPortForward(&state, id: id)

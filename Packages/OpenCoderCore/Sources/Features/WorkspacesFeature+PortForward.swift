@@ -21,7 +21,7 @@ extension WorkspacesFeature {
         effects.append(
           .send(.workspaceInteraction(.forwardedPortUpdated(token.localPort)))
         )
-        effects.append(.send(.workspaceInteraction(.chat(.task))))
+        // Chat is now handled in UI layer
       }
     }
 
@@ -40,7 +40,7 @@ extension WorkspacesFeature {
 
     if state.selectedWorkspace == id {
       state.workspaceInteraction?.forwardedPort = nil
-      state.workspaceInteraction?.chat.serverURL = nil
+      // Chat server URL is now handled in UI layer
       effects.append(.send(.workspaceInteraction(.forwardedPortUpdated(nil))))
     }
 

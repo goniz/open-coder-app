@@ -4,18 +4,18 @@ import Foundation
 import Models
 
 @Reducer
-package struct OnboardingFeature {
+public struct OnboardingFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var serverConfiguration = SSHServerConfiguration()
-    package var isConnecting = false
-    package var connectionError: String?
-    package var showPassword = false
+  public struct State: Equatable, Sendable {
+    public var serverConfiguration = SSHServerConfiguration()
+    public var isConnecting = false
+    public var connectionError: String?
+    public var showPassword = false
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable, BindableAction {
+  public enum Action: Equatable, BindableAction, Sendable {
     case binding(BindingAction<State>)
     case togglePasswordVisibility
     case toggleAuthenticationMethod
@@ -26,26 +26,26 @@ package struct OnboardingFeature {
     case completeOnboarding
   }
 
-  package struct ConnectionError: Swift.Error, LocalizedError, Equatable {
-    package let message: String
+  public struct ConnectionError: Swift.Error, LocalizedError, Equatable, Sendable {
+    public let message: String
 
-    package init(_ message: String) {
+    public init(_ message: String) {
       self.message = message
     }
 
-    package var errorDescription: String? {
+    public var errorDescription: String? {
       message
     }
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     BindingReducer()
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .binding:
       state.connectionError = nil

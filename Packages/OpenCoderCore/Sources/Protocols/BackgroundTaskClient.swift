@@ -6,19 +6,19 @@ import Foundation
   import UIKit
 #endif
 
-package struct BackgroundTaskClient: Sendable {
-  package var registerAppRefresh: @Sendable () async -> Void
-  package var scheduleAppRefresh: @Sendable () async -> Void
+public struct BackgroundTaskClient: Sendable {
+  public var registerAppRefresh: @Sendable () async -> Void
+  public var scheduleAppRefresh: @Sendable () async -> Void
   #if canImport(UIKit) && !os(macOS)
-    package var beginBackgroundTask: @Sendable (String) async -> UIBackgroundTaskIdentifier
-    package var endBackgroundTask: @Sendable (UIBackgroundTaskIdentifier) async -> Void
+    public var beginBackgroundTask: @Sendable (String) async -> UIBackgroundTaskIdentifier
+    public var endBackgroundTask: @Sendable (UIBackgroundTaskIdentifier) async -> Void
   #else
-    package var beginBackgroundTask: @Sendable (String) async -> Int
-    package var endBackgroundTask: @Sendable (Int) async -> Void
+    public var beginBackgroundTask: @Sendable (String) async -> Int
+    public var endBackgroundTask: @Sendable (Int) async -> Void
   #endif
 
   #if canImport(UIKit) && !os(macOS)
-    package init(
+    public init(
       registerAppRefresh: @escaping @Sendable () async -> Void,
       scheduleAppRefresh: @escaping @Sendable () async -> Void,
       beginBackgroundTask: @escaping @Sendable (String) async -> UIBackgroundTaskIdentifier,
@@ -30,7 +30,7 @@ package struct BackgroundTaskClient: Sendable {
       self.endBackgroundTask = endBackgroundTask
     }
   #else
-    package init(
+    public init(
       registerAppRefresh: @escaping @Sendable () async -> Void,
       scheduleAppRefresh: @escaping @Sendable () async -> Void,
       beginBackgroundTask: @escaping @Sendable (String) async -> Int,
@@ -46,7 +46,7 @@ package struct BackgroundTaskClient: Sendable {
 
 extension BackgroundTaskClient: DependencyKey {
   #if canImport(UIKit) && !os(macOS)
-    package static let liveValue = BackgroundTaskClient(
+    public static let liveValue = BackgroundTaskClient(
       registerAppRefresh: {
         BGTaskScheduler.shared.register(
           forTaskWithIdentifier: "com.opencoder.task-monitor",
@@ -73,21 +73,21 @@ extension BackgroundTaskClient: DependencyKey {
       }
     )
 
-    package static let testValue = BackgroundTaskClient(
+    public static let testValue = BackgroundTaskClient(
       registerAppRefresh: {},
       scheduleAppRefresh: {},
       beginBackgroundTask: { _ in .invalid },
       endBackgroundTask: { _ in }
     )
   #else
-    package static let liveValue = BackgroundTaskClient(
+    public static let liveValue = BackgroundTaskClient(
       registerAppRefresh: {},
       scheduleAppRefresh: {},
       beginBackgroundTask: { _ in 0 },
       endBackgroundTask: { _ in }
     )
 
-    package static let testValue = BackgroundTaskClient(
+    public static let testValue = BackgroundTaskClient(
       registerAppRefresh: {},
       scheduleAppRefresh: {},
       beginBackgroundTask: { _ in -1 },
@@ -97,7 +97,7 @@ extension BackgroundTaskClient: DependencyKey {
 }
 
 extension DependencyValues {
-  package var backgroundTask: BackgroundTaskClient {
+  public var backgroundTask: BackgroundTaskClient {
     get { self[BackgroundTaskClient.self] }
     set { self[BackgroundTaskClient.self] = newValue }
   }

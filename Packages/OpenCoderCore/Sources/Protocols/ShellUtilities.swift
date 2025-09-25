@@ -1,7 +1,7 @@
 import Foundation
 
 /// Helper function to properly escape shell arguments for remote execution.
-package func escapeShellArgument(_ argument: String) -> String {
+public func escapeShellArgument(_ argument: String) -> String {
   let specialChars = CharacterSet(charactersIn: " \t\n\r'\"\\$`;&|()<>*?[]{}!")
 
   if argument.rangeOfCharacter(from: specialChars) != nil {

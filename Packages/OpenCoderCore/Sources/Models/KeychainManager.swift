@@ -1,17 +1,19 @@
 import Foundation
 import Security
 
-package struct KeychainManager {
+public struct KeychainManager: Sendable {
+
   private static let service = "com.opencoder.ssh-credentials"
 
-  package enum KeychainError: Error, LocalizedError {
+  public enum KeychainError: Error, LocalizedError, Sendable {
+
     case itemNotFound
     case duplicateItem
     case invalidData
     case unexpectedPasswordData
     case unhandledError(status: OSStatus)
 
-    package var errorDescription: String? {
+    public var errorDescription: String? {
       switch self {
       case .itemNotFound:
         return "The item was not found in the keychain."
@@ -29,7 +31,7 @@ package struct KeychainManager {
 
   // MARK: - SSH Password Management
 
-  package static func saveSSHPassword(for serverID: String, password: String) throws {
+  public static func saveSSHPassword(for serverID: String, password: String) throws {
     let passwordData = password.data(using: .utf8) ?? Data()
 
     let query: [String: Any] = [
@@ -52,7 +54,7 @@ package struct KeychainManager {
     }
   }
 
-  package static func loadSSHPassword(for serverID: String) throws -> String {
+  public static func loadSSHPassword(for serverID: String) throws -> String {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
@@ -99,7 +101,7 @@ package struct KeychainManager {
     }
   }
 
-  package static func deleteSSHPassword(for serverID: String) throws {
+  public static func deleteSSHPassword(for serverID: String) throws {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
@@ -118,7 +120,7 @@ package struct KeychainManager {
 
   // MARK: - SSH Private Key Management
 
-  package static func saveSSHPrivateKey(for serverID: String, privateKeyData: Data) throws {
+  public static func saveSSHPrivateKey(for serverID: String, privateKeyData: Data) throws {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
@@ -139,7 +141,7 @@ package struct KeychainManager {
     }
   }
 
-  package static func loadSSHPrivateKey(for serverID: String) throws -> Data {
+  public static func loadSSHPrivateKey(for serverID: String) throws -> Data {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
@@ -182,7 +184,7 @@ package struct KeychainManager {
     }
   }
 
-  package static func deleteSSHPrivateKey(for serverID: String) throws {
+  public static func deleteSSHPrivateKey(for serverID: String) throws {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
@@ -201,7 +203,7 @@ package struct KeychainManager {
 
   // MARK: - Cleanup
 
-  package static func deleteAllSSHCredentials(for serverID: String) throws {
+  public static func deleteAllSSHCredentials(for serverID: String) throws {
     try deleteSSHPassword(for: serverID)
     try deleteSSHPrivateKey(for: serverID)
   }

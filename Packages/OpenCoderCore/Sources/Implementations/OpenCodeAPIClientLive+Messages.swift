@@ -10,7 +10,7 @@ import Models
 // MARK: - Message Operations
 
 extension LiveOpenCodeAPIClient {
-  package func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
+  public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
     log("🔗 OpenCode API: Sending message to session: \(sessionID)")
 
     let requestBody = createSendMessageRequestBody(from: parts)
@@ -68,7 +68,7 @@ extension LiveOpenCodeAPIClient {
      }
    }
 
-   package func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
+   public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
      log("🔗 OpenCode API: Getting messages from session: \(sessionID)")
 
      let input = Operations.session_period_messages.Input(path: .init(id: sessionID))
@@ -203,7 +203,7 @@ extension LiveOpenCodeAPIClient {
      }
    }
 
-  package func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
+  public func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
     let input = Operations.session_period_message.Input(
       path: .init(id: sessionID, messageID: messageID)
     )

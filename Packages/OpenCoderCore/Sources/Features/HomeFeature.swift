@@ -3,33 +3,33 @@ import Protocols
 import Models
 
 @Reducer
-package struct HomeFeature {
+public struct HomeFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var selectedTab: Tab = .servers
-    package var workspaces = WorkspacesFeature.State()
-    package var servers = ServersFeature.State()
-    package var settings = SettingsFeature.State()
+  public struct State: Equatable, Sendable {
+    public var selectedTab: Tab = .servers
+    public var workspaces = WorkspacesFeature.State()
+    public var servers = ServersFeature.State()
+    public var settings = SettingsFeature.State()
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case tabSelected(Tab)
     case workspaces(WorkspacesFeature.Action)
     case servers(ServersFeature.Action)
     case settings(SettingsFeature.Action)
   }
 
-  package enum Tab: Equatable {
+  public enum Tab: Equatable, Sendable {
     case workspaces
     case servers
     case settings
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Scope(state: \.workspaces, action: \.workspaces) {
       WorkspacesFeature()
     }
@@ -42,7 +42,7 @@ package struct HomeFeature {
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case let .tabSelected(tab):
       state.selectedTab = tab

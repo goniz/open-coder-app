@@ -5,7 +5,7 @@ import Protocols
 import Models
 
 extension LiveOpenCodeAPIClient {
-  package func log(_ message: String, level: LogLevel = .info) {
+  public func log(_ message: String, level: LogLevel = .info) {
     Task { @MainActor in
       AppLogger.shared.log(message, level: level, category: .api)
     }
@@ -15,7 +15,7 @@ extension LiveOpenCodeAPIClient {
 // MARK: - Command Operations Extension
 
 extension LiveOpenCodeAPIClient {
-  package func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
+  public func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
     log("🔗 OpenCode API: Sending command '\(command)' to session: \(sessionID)")
 
     let requestBody = Operations.session_period_command.Input.Body.json(
@@ -54,7 +54,7 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  package func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
+  public func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
     log("🔗 OpenCode API: Running shell command '\(command)' in session: \(sessionID)")
 
     let requestBody = Operations.session_period_shell.Input.Body.json(
@@ -97,7 +97,7 @@ extension LiveOpenCodeAPIClient {
 // MARK: - Configuration Operations Extension
 
 extension LiveOpenCodeAPIClient {
-   package func getConfig() async throws -> OpenCodeConfig {
+   public func getConfig() async throws -> OpenCodeConfig {
      log("🔗 OpenCode API: Getting configuration")
 
      let input = Operations.config_period_get.Input()
@@ -135,7 +135,7 @@ extension LiveOpenCodeAPIClient {
      }
    }
 
-  package func listProviders() async throws -> OpenCodeProviders {
+  public func listProviders() async throws -> OpenCodeProviders {
     log("🔗 OpenCode API: Listing providers")
 
     let input = Operations.config_period_providers.Input()

@@ -348,7 +348,7 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
 }
 
-package protocol SSHClientProtocol: Sendable {
+public protocol SSHClientProtocol: Sendable {
   func exec(_ command: String) async throws -> String
   func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String
   func openPTY(_ command: String) async throws -> SSHPTYSession
@@ -366,29 +366,29 @@ package protocol SSHClientProtocol: Sendable {
   func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String
 }
 
-package struct SSHPTYSession {
+public struct SSHPTYSession {
   let stdin: FileHandle
   let stdout: FileHandle
   let stderr: FileHandle
   let processId: Int32
 }
 
-package struct SSHStream {
+public struct SSHStream {
   let input: FileHandle
   let output: FileHandle
   let close: () -> Void
 }
 
-package struct RemoteFileInfo: Equatable, Identifiable {
-  package let id = UUID()
-  package let name: String
-  package let path: String
-  package let isDirectory: Bool
-  package let size: Int64
-  package let permissions: String
-  package let lastModified: Date
+public struct RemoteFileInfo: Equatable, Identifiable, Sendable {
+  public let id = UUID()
+  public let name: String
+  public let path: String
+  public let isDirectory: Bool
+  public let size: Int64
+  public let permissions: String
+  public let lastModified: Date
 
-  package init(
+  public init(
     name: String,
     path: String,
     isDirectory: Bool,
@@ -405,7 +405,7 @@ package struct RemoteFileInfo: Equatable, Identifiable {
   }
 }
 
-package enum SSHError: LocalizedError, Equatable {
+public enum SSHError: LocalizedError, Equatable, Sendable {
   case connectionFailed(String)
   case authenticationFailed(String)
   case commandFailed(String)
@@ -414,7 +414,7 @@ package enum SSHError: LocalizedError, Equatable {
   case spawnTimeout(String)
   case staleLock(String)
 
-  package var errorDescription: String? {
+  public var errorDescription: String? {
     switch self {
     case .connectionFailed(let message):
       return "SSH connection failed: \(message)"
@@ -483,10 +483,10 @@ private func detailedErrorDescription(_ error: any Swift.Error) -> String {
 }
 
 // swiftlint:disable:next type_body_length
-package struct SSHClient: SSHClientProtocol {
-  package init() {}
+public struct SSHClient: SSHClientProtocol, Sendable {
+  public init() {}
 
-  package static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
+  public static func testConnection(_ config: Models.SSHServerConfiguration) async throws {
     // Use the connection pool for testing connection
     let pool = SSHConnectionPool.shared
     let manager = await pool.manager(for: config)
@@ -496,7 +496,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  package func exec(_ command: String) async throws -> String {
+  public func exec(_ command: String) async throws -> String {
     // This is a simplified implementation that creates a new connection for each command
     // In a production implementation, you would want to reuse connections
     throw SSHError.connectionFailed(
@@ -524,7 +524,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  package func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
+  public func exec(_ command: String, config: Models.SSHServerConfiguration) async throws -> String {
     await AppLogger.shared.log(
       "Executing SSH command via connection pool: \(command)", level: .debug, category: .ssh)
 
@@ -574,7 +574,7 @@ package struct SSHClient: SSHClientProtocol {
     return try await future.get()
   }
 
-  package func execCleanCommand(
+  public func execCleanCommand(
     _ baseCommand: String,
     config: Models.SSHServerConfiguration
   ) async throws -> String {
@@ -610,7 +610,7 @@ package struct SSHClient: SSHClientProtocol {
 
   // MARK: - OpenSSH CLI fallback
 
-  package func extractCleanOutput(from output: String, startMarker: String, endMarker: String)
+  public func extractCleanOutput(from output: String, startMarker: String, endMarker: String)
     -> String {
     let lines = output.components(separatedBy: .newlines)
     var capturing = false
@@ -632,18 +632,18 @@ package struct SSHClient: SSHClientProtocol {
     return cleanLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  package func openPTY(_ command: String) async throws -> SSHPTYSession {
+  public func openPTY(_ command: String) async throws -> SSHPTYSession {
     // Implementation would open a PTY session
     throw SSHError.connectionFailed("PTY not implemented in mock")
   }
 
-  package func openDirectTCPIP(host: String, port: Int) async throws -> SSHStream {
+  public func openDirectTCPIP(host: String, port: Int) async throws -> SSHStream {
     // Implementation would open direct TCP/IP channel
     throw SSHError.connectionFailed("Direct TCP/IP not implemented in mock")
   }
 
   // swiftlint:disable:next function_body_length
-  package func openDirectTCPIP(
+  public func openDirectTCPIP(
     host: String,
     port: Int,
     config: Models.SSHServerConfiguration
@@ -743,7 +743,7 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  package func testConnection(_ config: Models.SSHServerConfiguration) async throws {
+  public func testConnection(_ config: Models.SSHServerConfiguration) async throws {
     await AppLogger.shared.log(
       "Testing SSH connection to \(config.host):\(config.port)", level: .info, category: .ssh)
     do {
@@ -772,15 +772,15 @@ package struct SSHClient: SSHClientProtocol {
     }
   }
 
-  package func connect(_ config: Models.SSHServerConfiguration) async throws {
+  public func connect(_ config: Models.SSHServerConfiguration) async throws {
     try await testConnection(config)
   }
 
-  package func disconnect() async throws {
+  public func disconnect() async throws {
     // Mock implementation
   }
 
-  package func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
+  public func listDirectory(_ path: String, config: Models.SSHServerConfiguration) async throws
     -> [RemoteFileInfo] {
     await AppLogger.shared.log(
       "Listing directory via SFTP (using connection pool): \(path)",
@@ -905,7 +905,7 @@ package struct SSHClient: SSHClientProtocol {
 
   // Removed shell fallback for directory listing. All directory operations now use SFTP only.
 
-  package func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
+  public func getRemoteHomeDirectory(config: Models.SSHServerConfiguration) async throws -> String {
     // Prefer SFTP REALPATH-based discovery. Many servers set SFTP CWD to $HOME,
     // so REALPATH on "." is typically the most portable.
     func sanitize(_ path: String) -> String {
@@ -1437,13 +1437,13 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
   }
 }
 
-package enum SSHConnectionError: LocalizedError {
+public enum SSHConnectionError: LocalizedError, Sendable {
   case publicKeyAuthNotAvailable
   case passwordAuthNotAvailable
   case privateKeyPathEmpty
   case keyAuthenticationFailed(String)
 
-  package var errorDescription: String? {
+  public var errorDescription: String? {
     switch self {
     case .publicKeyAuthNotAvailable:
       return "Public key authentication is not available on the server"
@@ -1460,22 +1460,22 @@ package enum SSHConnectionError: LocalizedError {
 // MARK: - Connection Management
 // MARK: - Connection Management
 
-package actor SSHConnectionManager {
+public actor SSHConnectionManager {
   private let config: Models.SSHServerConfiguration
   private var connection: SSHConnection?
 
-  package init(config: Models.SSHServerConfiguration) {
+  public init(config: Models.SSHServerConfiguration) {
     self.config = config
   }
 
-  package func isConnected() -> Bool {
+  public func isConnected() -> Bool {
     if let connection = self.connection {
       return connection.isHealthy
     }
     return false
   }
 
-  package func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T)
+  public func withConnection<T>(_ operation: @escaping @Sendable (SSHConnection) async throws -> T)
     async throws -> T {
     // Check if we have a valid and healthy connection
     if let existingConnection = self.connection, existingConnection.isHealthy {
@@ -1622,7 +1622,7 @@ package actor SSHConnectionManager {
     }
   }
 
-  package func disconnect() async {
+  public func disconnect() async {
     if let connection = connection {
       await connection.close()
       self.connection = nil
@@ -1630,9 +1630,9 @@ package actor SSHConnectionManager {
   }
 }
 
-package struct SSHConnection: Sendable {
-  package let channel: Channel
-  package let eventLoopGroup: EventLoopGroup
+public struct SSHConnection: Sendable {
+  public let channel: Channel
+  public let eventLoopGroup: EventLoopGroup
 
   var isActive: Bool {
     channel.isActive
@@ -1865,11 +1865,11 @@ package struct SSHConnection: Sendable {
 // MARK: - Dependency Injection
 
 extension SSHClient: TestDependencyKey {
-  package static let testValue = Self()
+  public static let testValue = Self()
 }
 
 extension DependencyValues {
-  package var sshClient: SSHClient {
+  public var sshClient: SSHClient {
     get { self[SSHClient.self] }
     set { self[SSHClient.self] = newValue }
   }

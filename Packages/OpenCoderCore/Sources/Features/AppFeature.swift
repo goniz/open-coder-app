@@ -3,18 +3,18 @@ import Foundation
 import Models
 
 @Reducer
-package struct AppFeature {
+public struct AppFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var home = HomeFeature.State()
-    package var onboarding = OnboardingFeature.State()
-    package var liveActivity = LiveActivityFeature.State()
-    package var showOnboarding = true
+  public struct State: Equatable, Sendable {
+    public var home = HomeFeature.State()
+    public var onboarding = OnboardingFeature.State()
+    public var liveActivity = LiveActivityFeature.State()
+    public var showOnboarding = true
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case task
     case home(HomeFeature.Action)
     case onboarding(OnboardingFeature.Action)
@@ -22,9 +22,9 @@ package struct AppFeature {
     case dismissOnboarding
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Scope(state: \.home, action: \.home) {
       HomeFeature()
     }
@@ -37,7 +37,7 @@ package struct AppFeature {
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
       state.showOnboarding = !hasSavedServers()

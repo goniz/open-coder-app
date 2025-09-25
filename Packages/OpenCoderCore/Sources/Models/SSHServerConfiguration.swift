@@ -1,17 +1,18 @@
 import Foundation
 
-package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
-  package let id: UUID
-  package var name: String
-  package var host: String
-  package var port: Int
-  package var username: String
-  package var useKeyAuthentication: Bool
-  package var privateKeyPath: String
-  package var shouldMaintainConnection: Bool
+public struct SSHServerConfiguration: Equatable, Hashable, Identifiable, Sendable {
+
+  public let id: UUID
+  public var name: String
+  public var host: String
+  public var port: Int
+  public var username: String
+  public var useKeyAuthentication: Bool
+  public var privateKeyPath: String
+  public var shouldMaintainConnection: Bool
 
   // Transient properties not stored in JSON
-  package var password: String {
+  public var password: String {
     get {
       do {
         return try KeychainManager.loadSSHPassword(for: id.uuidString)
@@ -32,7 +33,7 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
     }
   }
 
-  package var privateKeyData: Data? {
+  public var privateKeyData: Data? {
     get {
       do {
         return try KeychainManager.loadSSHPrivateKey(for: id.uuidString)
@@ -53,7 +54,7 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
     }
   }
 
-  package init(
+  public init(
     id: UUID = UUID(),
     name: String = "",
     host: String = "",
@@ -79,7 +80,7 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
     self.privateKeyData = privateKeyData
   }
 
-  package var isValid: Bool {
+  public var isValid: Bool {
     !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && port > 0
@@ -92,7 +93,7 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
 
   // MARK: - Keychain Management
 
-  package func deleteCredentials() {
+  public func deleteCredentials() {
     do {
       try KeychainManager.deleteAllSSHCredentials(for: id.uuidString)
     } catch {
@@ -102,7 +103,7 @@ package struct SSHServerConfiguration: Equatable, Hashable, Identifiable {
 
   // MARK: - Migration Support
 
-  package mutating func migrateFromPlainTextCredentials(
+  public mutating func migrateFromPlainTextCredentials(
     plainTextPassword: String?, plainTextKeyData: Data?
   ) {
     if let plainPassword = plainTextPassword, !plainPassword.isEmpty {
@@ -130,7 +131,7 @@ extension SSHServerConfiguration: Codable {
     case password
   }
 
-  package init(from decoder: Decoder) throws {
+  public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
 
     id = try container.decode(UUID.self, forKey: .id)
@@ -150,7 +151,7 @@ extension SSHServerConfiguration: Codable {
     }
   }
 
-  package func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
 
     try container.encode(id, forKey: .id)

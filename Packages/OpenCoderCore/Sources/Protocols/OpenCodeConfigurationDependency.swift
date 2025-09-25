@@ -1,13 +1,13 @@
 import Dependencies
 import Models
 
-package enum OpenCodeConfigurationKey: DependencyKey {
-  package static let liveValue: OpenCodeConfiguration = .development
-  package static let testValue: OpenCodeConfiguration = .development
+public enum OpenCodeConfigurationKey: DependencyKey, Sendable {
+  public static let liveValue: OpenCodeConfiguration = .development
+  public static let testValue: OpenCodeConfiguration = .development
 }
 
 extension DependencyValues {
-  package var openCodeConfiguration: OpenCodeConfiguration {
+  public var openCodeConfiguration: OpenCodeConfiguration {
     get { self[OpenCodeConfigurationKey.self] }
     set { self[OpenCodeConfigurationKey.self] = newValue }
   }

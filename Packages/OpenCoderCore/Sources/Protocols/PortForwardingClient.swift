@@ -2,19 +2,19 @@ import Dependencies
 import Foundation
 import Models
 
-package struct PortForwardToken: Equatable, Sendable {
-  package let id: UUID
-  package let localPort: Int
-  package let remotePort: Int
+public struct PortForwardToken: Equatable, Sendable {
+  public let id: UUID
+  public let localPort: Int
+  public let remotePort: Int
 
-  package init(id: UUID = UUID(), localPort: Int, remotePort: Int) {
+  public init(id: UUID = UUID(), localPort: Int, remotePort: Int) {
     self.id = id
     self.localPort = localPort
     self.remotePort = remotePort
   }
 }
 
-package protocol PortForwardingClient: Sendable {
+public protocol PortForwardingClient: Sendable {
   func startForward(
     workspace: Workspace,
     serverConfig: SSHServerConfiguration,
@@ -24,13 +24,13 @@ package protocol PortForwardingClient: Sendable {
   func stopForward(_ token: PortForwardToken) async
 }
 
-package enum PortForwardingClientKey: DependencyKey {
-  package static let liveValue: PortForwardingClient = LivePortForwardingClient()
-  package static let testValue: PortForwardingClient = UnimplementedPortForwardingClient()
+public enum PortForwardingClientKey: DependencyKey, Sendable {
+  public static let liveValue: PortForwardingClient = LivePortForwardingClient()
+  public static let testValue: PortForwardingClient = UnimplementedPortForwardingClient()
 }
 
 extension DependencyValues {
-  package var portForwarding: PortForwardingClient {
+  public var portForwarding: PortForwardingClient {
     get { self[PortForwardingClientKey.self] }
     set { self[PortForwardingClientKey.self] = newValue }
   }

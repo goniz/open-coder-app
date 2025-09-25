@@ -5,26 +5,28 @@ import Foundation
 #endif
 
 #if canImport(ActivityKit) && !os(macOS)
-  package struct CodingTaskAttributes: ActivityAttributes {
-    package var serverName: String
-    package var projectName: String
-    package var taskType: TaskType
+  public struct CodingTaskAttributes: ActivityAttributes, Sendable {
 
-    package init(serverName: String, projectName: String, taskType: TaskType) {
+    public var serverName: String
+    public var projectName: String
+    public var taskType: TaskType
+
+    public init(serverName: String, projectName: String, taskType: TaskType) {
       self.serverName = serverName
       self.projectName = projectName
       self.taskType = taskType
     }
 
-    package struct ContentState: Codable, Hashable {
-      package var taskName: String
-      package var progress: Double
-      package var currentStep: String
-      package var status: TaskStatus
-      package var elapsedTime: TimeInterval
-      package var estimatedTimeRemaining: TimeInterval?
+    public struct ContentState: Codable, Hashable, Sendable {
 
-      package init(
+      public var taskName: String
+      public var progress: Double
+      public var currentStep: String
+      public var status: TaskStatus
+      public var elapsedTime: TimeInterval
+      public var estimatedTimeRemaining: TimeInterval?
+
+      public init(
         taskName: String,
         progress: Double,
         currentStep: String,
@@ -42,16 +44,18 @@ import Foundation
     }
   }
 #else
-  package struct CodingTaskAttributes: Codable {
-    package struct ContentState: Codable, Hashable {
-      package var taskName: String
-      package var progress: Double
-      package var currentStep: String
-      package var status: TaskStatus
-      package var elapsedTime: TimeInterval
-      package var estimatedTimeRemaining: TimeInterval?
+  public struct CodingTaskAttributes: Codable, Sendable {
 
-      package init(
+    public struct ContentState: Codable, Hashable, Sendable {
+
+      public var taskName: String
+      public var progress: Double
+      public var currentStep: String
+      public var status: TaskStatus
+      public var elapsedTime: TimeInterval
+      public var estimatedTimeRemaining: TimeInterval?
+
+      public init(
         taskName: String,
         progress: Double,
         currentStep: String,
@@ -68,11 +72,11 @@ import Foundation
       }
     }
 
-    package var serverName: String
-    package var projectName: String
-    package var taskType: TaskType
+    public var serverName: String
+    public var projectName: String
+    public var taskType: TaskType
 
-    package init(serverName: String, projectName: String, taskType: TaskType) {
+    public init(serverName: String, projectName: String, taskType: TaskType) {
       self.serverName = serverName
       self.projectName = projectName
       self.taskType = taskType
@@ -80,14 +84,15 @@ import Foundation
   }
 #endif
 
-package enum TaskStatus: String, Codable, CaseIterable {
+public enum TaskStatus: String, Codable, CaseIterable, Sendable {
+
   case preparing
   case running
   case completing
   case completed
   case failed
 
-  package var displayName: String {
+  public var displayName: String {
     switch self {
     case .preparing: return "Preparing"
     case .running: return "Running"
@@ -98,13 +103,14 @@ package enum TaskStatus: String, Codable, CaseIterable {
   }
 }
 
-package enum TaskType: String, Codable, CaseIterable {
+public enum TaskType: String, Codable, CaseIterable, Sendable {
+
   case build
   case test
   case deploy
   case install
 
-  package var displayName: String {
+  public var displayName: String {
     switch self {
     case .build: return "Build"
     case .test: return "Test"
@@ -113,7 +119,7 @@ package enum TaskType: String, Codable, CaseIterable {
     }
   }
 
-  package var systemImageName: String {
+  public var systemImageName: String {
     switch self {
     case .build: return "hammer.fill"
     case .test: return "checkmark.circle.fill"

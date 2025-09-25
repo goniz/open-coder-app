@@ -5,30 +5,30 @@ import Models
 import NIOCore
 @preconcurrency import NIOSSH
 
-package struct WorkspaceService: Sendable {
+public struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let tmuxService: TmuxService
   private let sshClient: SSHClient
 
-  package init(config: Models.SSHServerConfiguration) {
+  public init(config: Models.SSHServerConfiguration) {
     self.config = config
     self.sshClient = SSHClient()
     self.tmuxService = TmuxService(config: config)
   }
 
-  package struct SpawnResult: Equatable {
-    package let port: Int
-    package let online: Bool
-    package let error: SSHError?
+  public struct SpawnResult: Equatable, Sendable {
+    public let port: Int
+    public let online: Bool
+    public let error: SSHError?
 
-    package init(port: Int, online: Bool, error: SSHError?) {
+    public init(port: Int, online: Bool, error: SSHError?) {
       self.port = port
       self.online = online
       self.error = error
     }
   }
 
-  package func connectAndEnsureTmux(workspace: Models.Workspace) async throws {
+  public func connectAndEnsureTmux(workspace: Models.Workspace) async throws {
     await AppLogger.shared.log(
       "Connecting and ensuring tmux session for: \(workspace.name)",
       level: .info,
@@ -39,7 +39,7 @@ package struct WorkspaceService: Sendable {
   }
 
   // swiftlint:disable:next function_body_length
-  package func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
+  public func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
     do {
       await AppLogger.shared.log(
         "Attaching or spawning for workspace: \(workspace.name)",
@@ -160,12 +160,12 @@ package struct WorkspaceService: Sendable {
     }
   }
 
-  package func listTmuxWindows(workspace: Models.Workspace) async throws -> [String] {
+  public func listTmuxWindows(workspace: Models.Workspace) async throws -> [String] {
     try await tmuxService.listWindows(session: workspace.tmuxSession)
   }
 
   // swiftlint:disable function_body_length
-  package func getLiveOutputStream(workspace: Models.Workspace, window: String? = nil)
+  public func getLiveOutputStream(workspace: Models.Workspace, window: String? = nil)
     -> AsyncStream<String> {
     AsyncStream { continuation in
       Task {
@@ -231,7 +231,7 @@ package struct WorkspaceService: Sendable {
     }
   }
 
-  package func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
+  public func cleanAndRetry(workspace: Models.Workspace) async throws -> SpawnResult {
     do {
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in

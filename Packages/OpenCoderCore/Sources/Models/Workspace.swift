@@ -1,16 +1,17 @@
 import Foundation
 
-package struct Workspace: Identifiable, Codable, Equatable {
-  package let id: UUID
-  package var name: String
-  package var host: String
-  package var user: String
-  package var remotePath: String
-  package var tmuxSession: TmuxSessionName
-  package var idleTTLMinutes: Int
-  package var serverID: UUID?
+public struct Workspace: Identifiable, Codable, Equatable, Sendable {
 
-  package init(
+  public let id: UUID
+  public var name: String
+  public var host: String
+  public var user: String
+  public var remotePath: String
+  public var tmuxSession: TmuxSessionName
+  public var idleTTLMinutes: Int
+  public var serverID: UUID?
+
+  public init(
     id: UUID = UUID(),
     name: String,
     host: String,
@@ -34,25 +35,27 @@ package struct Workspace: Identifiable, Codable, Equatable {
     self.serverID = serverID
   }
 
-  package static func generateTmuxSessionName(name: String, path: String) -> String {
+  public static func generateTmuxSessionName(name: String, path: String) -> String {
     TmuxSessionName.generate(workspaceName: name, path: path)
   }
 }
 
-package enum WorkspaceOnlineState: Equatable {
+public enum WorkspaceOnlineState: Equatable, Sendable {
+
   case idle
   case spawning(phase: SpawnPhase)
   case online(port: Int)
   case error(String)
 }
 
-package enum SpawnPhase: String, CaseIterable {
+public enum SpawnPhase: String, CaseIterable, Sendable {
+
   case sshConnection = "SSH Connection"
   case openCodeSpawn = "OpenCode Spawn"
   case portForwarding = "SSH Port Forwarding"
   case apiHandshake = "OpenCode API"
 
-  package var description: String {
+  public var description: String {
     switch self {
     case .sshConnection:
       return "Establishing SSH connection..."
@@ -65,7 +68,7 @@ package enum SpawnPhase: String, CaseIterable {
     }
   }
 
-  package var progress: Double {
+  public var progress: Double {
     switch self {
     case .sshConnection: return 0.25
     case .openCodeSpawn: return 0.5
@@ -75,14 +78,15 @@ package enum SpawnPhase: String, CaseIterable {
   }
 }
 
-package struct SessionMeta: Identifiable, Codable, Equatable {
-  package let id: String
-  package var title: String
-  package var lastMessagePreview: String
-  package var updatedAt: Date
-  package var workspaceId: UUID
+public struct SessionMeta: Identifiable, Codable, Equatable, Sendable {
 
-  package init(
+  public let id: String
+  public var title: String
+  public var lastMessagePreview: String
+  public var updatedAt: Date
+  public var workspaceId: UUID
+
+  public init(
     id: String,
     title: String,
     lastMessagePreview: String = "",
@@ -97,7 +101,8 @@ package struct SessionMeta: Identifiable, Codable, Equatable {
   }
 }
 
-package struct WorkspaceDTO: Codable {
+public struct WorkspaceDTO: Codable, Sendable {
+
   let id: UUID
   let name: String
   let host: String
@@ -132,7 +137,8 @@ package struct WorkspaceDTO: Codable {
   }
 }
 
-package struct SessionMetaDTO: Codable {
+public struct SessionMetaDTO: Codable, Sendable {
+
   let id: String
   let title: String
   let lastMessagePreview: String
@@ -158,14 +164,15 @@ package struct SessionMetaDTO: Codable {
   }
 }
 
-package struct ActivityEvent: Identifiable, Equatable {
-  package let id: UUID
-  package let timestamp: Date
-  package let type: EventType
-  package let message: String
-  package let isError: Bool
+public struct ActivityEvent: Identifiable, Equatable, Sendable {
 
-  package init(
+  public let id: UUID
+  public let timestamp: Date
+  public let type: EventType
+  public let message: String
+  public let isError: Bool
+
+  public init(
     id: UUID = UUID(),
     timestamp: Date = Date(),
     type: EventType,
@@ -179,7 +186,8 @@ package struct ActivityEvent: Identifiable, Equatable {
     self.isError = isError
   }
 
-  package enum EventType: String, CaseIterable {
+  public enum EventType: String, CaseIterable, Sendable {
+
     case sshConnection = "SSH Connection"
     case openCodeSpawn = "OpenCode Spawn"
     case portForwarding = "Port Forwarding"
@@ -187,7 +195,7 @@ package struct ActivityEvent: Identifiable, Equatable {
     case workspaceOnline = "Workspace Online"
     case workspaceError = "Workspace Error"
 
-    package var icon: String {
+    public var icon: String {
       switch self {
       case .sshConnection: return "network"
       case .openCodeSpawn: return "terminal"
@@ -198,7 +206,7 @@ package struct ActivityEvent: Identifiable, Equatable {
       }
     }
 
-    package var colorType: AppColorType {
+    public var colorType: AppColorType {
       switch self {
       case .sshConnection, .openCodeSpawn, .portForwarding, .apiConnection, .workspaceOnline:
         return .green
@@ -208,7 +216,7 @@ package struct ActivityEvent: Identifiable, Equatable {
     }
   }
 
-  package var formattedTimestamp: String {
+  public var formattedTimestamp: String {
     let formatter = DateFormatter()
     formatter.timeStyle = .medium
     return formatter.string(from: timestamp)

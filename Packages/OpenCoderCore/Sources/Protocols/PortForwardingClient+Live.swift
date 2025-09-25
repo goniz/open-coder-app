@@ -4,12 +4,12 @@ import NIOPosix
 import NIOSSH
 import Models
 
-package struct LivePortForwardingClient: PortForwardingClient {
+public struct LivePortForwardingClient: PortForwardingClient, Sendable {
   private let manager = PortForwardListenerManager()
 
-  package init() {}
+  public init() {}
 
-  package func startForward(
+  public func startForward(
     workspace _: Workspace,
     serverConfig: Models.SSHServerConfiguration,
     remotePort: Int
@@ -17,7 +17,7 @@ package struct LivePortForwardingClient: PortForwardingClient {
     try await manager.startForward(serverConfig: serverConfig, remotePort: remotePort)
   }
 
-  package func stopForward(_ token: PortForwardToken) async {
+  public func stopForward(_ token: PortForwardToken) async {
     await manager.stopForward(token)
   }
 }

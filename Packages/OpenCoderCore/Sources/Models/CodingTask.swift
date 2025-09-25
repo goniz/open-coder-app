@@ -1,36 +1,37 @@
 import Foundation
 
-package struct CodingTask: Identifiable, Equatable, Codable {
-  package let id: UUID
-  package var serverID: UUID
-  package var name: String
-  package var type: TaskType
-  package var command: String
-  package var progress: Double = 0.0
-  package var currentStep: String = ""
-  package var status: TaskStatus = .preparing
-  package var startTime: Date?
-  package var endTime: Date?
-  package var estimatedDuration: TimeInterval?
-  package var sessionID: String?
+public struct CodingTask: Identifiable, Equatable, Codable, Sendable {
 
-  package var mockProgressSteps: [ProgressStep] = []
-  package var currentStepIndex: Int = 0
+  public let id: UUID
+  public var serverID: UUID
+  public var name: String
+  public var type: TaskType
+  public var command: String
+  public var progress: Double = 0.0
+  public var currentStep: String = ""
+  public var status: TaskStatus = .preparing
+  public var startTime: Date?
+  public var endTime: Date?
+  public var estimatedDuration: TimeInterval?
+  public var sessionID: String?
 
-  package var elapsedTime: TimeInterval {
+  public var mockProgressSteps: [ProgressStep] = []
+  public var currentStepIndex: Int = 0
+
+  public var elapsedTime: TimeInterval {
     guard let startTime = startTime else { return 0 }
     let endTime = self.endTime ?? Date()
     return endTime.timeIntervalSince(startTime)
   }
 
-  package var estimatedTimeRemaining: TimeInterval? {
+  public var estimatedTimeRemaining: TimeInterval? {
     guard estimatedDuration != nil, progress > 0 else { return nil }
     let elapsed = elapsedTime
     let totalEstimated = elapsed / progress
     return max(0, totalEstimated - elapsed)
   }
 
-  package init(
+  public init(
     id: UUID = UUID(),
     serverID: UUID,
     name: String,
@@ -51,12 +52,13 @@ package struct CodingTask: Identifiable, Equatable, Codable {
   }
 }
 
-package struct ProgressStep: Codable, Equatable {
-  package let progress: Double
-  package let stepName: String
-  package let duration: TimeInterval
+public struct ProgressStep: Codable, Equatable, Sendable {
 
-  package init(progress: Double, stepName: String, duration: TimeInterval) {
+  public let progress: Double
+  public let stepName: String
+  public let duration: TimeInterval
+
+  public init(progress: Double, stepName: String, duration: TimeInterval) {
     self.progress = progress
     self.stepName = stepName
     self.duration = duration
@@ -64,7 +66,7 @@ package struct ProgressStep: Codable, Equatable {
 }
 
 extension CodingTask {
-  package static func mockBuildTask(serverID: UUID) -> CodingTask {
+  public static func mockBuildTask(serverID: UUID) -> CodingTask {
     CodingTask(
       serverID: serverID,
       name: "Build iOS App",
@@ -81,7 +83,7 @@ extension CodingTask {
     )
   }
 
-  package static func mockTestTask(serverID: UUID) -> CodingTask {
+  public static func mockTestTask(serverID: UUID) -> CodingTask {
     CodingTask(
       serverID: serverID,
       name: "Run Unit Tests",
@@ -97,7 +99,7 @@ extension CodingTask {
     )
   }
 
-  package static func mockDeployTask(serverID: UUID) -> CodingTask {
+  public static func mockDeployTask(serverID: UUID) -> CodingTask {
     CodingTask(
       serverID: serverID,
       name: "Deploy to Production",

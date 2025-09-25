@@ -7,7 +7,7 @@ import Models
 
 // MARK: - Protocol Definition
 
-package protocol OpenCodeAPIClientProtocol: Sendable {
+public protocol OpenCodeAPIClientProtocol: Sendable {
   // Session Management
   func listSessions() async throws -> [OpenCodeSession]
   func createSession() async throws -> OpenCodeSession
@@ -34,14 +34,14 @@ package protocol OpenCodeAPIClientProtocol: Sendable {
 
 // MARK: - Domain Models
 
-package struct OpenCodeSession: Equatable, Identifiable, Sendable {
-  package let id: String
-  package let createdAt: Date
-  package let updatedAt: Date
-  package let isActive: Bool
-  package let title: String?
+public struct OpenCodeSession: Equatable, Identifiable, Sendable {
+  public let id: String
+  public let createdAt: Date
+  public let updatedAt: Date
+  public let isActive: Bool
+  public let title: String?
 
-  package init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true, title: String? = nil) {
+  public init(id: String, createdAt: Date, updatedAt: Date, isActive: Bool = true, title: String? = nil) {
     self.id = id
     self.createdAt = createdAt
     self.updatedAt = updatedAt
@@ -49,7 +49,7 @@ package struct OpenCodeSession: Equatable, Identifiable, Sendable {
     self.title = title
   }
 
-  package var displayTitle: String {
+  public var displayTitle: String {
     return title ?? DateFormatter.sessionTitle.string(from: createdAt)
   }
 }
@@ -63,13 +63,13 @@ private extension DateFormatter {
   }()
 }
 
-package struct OpenCodeProject: Equatable, Identifiable, Sendable {
-  package let id: String
-  package let name: String
-  package let path: String
-  package let type: String?
+public struct OpenCodeProject: Equatable, Identifiable, Sendable {
+  public let id: String
+  public let name: String
+  public let path: String
+  public let type: String?
 
-  package init(id: String, name: String, path: String, type: String? = nil) {
+  public init(id: String, name: String, path: String, type: String? = nil) {
     self.id = id
     self.name = name
     self.path = path
@@ -77,14 +77,14 @@ package struct OpenCodeProject: Equatable, Identifiable, Sendable {
   }
 }
 
-package struct OpenCodeMessage: Equatable, Identifiable, Sendable {
-  package let id: String
-  package let sessionID: String
-  package let parts: [MessagePart]
-  package let timestamp: Date
-  package let role: MessageRole
+public struct OpenCodeMessage: Equatable, Identifiable, Sendable {
+  public let id: String
+  public let sessionID: String
+  public let parts: [MessagePart]
+  public let timestamp: Date
+  public let role: MessageRole
 
-  package init(id: String, sessionID: String, parts: [MessagePart], timestamp: Date, role: MessageRole) {
+  public init(id: String, sessionID: String, parts: [MessagePart], timestamp: Date, role: MessageRole) {
     self.id = id
     self.sessionID = sessionID
     self.parts = parts
@@ -93,36 +93,36 @@ package struct OpenCodeMessage: Equatable, Identifiable, Sendable {
   }
 }
 
-package enum MessageRole: String, Equatable, Sendable, CaseIterable {
+public enum MessageRole: String, Equatable, Sendable, CaseIterable {
   case user
   case assistant
   case system
 }
 
-package enum MessagePart: Equatable, Sendable {
+public enum MessagePart: Equatable, Sendable {
   case text(String)
   case file(path: String, content: String)
   case agent(type: String, result: String)
   case tool(name: String, input: String, output: String)
 }
 
-package struct OpenCodeConfig: Equatable, Sendable {
-  package let version: String
-  package let environment: String
-  package let features: [String]
+public struct OpenCodeConfig: Equatable, Sendable {
+  public let version: String
+  public let environment: String
+  public let features: [String]
 
-  package init(version: String, environment: String, features: [String]) {
+  public init(version: String, environment: String, features: [String]) {
     self.version = version
     self.environment = environment
     self.features = features
   }
 }
 
-package struct OpenCodeProviders: Equatable, Sendable {
-  package let providers: [String: [String: String]]
-  package let defaultProvider: String
+public struct OpenCodeProviders: Equatable, Sendable {
+  public let providers: [String: [String: String]]
+  public let defaultProvider: String
 
-  package init(providers: [String: [String: String]], defaultProvider: String) {
+  public init(providers: [String: [String: String]], defaultProvider: String) {
     self.providers = providers
     self.defaultProvider = defaultProvider
   }
@@ -130,7 +130,7 @@ package struct OpenCodeProviders: Equatable, Sendable {
 
 // MARK: - Error Handling
 
-package enum OpenCodeAPIError: Error, Equatable {
+public enum OpenCodeAPIError: Error, Equatable, Sendable {
   case badRequest(String? = nil)
   case unauthorized(String? = nil)
   case notFound(String? = nil)
@@ -144,7 +144,7 @@ package enum OpenCodeAPIError: Error, Equatable {
 }
 
 extension OpenCodeAPIError: LocalizedError {
-  package var errorDescription: String? {
+  public var errorDescription: String? {
     switch self {
     case let .badRequest(message):
       return "Bad request" + (message.map { ": \($0)" } ?? "")
@@ -172,12 +172,12 @@ extension OpenCodeAPIError: LocalizedError {
 
 // MARK: - Test Implementation
 
-package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
-  package var sessions: [OpenCodeSession] = []
-  package var projects: [OpenCodeProject] = []
-  package var messages: [String: [OpenCodeMessage]] = [:]
+public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
+  public var sessions: [OpenCodeSession] = []
+  public var projects: [OpenCodeProject] = []
+  public var messages: [String: [OpenCodeMessage]] = [:]
 
-  package init() {}
+  public init() {}
 
   private func log(_ message: String, level: LogLevel = .info) {
     Task { @MainActor in
@@ -185,13 +185,13 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     }
   }
 
-  package func listSessions() async throws -> [OpenCodeSession] {
+  public func listSessions() async throws -> [OpenCodeSession] {
     log("🧪 Mock API: Listing sessions (mock)")
     log("✅ Mock API: Returned \(sessions.count) mock sessions")
     return sessions
   }
 
-  package func createSession() async throws -> OpenCodeSession {
+  public func createSession() async throws -> OpenCodeSession {
     log("🧪 Mock API: Creating session (mock)")
     let session = OpenCodeSession(
       id: UUID().uuidString,
@@ -203,26 +203,26 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     return session
   }
 
-  package func deleteSession(id: String) async throws {
+  public func deleteSession(id: String) async throws {
     // Mock implementation
   }
 
-  package func getSession(id: String) async throws -> OpenCodeSession {
+  public func getSession(id: String) async throws -> OpenCodeSession {
     guard let session = sessions.first(where: { $0.id == id }) else {
       throw OpenCodeAPIError.sessionNotFound(id)
     }
     return session
   }
 
-  package func listProjects() async throws -> [OpenCodeProject] {
+  public func listProjects() async throws -> [OpenCodeProject] {
     return projects
   }
 
-  package func getCurrentProject() async throws -> OpenCodeProject? {
+  public func getCurrentProject() async throws -> OpenCodeProject? {
     return projects.first
   }
 
-  package func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
+  public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
@@ -233,11 +233,11 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     return message
   }
 
-  package func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
+  public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
     return messages[sessionID] ?? []
   }
 
-  package func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
+  public func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
     guard let sessionMessages = messages[sessionID],
           let message = sessionMessages.first(where: { $0.id == messageID }) else {
       throw OpenCodeAPIError.messageNotFound(messageID)
@@ -245,7 +245,7 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     return message
   }
 
-  package func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
+  public func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
@@ -256,7 +256,7 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     return message
   }
 
-  package func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
+  public func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
@@ -267,7 +267,7 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     return message
   }
 
-  package func getConfig() async throws -> OpenCodeConfig {
+  public func getConfig() async throws -> OpenCodeConfig {
     return OpenCodeConfig(
       version: "0.10.1",
       environment: "development",
@@ -275,7 +275,7 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
     )
   }
 
-  package func listProviders() async throws -> OpenCodeProviders {
+  public func listProviders() async throws -> OpenCodeProviders {
     return OpenCodeProviders(
       providers: ["openai": ["gpt-4": "GPT-4"]],
       defaultProvider: "openai"
@@ -285,13 +285,13 @@ package struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 
 // MARK: - Dependency Injection
 
-package enum OpenCodeAPIClientKey: DependencyKey, TestDependencyKey {
-  package static let liveValue: OpenCodeAPIClientProtocol = MockOpenCodeAPIClient() // Default to mock
-  package static let testValue: OpenCodeAPIClientProtocol = MockOpenCodeAPIClient()
+public enum OpenCodeAPIClientKey: DependencyKey, TestDependencyKey, Sendable {
+  public static let liveValue: OpenCodeAPIClientProtocol = MockOpenCodeAPIClient() // Default to mock
+  public static let testValue: OpenCodeAPIClientProtocol = MockOpenCodeAPIClient()
 }
 
 extension DependencyValues {
-  package var openCodeAPI: OpenCodeAPIClientProtocol {
+  public var openCodeAPI: OpenCodeAPIClientProtocol {
     get { self[OpenCodeAPIClientKey.self] }
     set { self[OpenCodeAPIClientKey.self] = newValue }
   }

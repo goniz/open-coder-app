@@ -4,8 +4,8 @@ import Foundation
 import Models
 
 @Reducer
-package struct WorkspaceInteractionFeature {
-  package enum Tab: String, CaseIterable, Equatable {
+public struct WorkspaceInteractionFeature: Sendable {
+  public enum Tab: String, CaseIterable, Equatable, Sendable {
     case activity = "Activity"
     case chat = "Chat"
     case terminal = "Terminal"
@@ -14,45 +14,47 @@ package struct WorkspaceInteractionFeature {
   }
 
   @ObservableState
-  package struct State: Equatable {
-    package var workspace: Workspace
-    package var onlineState: WorkspaceOnlineState
-    package var selectedTab: Tab
-    package var chat: ChatFeature.State
-    package var serverConnection: ConnectionState = .disconnected
-    package var forwardedPort: Int?
-    package var activityEvents: [ActivityEvent] = []
-    package var previousOnlineState: WorkspaceOnlineState?
+  public struct State: Equatable, Sendable {
+    public var workspace: Workspace
+    public var onlineState: WorkspaceOnlineState
+    public var selectedTab: Tab
+    public var serverConnection: ConnectionState = .disconnected
+    public var forwardedPort: Int?
+    public var openCodeServerURL: URL?
+    public var openCodeSessionID: String?
+    public var activityEvents: [ActivityEvent] = []
+    public var previousOnlineState: WorkspaceOnlineState?
 
-    package init(
+    public init(
       workspace: Workspace,
       onlineState: WorkspaceOnlineState,
       selectedTab: Tab = .activity,
-      sessionID: String? = nil,
       forwardedPort: Int? = nil,
+      openCodeServerURL: URL? = nil,
+      openCodeSessionID: String? = nil,
       activityEvents: [ActivityEvent] = [],
       previousOnlineState: WorkspaceOnlineState? = nil
     ) {
       self.workspace = workspace
       self.onlineState = onlineState
       self.selectedTab = selectedTab
-      if let forwardedPort {
-        let serverURL = URL(string: "http://127.0.0.1:\(forwardedPort)")
-        self.chat = ChatFeature.State(sessionID: sessionID, serverURL: serverURL)
-      } else {
-        self.chat = ChatFeature.State(sessionID: sessionID)
-      }
       self.forwardedPort = forwardedPort
+      if let forwardedPort,
+         openCodeServerURL == nil {
+        self.openCodeServerURL = URL(string: "http://127.0.0.1:\(forwardedPort)")
+      } else {
+        self.openCodeServerURL = openCodeServerURL
+      }
+      self.openCodeSessionID = openCodeSessionID
       self.activityEvents = activityEvents
       self.previousOnlineState = previousOnlineState
     }
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case task
     case serverConnectionRefreshed(ConnectionState)
     case tabSelected(Tab)
-    case chat(ChatFeature.Action)
     case openCodeSessionUpdated(OpenCodeSession?)
     case forwardedPortUpdated(Int?)
     case addActivityEvent(ActivityEvent)
@@ -60,16 +62,13 @@ package struct WorkspaceInteractionFeature {
     case onlineStateChanged(WorkspaceOnlineState)
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
-    Scope(state: \.chat, action: \.chat) {
-      ChatFeature()
-    }
+  public var body: some ReducerOf<Self> {
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
       return handleTaskAction(state: &state)
@@ -81,7 +80,7 @@ package struct WorkspaceInteractionFeature {
       return handleTabSelected(state: &state, tab: tab)
 
     case let .openCodeSessionUpdated(session):
-      return handleOpenCodeSessionUpdated(session: session)
+      return handleOpenCodeSessionUpdated(state: &state, session: session)
 
     case let .forwardedPortUpdated(port):
       return handleForwardedPortUpdated(state: &state, port: port)
@@ -94,9 +93,6 @@ package struct WorkspaceInteractionFeature {
 
     case let .onlineStateChanged(newState):
       return handleOnlineStateChanged(state: &state, newState: newState)
-
-    case .chat:
-      return .none
     }
   }
 
@@ -127,39 +123,24 @@ package struct WorkspaceInteractionFeature {
 
   private func handleTabSelected(state: inout State, tab: Tab) -> Effect<Action> {
     state.selectedTab = tab
-
-    // Fetch sessions when chat tab is selected
-    if tab == .chat {
-      return .send(.chat(.fetchSessions))
-    }
-
     return .none
   }
 
-  private func handleOpenCodeSessionUpdated(session: OpenCodeSession?) -> Effect<Action> {
-    return .send(.chat(.updateSession(session?.id)))
+  private func handleOpenCodeSessionUpdated(state: inout State, session: OpenCodeSession?) -> Effect<Action> {
+    state.openCodeSessionID = session?.id
+    return .none
   }
 
   private func handleForwardedPortUpdated(state: inout State, port: Int?) -> Effect<Action> {
     state.forwardedPort = port
+    state.openCodeServerURL = port.flatMap { URL(string: "http://127.0.0.1:\($0)") }
     if let port {
-      state.chat.serverURL = URL(string: "http://127.0.0.1:\(port)")
       // Create activity event for port forwarding
       let event = ActivityEvent(
         type: .portForwarding,
         message: "SSH port forwarding established on port \(port)"
       )
-      // Fetch sessions now that we have a server URL, especially if we're on the chat tab
-      if state.selectedTab == .chat {
-        return .merge(
-          .send(.addActivityEvent(event)),
-          .send(.chat(.fetchSessions))
-        )
-      } else {
-        return .send(.addActivityEvent(event))
-      }
-    } else {
-      state.chat.serverURL = nil
+      return .send(.addActivityEvent(event))
     }
     return .none
   }

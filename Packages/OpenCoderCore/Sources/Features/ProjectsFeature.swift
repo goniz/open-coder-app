@@ -2,29 +2,29 @@ import ComposableArchitecture
 import Foundation
 
 @Reducer
-package struct ProjectsFeature {
+public struct ProjectsFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var projects: [Project] = []
-    package var isLoading = false
+  public struct State: Equatable, Sendable {
+    public var projects: [Project] = []
+    public var isLoading = false
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case task
     case projectsLoaded([Project])
     case addProject
     case removeProject(Int)
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
       state.isLoading = true
@@ -47,8 +47,8 @@ package struct ProjectsFeature {
   }
 }
 
-package struct Project: Equatable, Identifiable {
-  package let id: UUID
-  package let name: String
-  package let path: String
+public struct Project: Equatable, Identifiable, Sendable {
+  public let id: UUID
+  public let name: String
+  public let path: String
 }

@@ -1,14 +1,14 @@
 import Foundation
 
-package struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomStringConvertible {
+public struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomStringConvertible {
   private static let prefix = "ocw-"
 
-  package let workspaceComponent: String
-  package let hashComponent: String
-  package let sourcePath: String?
+  public let workspaceComponent: String
+  public let hashComponent: String
+  public let sourcePath: String?
   private let rawValue: String
 
-  package init(workspaceName: String, path: String) {
+  public init(workspaceName: String, path: String) {
     let normalizedName = Self.normalizeWorkspaceName(workspaceName)
     let hash = Self.shortHash(for: path)
     self.workspaceComponent = normalizedName
@@ -17,7 +17,7 @@ package struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomSt
     self.rawValue = Self.composeName(component: normalizedName, hash: hash)
   }
 
-  package init(rawValue: String) {
+  public init(rawValue: String) {
     let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
     let normalized: (component: String, hash: String)
 
@@ -40,13 +40,13 @@ package struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomSt
     self.rawValue = Self.composeName(component: workspaceComponent, hash: hashComponent)
   }
 
-  package var value: String { rawValue }
+  public var value: String { rawValue }
 
-  package var description: String { rawValue }
+  public var description: String { rawValue }
 
-  package func make() -> String { rawValue }
+  public func make() -> String { rawValue }
 
-  package static func generate(workspaceName: String, path: String) -> String {
+  public static func generate(workspaceName: String, path: String) -> String {
     TmuxSessionName(workspaceName: workspaceName, path: path).value
   }
 
@@ -135,13 +135,13 @@ package struct TmuxSessionName: Sendable, Codable, Equatable, Hashable, CustomSt
 
   // MARK: Codable
 
-  package init(from decoder: Decoder) throws {
+  public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
     let raw = try container.decode(String.self)
     self.init(rawValue: raw)
   }
 
-  package func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     try container.encode(rawValue)
   }

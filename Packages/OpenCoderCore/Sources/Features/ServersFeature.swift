@@ -7,51 +7,51 @@ import Models
   import UIKit
 #endif
 
-package enum ConnectionState: Equatable {
+public enum ConnectionState: Equatable, Sendable {
   case disconnected
   case connecting
   case connected
   case error(String)
 }
 
-package struct ServerState: Equatable, Identifiable {
-  package let id = UUID()
-  package var configuration: SSHServerConfiguration
-  package var connectionState: ConnectionState = .disconnected
-  package var lastConnectedAt: Date?
+public struct ServerState: Equatable, Identifiable, Sendable {
+  public let id = UUID()
+  public var configuration: SSHServerConfiguration
+  public var connectionState: ConnectionState = .disconnected
+  public var lastConnectedAt: Date?
 
-  package var shouldMaintainConnection: Bool {
+  public var shouldMaintainConnection: Bool {
     get { configuration.shouldMaintainConnection }
     set { configuration.shouldMaintainConnection = newValue }
   }
 
-  package init(configuration: SSHServerConfiguration) {
+  public init(configuration: SSHServerConfiguration) {
     self.configuration = configuration
   }
 }
 
 @Reducer
 // swiftlint:disable:next type_body_length
-package struct ServersFeature {
+public struct ServersFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var servers: [ServerState] = []
-    package var isLoading = false
-    package var isAddingServer = false
-    package var persistentConnections: Set<ServerState.ID> = []
-    package var isInBackground = false
-    package var activeTaskConnections: [ServerState.ID: Date] = [:]
-    package var activeTasks: [CodingTask.ID: CodingTask] = [:]
+  public struct State: Equatable, Sendable {
+    public var servers: [ServerState] = []
+    public var isLoading = false
+    public var isAddingServer = false
+    public var persistentConnections: Set<ServerState.ID> = []
+    public var isInBackground = false
+    public var activeTaskConnections: [ServerState.ID: Date] = [:]
+    public var activeTasks: [CodingTask.ID: CodingTask] = [:]
     #if canImport(UIKit) && !os(macOS)
-      package var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+      public var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     #else
-      package var backgroundTaskID: Int = -1
+      public var backgroundTaskID: Int = -1
     #endif
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case task
     case serversLoaded([ServerState])
     case addServer
@@ -72,13 +72,13 @@ package struct ServersFeature {
     case maintainActiveTaskConnections
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task, .serversLoaded, .addServer, .addServerCompleted, .testConnection, .disconnect,
       .connectionSuccess, .connectionFailed, .removeServer, .dismissAddServer,

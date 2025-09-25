@@ -1,11 +1,11 @@
 import Foundation
 
-package actor TaskProgressSimulator {
+public actor TaskProgressSimulator {
   private var isRunning = false
 
-  package init() {}
+  public init() {}
 
-  package func startSimulation(
+  public func startSimulation(
     task: CodingTask,
     progressCallback: @escaping (Double, String, TaskStatus) async -> Void
   ) async {
@@ -43,7 +43,7 @@ package actor TaskProgressSimulator {
     isRunning = false
   }
 
-  package func stopSimulation() {
+  public func stopSimulation() {
     isRunning = false
   }
 }

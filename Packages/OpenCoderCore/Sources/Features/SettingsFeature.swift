@@ -2,18 +2,18 @@ import ComposableArchitecture
 import Models
 
 @Reducer
-package struct SettingsFeature {
+public struct SettingsFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var theme: Theme = .system
-    package var notificationsEnabled = true
-    package var autoSaveEnabled = true
-    package var showingLogs = false
+  public struct State: Equatable, Sendable {
+    public var theme: Theme = .system
+    public var notificationsEnabled = true
+    public var autoSaveEnabled = true
+    public var showingLogs = false
 
-    package init() {}
+    public init() {}
   }
 
-  package enum Action: Equatable, BindableAction {
+  public enum Action: Equatable, BindableAction, Sendable {
     case binding(BindingAction<State>)
     case task
     case resetToDefaults
@@ -21,14 +21,14 @@ package struct SettingsFeature {
     case clearLogs
   }
 
-  package init() {}
+  public init() {}
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     BindingReducer()
     Reduce(core)
   }
 
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .binding:
       return .none
@@ -53,7 +53,7 @@ package struct SettingsFeature {
   }
 }
 
-package enum Theme: String, Equatable, CaseIterable {
+public enum Theme: String, Equatable, CaseIterable, Sendable {
   case light
   case dark
   case system

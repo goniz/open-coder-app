@@ -2,20 +2,20 @@ import Foundation
 import OSLog
 
 @MainActor
-package final class AppLogger: ObservableObject {
-  package static let shared = AppLogger()
+public final class AppLogger: ObservableObject {
+  public static let shared = AppLogger()
 
-  @Published package var logEntries: [LogEntry] = []
+  @Published public var logEntries: [LogEntry] = []
   private let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "OpenCoder", category: "AppLogger")
 
-  package var latestEntryID: LogEntry.ID? {
+  public var latestEntryID: LogEntry.ID? {
     logEntries.last?.id
   }
 
   private init() {}
 
-  package func log(_ message: String, level: LogLevel = .info, category: LogCategory = .general) {
+  public func log(_ message: String, level: LogLevel = .info, category: LogCategory = .general) {
     let entry = LogEntry(
       timestamp: Date(),
       message: message,
@@ -43,19 +43,20 @@ package final class AppLogger: ObservableObject {
     }
   }
 
-  package func clearLogs() {
+  public func clearLogs() {
     logEntries.removeAll()
   }
 }
 
-package struct LogEntry: Identifiable, Equatable {
-  package let id = UUID()
-  package let timestamp: Date
-  package let message: String
-  package let level: LogLevel
-  package let category: LogCategory
+public struct LogEntry: Identifiable, Equatable, Sendable {
 
-  package var formattedTimestamp: String {
+  public let id = UUID()
+  public let timestamp: Date
+  public let message: String
+  public let level: LogLevel
+  public let category: LogCategory
+
+  public var formattedTimestamp: String {
     let formatter = DateFormatter()
     formatter.timeStyle = .medium
     formatter.dateStyle = .none
@@ -63,13 +64,14 @@ package struct LogEntry: Identifiable, Equatable {
   }
 }
 
-package enum LogLevel: String, CaseIterable {
+public enum LogLevel: String, CaseIterable, Sendable {
+
   case debug = "DEBUG"
   case info = "INFO"
   case warning = "WARNING"
   case error = "ERROR"
 
-  package var color: String {
+  public var color: String {
     switch self {
     case .debug: return "gray"
     case .info: return "blue"
@@ -79,7 +81,8 @@ package enum LogLevel: String, CaseIterable {
   }
 }
 
-package enum LogCategory: String, CaseIterable {
+public enum LogCategory: String, CaseIterable, Sendable {
+
   case general = "General"
   case ssh = "SSH"
   case api = "API"

@@ -8,26 +8,26 @@ import Models
 #endif
 
 @Reducer
-package struct LiveActivityFeature {
+public struct LiveActivityFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
+  public struct State: Equatable, Sendable {
     #if canImport(ActivityKit) && !os(macOS)
-      package var currentActivity: Activity<CodingTaskAttributes>?
+      public var currentActivity: Activity<CodingTaskAttributes>?
     #endif
-    package var isActivityActive = false
-    package var monitoringTasks: [CodingTask.ID: CodingTask] = [:]
-    package var taskSessions: [CodingTask.ID: OpenCodeSession] = [:]
+    public var isActivityActive = false
+    public var monitoringTasks: [CodingTask.ID: CodingTask] = [:]
+    public var taskSessions: [CodingTask.ID: OpenCodeSession] = [:]
 
-    package init() {}
+    public init() {}
 
-    package static func == (lhs: State, rhs: State) -> Bool {
+    public static func == (lhs: State, rhs: State) -> Bool {
       lhs.isActivityActive == rhs.isActivityActive
         && lhs.monitoringTasks == rhs.monitoringTasks
         && lhs.taskSessions.keys == rhs.taskSessions.keys
     }
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case startActivity(CodingTask)
     case updateActivity(CodingTask)
     case stopActivity(CodingTask.ID)
@@ -41,13 +41,13 @@ package struct LiveActivityFeature {
   @Dependency(\.backgroundTask) var backgroundTask
   @Dependency(\.openCodeAPI) var openCodeAPI
 
-  package init() {}
+  public init() {}
 
   private enum CancelID: Hashable {
     case task(UUID)
   }
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
       case let .startActivity(task):

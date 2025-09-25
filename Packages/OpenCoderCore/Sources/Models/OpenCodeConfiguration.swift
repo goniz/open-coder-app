@@ -1,11 +1,11 @@
 import Foundation
 
-package struct OpenCodeConfiguration: Equatable, Sendable {
-  package let serverURL: URL
-  package let timeout: TimeInterval
-  package let retryCount: Int
+public struct OpenCodeConfiguration: Equatable, Sendable {
+  public let serverURL: URL
+  public let timeout: TimeInterval
+  public let retryCount: Int
 
-  package init(
+  public init(
     serverURL: URL = URL(string: "http://localhost:8080")!,
     timeout: TimeInterval = 30,
     retryCount: Int = 3
@@ -15,11 +15,11 @@ package struct OpenCodeConfiguration: Equatable, Sendable {
     self.retryCount = retryCount
   }
 
-  package static let development = OpenCodeConfiguration(
+  public static let development = OpenCodeConfiguration(
     serverURL: URL(string: "http://localhost:8080")!
   )
 
-  package static let production = OpenCodeConfiguration(
+  public static let production = OpenCodeConfiguration(
     serverURL: URL(string: "https://api.opencode.app")!,
     timeout: 30,
     retryCount: 3

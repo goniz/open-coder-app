@@ -5,39 +5,39 @@ import Foundation
 import Models
 
 @Reducer
-package struct WorkspacesFeature {
+public struct WorkspacesFeature: Sendable {
   @ObservableState
-  package struct State: Equatable {
-    package var workspaces: [WorkspaceState] = []
-    package var isLoading = false
-    package var isAddingWorkspace = false
-    package var selectedWorkspace: WorkspaceState.ID?
-    package var showingWorkspaceInteraction = false
-    package var interactionInitialTab: WorkspaceInteractionFeature.Tab = .activity
-    package var workspaceInteraction: WorkspaceInteractionFeature.State?
-    @ObservationStateIgnored package var portForwardTokens: [WorkspaceState.ID: PortForwardToken] = [:]
+  public struct State: Equatable, Sendable {
+    public var workspaces: [WorkspaceState] = []
+    public var isLoading = false
+    public var isAddingWorkspace = false
+    public var selectedWorkspace: WorkspaceState.ID?
+    public var showingWorkspaceInteraction = false
+    public var interactionInitialTab: WorkspaceInteractionFeature.Tab = .activity
+    public var workspaceInteraction: WorkspaceInteractionFeature.State?
+    @ObservationStateIgnored public var portForwardTokens: [WorkspaceState.ID: PortForwardToken] = [:]
 
-    package init() {}
+    public init() {}
   }
 
-  package struct WorkspaceState: Equatable, Identifiable {
-    package let id = UUID()
-    package var workspace: Workspace
-    package var onlineState: WorkspaceOnlineState = .idle
-    package var lastConnectedAt: Date?
-    package var openCodeSession: OpenCodeSession?
-    package var openCodeSessions: [OpenCodeSession] = []
-    package var remotePort: Int?
-    package var forwardedPort: Int?
-    package var sessions: [SessionMeta] = []
-    package var isRefreshing = false
+  public struct WorkspaceState: Equatable, Identifiable, Sendable {
+    public let id = UUID()
+    public var workspace: Workspace
+    public var onlineState: WorkspaceOnlineState = .idle
+    public var lastConnectedAt: Date?
+    public var openCodeSession: OpenCodeSession?
+    public var openCodeSessions: [OpenCodeSession] = []
+    public var remotePort: Int?
+    public var forwardedPort: Int?
+    public var sessions: [SessionMeta] = []
+    public var isRefreshing = false
 
-    package init(workspace: Workspace) {
+    public init(workspace: Workspace) {
       self.workspace = workspace
     }
   }
 
-  package enum Action: Equatable {
+  public enum Action: Equatable, Sendable {
     case task
     case workspacesLoaded([WorkspaceState])
     case addWorkspace
@@ -56,13 +56,13 @@ package struct WorkspacesFeature {
     case workspaceInteraction(WorkspaceInteractionFeature.Action)
   }
 
-  package init() {}
+  public init() {}
 
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
   @Dependency(\.portForwarding) var portForwarding
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
 
-  package var body: some ReducerOf<Self> {
+  public var body: some ReducerOf<Self> {
     Reduce(core)
       .ifLet(
         \.workspaceInteraction,
@@ -73,7 +73,7 @@ package struct WorkspacesFeature {
   }
 
   // swiftlint:disable:next cyclomatic_complexity
-  package func core(state: inout State, action: Action) -> Effect<Action> {
+  public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
       return handleTask(state: &state)

@@ -7,11 +7,11 @@ import Protocols
 import Dependencies
 import Models
 
-package struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
-  package let client: Client
-  package let configuration: OpenCodeConfiguration
+public struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
+  let client: Client
+  public let configuration: OpenCodeConfiguration
 
-  package init(
+  public init(
     configuration: OpenCodeConfiguration = .development,
     transport: any ClientTransport = AsyncHTTPClientTransport()
   ) {
@@ -27,7 +27,7 @@ package struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 // MARK: - Session Management
 
 extension LiveOpenCodeAPIClient {
-  package func listSessions() async throws -> [OpenCodeSession] {
+  public func listSessions() async throws -> [OpenCodeSession] {
     log("🔗 OpenCode API: Listing sessions from \(configuration.serverURL)")
 
     let input = Operations.session_period_list.Input()
@@ -62,7 +62,7 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  package func createSession() async throws -> OpenCodeSession {
+  public func createSession() async throws -> OpenCodeSession {
     log("🔗 OpenCode API: Creating new session")
 
     let input = Operations.session_period_create.Input()
@@ -97,7 +97,7 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  package func deleteSession(id: String) async throws {
+  public func deleteSession(id: String) async throws {
     log("🔗 OpenCode API: Deleting session: \(id)")
 
     let input = Operations.session_period_delete.Input(path: .init(id: id))
@@ -119,7 +119,7 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  package func getSession(id: String) async throws -> OpenCodeSession {
+  public func getSession(id: String) async throws -> OpenCodeSession {
     let input = Operations.session_period_get.Input(path: .init(id: id))
     let response = try await client.session_period_get(input)
 
@@ -145,7 +145,7 @@ extension LiveOpenCodeAPIClient {
 // MARK: - Project Operations
 
 extension LiveOpenCodeAPIClient {
-  package func listProjects() async throws -> [OpenCodeProject] {
+  public func listProjects() async throws -> [OpenCodeProject] {
     log("🔗 OpenCode API: Listing projects")
 
     let input = Operations.project_period_list.Input()
@@ -178,7 +178,7 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  package func getCurrentProject() async throws -> OpenCodeProject? {
+  public func getCurrentProject() async throws -> OpenCodeProject? {
     log("🔗 OpenCode API: Getting current project")
 
     let input = Operations.project_period_current.Input()
