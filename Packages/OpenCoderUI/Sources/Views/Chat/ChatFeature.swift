@@ -121,8 +121,8 @@ public struct ChatFeature {
       return .none
 
     case .messageMenuAction:
-      // TODO: implement menu actions (copy, delete, etc.)
-      return .none
+       // Menu actions not implemented yet
+       return .none
 
     case let .serverURLUpdated(url):
       state.serverURL = url
