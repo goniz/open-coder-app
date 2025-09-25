@@ -38,7 +38,7 @@ extension WorkspacesFeature {
     state.workspaceInteraction?.workspace = selectedWorkspace.workspace
     state.workspaceInteraction?.onlineState = selectedWorkspace.onlineState
     state.workspaceInteraction?.forwardedPort = selectedWorkspace.forwardedPort
-    // Chat server URL is now handled in UI layer
+    // Note: Chat server URL handling moved to UI layer to separate platform-specific logic from core business logic.
 
     return .merge(
       .send(.workspaceInteraction(.forwardedPortUpdated(selectedWorkspace.forwardedPort))),

@@ -1,10 +1,10 @@
 build:
     @echo "Building OpenCoderCore (macOS + iOS)..."
-    cd Packages/OpenCoderCore && swift build
+    cd Packages/OpenCoderCore && swift build -Xswiftc -warnings-as-errors
     @echo "Building OpenCoderUI (iOS)..."
-    cd Packages/OpenCoderUI && swift build --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    cd Packages/OpenCoderUI && swift build -Xswiftc -warnings-as-errors --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
     @echo "Building OpenCoderApp (iOS)..."
-    cd Packages/OpenCoderApp && swift build --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+    cd Packages/OpenCoderApp && swift build -Xswiftc -warnings-as-errors --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
 
 test:
     @echo "Testing OpenCoderCore..."
@@ -15,7 +15,7 @@ test:
     cd Packages/OpenCoderApp && swift test --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
 
 build-core-macos:
-    cd Packages/OpenCoderCore && swift build
+    cd Packages/OpenCoderCore && swift build -Xswiftc -warnings-as-errors
 
 update:
     swift package update

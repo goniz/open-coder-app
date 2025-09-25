@@ -4,6 +4,9 @@ import Foundation
   import ActivityKit
 #endif
 
+// This model is in Core package because it defines shared types for task activities,
+// with iOS-specific features conditionally compiled.
+
 #if canImport(ActivityKit) && !os(macOS)
   public struct CodingTaskAttributes: ActivityAttributes, Sendable {
 
