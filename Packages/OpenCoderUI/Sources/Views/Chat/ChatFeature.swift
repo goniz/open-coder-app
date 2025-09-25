@@ -117,33 +117,28 @@ public struct ChatFeature {
 
   public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
-    case .binding:
-      return .none
-    case .messageMenuAction:
+    case .binding, .messageMenuAction:
       return .none
     case let .serverURLUpdated(url):
       return handleServerURLUpdated(state: &state, url: url)
     case .task:
       return handleTask(state: &state)
     case .sendMessage:
-      return handleSendMessage(state: &state)
+      return .send(.sendDraft(state.draft))
     case let .sendDraft(draft):
       return handleSendDraft(state: &state, draft: draft)
     case let .draftUpdated(draft):
       return handleDraftUpdated(state: &state, draft: draft)
     case .messagesLoaded, .messagesFailed, .messageReceived,
-         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
-      return handleMessageLifecycleActions(state: &state, action: action)
-    case let .updateSession(sessionID):
-      return handleUpdateSession(state: &state, sessionID: sessionID)
+         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed,
+         let .updateSession(sessionID):
+      return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
          .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
     case .loadMore:
       return handleLoadMore(state: &state)
-    case let .mediaPickerPresented(isPresented):
-      return handleMediaPickerPresented(state: &state, isPresented: isPresented)
-    case let .mediaPickerAttachmentsUpdated(count):
-      return handleMediaPickerAttachmentsUpdated(state: &state, count: count)
+    case let .mediaPickerPresented(isPresented), let .mediaPickerAttachmentsUpdated(count):
+      return handleMediaPickerActions(state: &state, action: action)
     }
   }

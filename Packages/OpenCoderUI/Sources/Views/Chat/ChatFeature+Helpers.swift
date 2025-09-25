@@ -139,4 +139,27 @@ extension ChatFeature {
     state.mediaPicker.selectedAttachmentCount = count
     return .none
   }
+
+  func handleMediaPickerActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case let .mediaPickerPresented(isPresented):
+      return handleMediaPickerPresented(state: &state, isPresented: isPresented)
+    case let .mediaPickerAttachmentsUpdated(count):
+      return handleMediaPickerAttachmentsUpdated(state: &state, count: count)
+    default:
+      return .none
+    }
+  }
+
+  func handleCoreMessageActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .messagesLoaded, .messagesFailed, .messageReceived,
+         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
+      return handleMessageLifecycleActions(state: &state, action: action)
+    case let .updateSession(sessionID):
+      return handleUpdateSession(state: &state, sessionID: sessionID)
+    default:
+      return .none
+    }
+  }
 }
