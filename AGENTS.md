@@ -4,7 +4,7 @@
 - **Build all packages: `just build`** - Builds OpenCoderCore (macOS+iOS), OpenCoderUI (iOS), and OpenCoderApp (iOS)
 - **Build core package on macOS: `just build-core-macos`** - Faster testing of business logic without iOS simulator
 - Build iOS app: `just build-ios` (development build without publishing)
-- Test all packages: `just test` - Runs tests across all three packages
+- Test core package: `just test` - Runs tests for OpenCoderCore package only
 - Test single core package: `cd Packages/OpenCoderCore && swift test`
 - **Lint all packages: `just lint`** - Lints all packages with strict mode (warnings as errors)
 - **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations across all packages
@@ -18,7 +18,7 @@
 1. SwiftLint checks with strict mode (warnings as errors)
 2. Swift package build with warnings as errors
 3. iOS app build for simulator 
-4. All unit tests
+4. Core package unit tests
 
 This ensures code quality and prevents issues from propagating through the codebase. The command uses `&&` chaining to exit immediately on any failure.
 

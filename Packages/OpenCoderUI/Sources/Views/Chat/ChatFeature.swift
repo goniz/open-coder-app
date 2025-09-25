@@ -120,21 +120,11 @@ public struct ChatFeature: Sendable {
     case .binding, .messageMenuAction:
       return .none
     case let .serverURLUpdated(url):
-      state.serverURL = url
-      state.messages = []
-      state.exyteMessages = []
-      state.pendingMessageIDs = []
-      state.unsupportedPartKinds = []
-      state.errorMessage = nil
-      return .none
+      return handleServerURLUpdated(state: &state, url: url)
     case .task:
       return handleTask(state: &state)
-    case .sendMessage:
-      return .send(.sendDraft(state.draft))
-    case let .sendDraft(draft):
-      return handleSendDraft(state: &state, draft: draft)
-    case let .draftUpdated(draft):
-      return handleDraftUpdated(state: &state, draft: draft)
+    case .sendMessage, .sendDraft, .draftUpdated:
+      return handleMessageDraftActions(state: &state, action: action)
     case .messagesLoaded, .messagesFailed, .messageReceived,
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
       return handleCoreMessageActions(state: &state, action: action)

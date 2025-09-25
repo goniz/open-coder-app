@@ -81,7 +81,12 @@ extension ChatFeature {
     state.isLoading = false
     state.errorMessage = nil
     if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
-      state.exyteMessages[exyteIndex].user = User(id: "assistant", name: "Assistant", avatarURL: nil, isCurrentUser: false)
+      state.exyteMessages[exyteIndex].user = User(
+        id: "assistant",
+        name: "Assistant",
+        avatarURL: nil,
+        isCurrentUser: false
+      )
     }
     return .none
   }

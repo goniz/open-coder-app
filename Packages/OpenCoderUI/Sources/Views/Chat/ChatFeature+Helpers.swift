@@ -189,5 +189,26 @@ extension ChatFeature {
     }
   }
 
+  func handleServerURLUpdated(state: inout State, url: URL?) -> Effect<Action> {
+    state.serverURL = url
+    state.messages = []
+    state.exyteMessages = []
+    state.pendingMessageIDs = []
+    state.unsupportedPartKinds = []
+    state.errorMessage = nil
+    return .none
+  }
 
+  func handleMessageDraftActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .sendMessage:
+      return .send(.sendDraft(state.draft))
+    case let .sendDraft(draft):
+      return handleSendDraft(state: &state, draft: draft)
+    case let .draftUpdated(draft):
+      return handleDraftUpdated(state: &state, draft: draft)
+    default:
+      return .none
+    }
+  }
 }
