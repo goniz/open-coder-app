@@ -44,7 +44,7 @@ public struct ChatMediaPickerState: Equatable, Sendable {
 }
 
 @Reducer
-public struct ChatFeature {
+public struct ChatFeature: Sendable {
   @ObservableState
   public struct State: Equatable, Sendable {
     public var messages: [OpenCodeMessage] = []
@@ -120,7 +120,13 @@ public struct ChatFeature {
     case .binding, .messageMenuAction:
       return .none
     case let .serverURLUpdated(url):
-      return handleServerURLUpdated(state: &state, url: url)
+      state.serverURL = url
+      state.messages = []
+      state.exyteMessages = []
+      state.pendingMessageIDs = []
+      state.unsupportedPartKinds = []
+      state.errorMessage = nil
+      return .none
     case .task:
       return handleTask(state: &state)
     case .sendMessage:
@@ -130,15 +136,19 @@ public struct ChatFeature {
     case let .draftUpdated(draft):
       return handleDraftUpdated(state: &state, draft: draft)
     case .messagesLoaded, .messagesFailed, .messageReceived,
-         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed,
-         let .updateSession(sessionID):
+         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
+      return handleCoreMessageActions(state: &state, action: action)
+    case .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
          .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
     case .loadMore:
       return handleLoadMore(state: &state)
-    case let .mediaPickerPresented(isPresented), let .mediaPickerAttachmentsUpdated(count):
+    case .mediaPickerPresented:
+      return handleMediaPickerActions(state: &state, action: action)
+    case .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
     }
   }
+}

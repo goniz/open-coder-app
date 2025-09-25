@@ -17,8 +17,12 @@ struct WorkspaceInteractionView: View {
     WithViewStore(store, observe: { $0 }, content: { viewStore in
       content
         .onAppear { syncChat(state: viewStore.state) }
-        .onChange(of: viewStore.openCodeServerURL) { _ in syncChat(state: viewStore.state) }
-        .onChange(of: viewStore.openCodeSessionID) { _ in syncChat(state: viewStore.state) }
+        .onChange(of: viewStore.openCodeServerURL) { 
+          syncChat(state: viewStore.state) 
+        }
+        .onChange(of: viewStore.openCodeSessionID) { 
+          syncChat(state: viewStore.state) 
+        }
     })
   }
 

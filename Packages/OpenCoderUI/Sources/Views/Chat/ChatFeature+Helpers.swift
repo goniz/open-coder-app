@@ -1,5 +1,8 @@
 import ComposableArchitecture
 import Foundation
+import Protocols
+import ExyteChat
+import Models
 
 extension ChatFeature {
   func handleTask(state: inout State) -> Effect<Action> {
@@ -48,19 +51,21 @@ extension ChatFeature {
     state.messages.append(pendingMessage)
     state.exyteMessages.append(Message(
       id: messageID,
-      user: MessageUser(senderId: "user", displayName: "You"),
+      user: User(id: "user", name: "You", avatarURL: nil, isCurrentUser: true),
       createdAt: Date(),
       text: trimmedText
     ))
     state.draft = ChatDraftState()
     state.isLoading = true
 
-    return .run { send in
+    return .run { [openCodeAPIFactory] send in
       do {
-        try await sendMessage(sessionID: sessionID, serverURL: serverURL, message: pendingMessage)
-        await send(.messageSendCompleted(messageID))
+        let configuration = OpenCodeConfiguration(serverURL: serverURL)
+        let apiClient = openCodeAPIFactory.make(configuration)
+        _ = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
+        await send(.messageSendCompleted(messageID: messageID))
       } catch {
-        await send(.messageSendFailed(messageID, error.localizedDescription))
+        await send(.messageSendFailed(messageID: messageID, error: error.localizedDescription))
       }
     }
   }
@@ -70,7 +75,7 @@ extension ChatFeature {
     return .none
   }
 
-  func handleUpdateSession(state: inout State, sessionID: String) -> Effect<Action> {
+  func handleUpdateSession(state: inout State, sessionID: String?) -> Effect<Action> {
     state.sessionID = sessionID
     state.messages = []
     state.exyteMessages = []
@@ -102,14 +107,14 @@ extension ChatFeature {
       state.errorMessage = nil
 
     case .newSession:
-      state.isCreatingSession = true
+      state.isLoadingSessions = true
 
     case let .sessionCreated(session):
       state.sessions.append(session)
-      state.isCreatingSession = false
+      state.isLoadingSessions = false
 
     case let .sessionCreationFailed(error):
-      state.isCreatingSession = false
+      state.isLoadingSessions = false
       state.errorMessage = error
 
     default:
@@ -162,4 +167,27 @@ extension ChatFeature {
       return .none
     }
   }
+
+  private func loadMessagesEffect(sessionID: String, serverURL: URL, isLoadMore: Bool = false) -> Effect<Action> {
+    .run { [openCodeAPIFactory] send in
+      do {
+        let configuration = OpenCodeConfiguration(serverURL: serverURL)
+        let apiClient = openCodeAPIFactory.make(configuration)
+        let messages = try await apiClient.getMessages(sessionID: sessionID)
+        if isLoadMore {
+          await send(.loadMoreCompleted(messages, hasMore: false))
+        } else {
+          await send(.messagesLoaded(messages))
+        }
+      } catch {
+        if isLoadMore {
+          await send(.loadMoreFailed(error.localizedDescription))
+        } else {
+          await send(.messagesFailed(error.localizedDescription))
+        }
+      }
+    }
+  }
+
+
 }

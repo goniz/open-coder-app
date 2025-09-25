@@ -1,5 +1,7 @@
 import ComposableArchitecture
 import Foundation
+import Protocols
+import ExyteChat
 
 extension ChatFeature {
   func handleMessageLifecycleActions(state: inout State, action: Action) -> Effect<Action> {
@@ -28,9 +30,11 @@ extension ChatFeature {
     state.exyteMessages = messages.map { message in
       Message(
         id: message.id,
-        user: MessageUser(
-          senderId: message.role.rawValue,
-          displayName: message.role.rawValue.capitalized
+        user: User(
+          id: message.role.rawValue,
+          name: message.role.rawValue.capitalized,
+          avatarURL: nil,
+          isCurrentUser: message.role == .user
         ),
         createdAt: message.timestamp,
         text: message.parts.compactMap { part in
@@ -56,9 +60,11 @@ extension ChatFeature {
     state.messages.append(message)
     state.exyteMessages.append(Message(
       id: message.id,
-      user: MessageUser(
-        senderId: message.role.rawValue,
-        displayName: message.role.rawValue.capitalized
+      user: User(
+        id: message.role.rawValue,
+        name: message.role.rawValue.capitalized,
+        avatarURL: nil,
+        isCurrentUser: message.role == .user
       ),
       createdAt: message.timestamp,
       text: message.parts.compactMap { part in
@@ -74,11 +80,8 @@ extension ChatFeature {
   func handleMessageSendCompleted(state: inout State, messageID: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = nil
-    if let index = state.messages.firstIndex(where: { $0.id == messageID }) {
-      state.messages[index].role = .assistant
-      if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
-        state.exyteMessages[exyteIndex].user = MessageUser(senderId: "assistant", displayName: "Assistant")
-      }
+    if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
+      state.exyteMessages[exyteIndex].user = User(id: "assistant", name: "Assistant", avatarURL: nil, isCurrentUser: false)
     }
     return .none
   }
@@ -104,9 +107,11 @@ extension ChatFeature {
     state.exyteMessages.insert(contentsOf: messages.map { message in
       Message(
         id: message.id,
-        user: MessageUser(
-          senderId: message.role.rawValue,
-          displayName: message.role.rawValue.capitalized
+        user: User(
+          id: message.role.rawValue,
+          name: message.role.rawValue.capitalized,
+          avatarURL: nil,
+          isCurrentUser: message.role == .user
         ),
         createdAt: message.timestamp,
         text: message.parts.compactMap { part in
