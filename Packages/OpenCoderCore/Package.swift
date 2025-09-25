@@ -115,20 +115,6 @@ let package = Package(
         .testTarget(
             name: "ProtocolsTests",
             dependencies: [
-                "Protocols",
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-            ]
-        ),
-        .testTarget(
-            name: "FeaturesTests",
-            dependencies: [
-                "Features",
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-            ]
-        ),
-        .testTarget(
-            name: "DependencyClientsTests",
-            dependencies: [
                 "Models",
                 "Protocols",
                 "Implementations",
@@ -137,6 +123,13 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOSSH", package: "swift-nio-ssh"),
                 .product(name: "Crypto", package: "swift-crypto"),
+            ]
+        ),
+        .testTarget(
+            name: "FeaturesTests",
+            dependencies: [
+                "Features",
+                .product(name: "CustomDump", package: "swift-custom-dump"),
             ]
         ),
     ]
