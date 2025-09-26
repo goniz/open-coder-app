@@ -8,8 +8,7 @@ extension WorkspacesFeature {
     workspace: Workspace,
     workspaceID: WorkspaceState.ID,
     forwardedPort: Int,
-    fallbackSessions: [SessionMeta],
-    fallbackOpenCodeSessions: [OpenCodeSession]
+    fallbackSessions: [SessionMeta]
   ) -> Effect<Action> {
     let baseConfiguration = openCodeConfiguration
     let serverURL = URL(string: "http://127.0.0.1:\(forwardedPort)")!
@@ -28,7 +27,7 @@ extension WorkspacesFeature {
         )
         await send(.workspaceRefreshed(workspaceID, metadata, openCodeSessions))
       } catch {
-        await send(.workspaceRefreshed(workspaceID, fallbackSessions, fallbackOpenCodeSessions))
+        await send(.workspaceRefreshed(workspaceID, fallbackSessions, []))
       }
     }
   }

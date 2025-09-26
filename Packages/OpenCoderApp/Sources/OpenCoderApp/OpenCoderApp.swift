@@ -6,27 +6,26 @@ import SwiftUI
 @main
 public struct OpenCoderApp: App {
   public init() {
-    print("OpenCoderApp init: Setting up dependencies")
+    AppLogger.shared.log("OpenCoderApp init: Setting up dependencies", level: .info, category: .general)
   }
 
   public var body: some Scene {
     let configuration = Self.resolveConfiguration()
 
-    return WindowGroup {
+    return WindowGroup(content: {
       AppView(
         store: Store(
           initialState: AppFeature.State(),
           reducer: { AppFeature() },
             withDependencies: {
               $0.openCodeConfiguration = configuration
-              $0.openCodeAPIFactory = OpenCodeAPIClientFactory { config in
-                print("Creating LiveOpenCodeAPIClient for config: \(config)")
-                return LiveOpenCodeAPIClient(configuration: config)
-              }
+              AppLogger.shared.log("OpenCoderApp: Setting live factory", level: .info, category: .general)
+              $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+              AppLogger.shared.log("OpenCoderApp: Factory configured", level: .info, category: .general)
             }
         )
       )
-    }
+    })
   }
 }
 

@@ -42,13 +42,21 @@ public struct AppFeature: Sendable {
   public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
-      print("AppFeature.task: Checking dependencies")
-      print("AppFeature.task: Factory type: \(type(of: openCodeAPIFactory))")
+      // Test the factory and client creation
       let config = OpenCodeConfiguration.development
       let client = openCodeAPIFactory.make(config)
-      print("AppFeature.task: Client type: \(type(of: client))")
       state.showOnboarding = !hasSavedServers()
-      return .none
+
+      // Log async to avoid actor isolation issues
+      return .run { _ in
+        await MainActor.run {
+          AppLogger.shared.log(
+            "AppFeature.task: Created client type: \(type(of: client))",
+            level: .info,
+            category: .general
+          )
+        }
+      }
 
     case .home:
       return .none

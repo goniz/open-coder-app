@@ -240,14 +240,12 @@ extension WorkspacesFeature {
     state.workspaces[index].isRefreshing = true
     let workspace = state.workspaces[index].workspace
     let existingSessions = state.workspaces[index].sessions
-    let existingOpenCodeSessions = state.workspaces[index].openCodeSessions
 
     return fetchSessionsEffect(
       workspace: workspace,
       workspaceID: id,
       forwardedPort: forwardedPort,
-      fallbackSessions: existingSessions,
-      fallbackOpenCodeSessions: existingOpenCodeSessions
+      fallbackSessions: existingSessions
     )
   }
 
