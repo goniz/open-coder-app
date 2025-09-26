@@ -11,7 +11,7 @@ private actor SharedAPIClientCache {
 
   private init() {}
 
-  func client(for serverURL: URL, factory: OpenCodeAPIClientFactory) -> OpenCodeAPIClientProtocol {
+  func client(for serverURL: URL, factory: OpenCodeAPIClientFactoryProtocol) -> OpenCodeAPIClientProtocol {
     if let cachedClient = clients[serverURL] {
       return cachedClient
     }

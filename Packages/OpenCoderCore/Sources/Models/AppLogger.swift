@@ -1,6 +1,10 @@
 import Foundation
 import OSLog
 
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
+
 @MainActor
 public final class AppLogger: ObservableObject {
   public static let shared = AppLogger()
@@ -11,6 +15,10 @@ public final class AppLogger: ObservableObject {
 
   public var latestEntryID: LogEntry.ID? {
     logEntries.last?.id
+  }
+
+  public var recentLogs: [LogEntry] {
+    logEntries
   }
 
   private init() {}
@@ -71,12 +79,33 @@ public enum LogLevel: String, CaseIterable, Sendable {
   case warning = "WARNING"
   case error = "ERROR"
 
-  public var color: String {
+  public var colorString: String {
     switch self {
     case .debug: return "gray"
     case .info: return "blue"
     case .warning: return "orange"
     case .error: return "red"
+    }
+  }
+
+  #if canImport(SwiftUI)
+  @available(iOS 13.0, macOS 10.15, *)
+  public var color: Color {
+    switch self {
+    case .debug: return .gray
+    case .info: return .blue
+    case .warning: return .orange
+    case .error: return .red
+    }
+  }
+  #endif
+
+  public var icon: String {
+    switch self {
+    case .debug: return "info.circle"
+    case .info: return "info.circle.fill"
+    case .warning: return "exclamationmark.triangle.fill"
+    case .error: return "exclamationmark.circle.fill"
     }
   }
 }

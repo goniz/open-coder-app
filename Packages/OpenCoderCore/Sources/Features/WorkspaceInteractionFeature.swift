@@ -60,6 +60,7 @@ public struct WorkspaceInteractionFeature: Sendable {
     case addActivityEvent(ActivityEvent)
     case clearActivityEvents
     case onlineStateChanged(WorkspaceOnlineState)
+    case retryConnection
   }
 
   public init() {}
@@ -93,6 +94,9 @@ public struct WorkspaceInteractionFeature: Sendable {
 
     case let .onlineStateChanged(newState):
       return handleOnlineStateChanged(state: &state, newState: newState)
+
+    case .retryConnection:
+      return handleRetryConnection(state: &state)
     }
   }
 
@@ -171,6 +175,22 @@ public struct WorkspaceInteractionFeature: Sendable {
       }
     }
     return .none
+  }
+
+  private func handleRetryConnection(state: inout State) -> Effect<Action> {
+    // Reset the online state and trigger a retry
+    state.onlineState = .idle
+
+    // Add activity event for retry attempt
+    let event = ActivityEvent(
+      type: .sshConnection,
+      message: "Retrying workspace connection..."
+    )
+
+    return .merge(
+      .send(.addActivityEvent(event)),
+      .send(.task)
+    )
   }
 }
 

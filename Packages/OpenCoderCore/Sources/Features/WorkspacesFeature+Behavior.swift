@@ -104,6 +104,13 @@ extension WorkspacesFeature {
   }
 
     private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
+      print("DEBUG: resetWorkspaceState called for index: \(index), id: \(id)")
+      guard index < state.workspaces.count else {
+        print("ERROR: resetWorkspaceState index \(index) out of bounds, workspaces count: \(state.workspaces.count)")
+        return
+      }
+
+      print("DEBUG: Resetting workspace state")
       state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
       state.workspaces[index].openCodeSession = nil
       state.workspaces[index].openCodeSessions = []
@@ -112,6 +119,7 @@ extension WorkspacesFeature {
       state.selectedWorkspace = id
       state.interactionInitialTab = .activity
       state.showingWorkspaceInteraction = true
+      print("DEBUG: resetWorkspaceState completed successfully")
     }
 
    private func createSSHConfigErrorEffect(
@@ -130,11 +138,19 @@ extension WorkspacesFeature {
    }
 
    func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
-     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+      print("DEBUG: handleOpenWorkspace called for workspace ID: \(id)")
 
-     resetWorkspaceState(&state, index: index, id: id)
-     let workspace = state.workspaces[index].workspace
+      guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else {
+        print("DEBUG: Could not find workspace with ID: \(id)")
+        return .none
+      }
 
+      print("DEBUG: Found workspace at index: \(index)")
+      resetWorkspaceState(&state, index: index, id: id)
+      let workspace = state.workspaces[index].workspace
+      print("DEBUG: Got workspace: \(workspace.name)")
+
+      print("DEBUG: Creating WorkspaceInteractionFeature.State")
       state.workspaceInteraction = WorkspaceInteractionFeature.State(
         workspace: workspace,
         onlineState: .idle, // Start with idle, then transition to spawning
@@ -142,13 +158,19 @@ extension WorkspacesFeature {
         forwardedPort: state.workspaces[index].forwardedPort,
         openCodeSessionID: state.workspaces[index].openCodeSession?.id
       )
+      print("DEBUG: Created WorkspaceInteractionFeature.State successfully")
 
-     let cleanup = stopPortForward(&state, id: id)
+      print("DEBUG: Getting cleanup effect")
+      let cleanup = stopPortForward(&state, id: id)
 
-     guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
-       return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
-     }
+      print("DEBUG: Loading SSH config for workspace")
+      guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
+        print("DEBUG: No SSH config found for workspace")
+        return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
+      }
+      print("DEBUG: Got SSH config: \(serverConfig.host)")
 
+      print("DEBUG: Creating merge effect with spawn")
       return .merge(
         cleanup,
         .send(.workspaceInteraction(.onlineStateChanged(.spawning(phase: .sshConnection)))),
@@ -158,7 +180,7 @@ extension WorkspacesFeature {
           serverConfig: serverConfig
         )
       )
-   }
+    }
 
    private func updateWorkspaceStateWithSpawnResult(
      _ state: inout State,
@@ -324,12 +346,14 @@ extension WorkspacesFeature {
   }
 
    func spawnWorkspaceSession(
-     workspace: Workspace,
-     workspaceID: WorkspaceState.ID,
-     serverConfig: SSHServerConfiguration
-   ) -> Effect<Action> {
-     return .run { send in
-       do {
+      workspace: Workspace,
+      workspaceID: WorkspaceState.ID,
+      serverConfig: SSHServerConfiguration
+    ) -> Effect<Action> {
+      print("DEBUG: spawnWorkspaceSession called for workspace: \(workspace.name)")
+      return .run { send in
+        do {
+          print("DEBUG: Starting spawn session process")
          await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
          let workspaceService = WorkspaceService(config: serverConfig)
          await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
@@ -347,16 +371,29 @@ extension WorkspacesFeature {
            remotePort: spawnResult.port
          )
 
-         await send(.workspacePortForwardEstablished(workspaceID, token))
-         await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
+          await send(.workspacePortForwardEstablished(workspaceID, token))
+          await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
 
-         let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)")!
-         let apiConfiguration = OpenCodeConfiguration(
-           serverURL: serverURL,
-           timeout: openCodeConfiguration.timeout,
-           retryCount: openCodeConfiguration.retryCount
-         )
-         let apiClient = openCodeAPIFactory.make(apiConfiguration)
+          guard let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)") else {
+            print("ERROR: Failed to create URL for port: \(token.localPort)")
+            let connectionError = SSHError.connectionFailed("Failed to create server URL")
+            await send(.workspaceOpened(workspaceID, .failure(connectionError)))
+            return
+          }
+
+          print("DEBUG: Creating API configuration for URL: \(serverURL)")
+          let apiConfiguration = OpenCodeConfiguration(
+            serverURL: serverURL,
+            timeout: openCodeConfiguration.timeout,
+            retryCount: openCodeConfiguration.retryCount
+          )
+
+          print("DEBUG: About to create API client with factory type: \(type(of: openCodeAPIFactory))")
+          print("DEBUG: API configuration: \(apiConfiguration)")
+
+          print("DEBUG: About to call openCodeAPIFactory.make")
+          let apiClient = openCodeAPIFactory.make(apiConfiguration)
+          print("DEBUG: Created API client of type: \(type(of: apiClient))")
 
          do {
            _ = try await apiClient.getConfig()

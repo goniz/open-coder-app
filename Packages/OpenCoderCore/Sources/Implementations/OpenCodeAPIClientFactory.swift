@@ -10,13 +10,6 @@ public struct OpenCodeAPIClientFactory: OpenCodeAPIClientFactoryProtocol {
   }
 
   public static let live = OpenCodeAPIClientFactory { config in
-    Task { @MainActor in
-      AppLogger.shared.log("Creating LiveOpenCodeAPIClient with config: \(config)", level: .info, category: .api)
-    }
-    let client = LiveOpenCodeAPIClient(configuration: config)
-    Task { @MainActor in
-      AppLogger.shared.log("Created live client: \(type(of: client))", level: .info, category: .api)
-    }
-    return client
+    return LiveOpenCodeAPIClient(configuration: config)
   }
 }

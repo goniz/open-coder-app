@@ -6,7 +6,7 @@ public protocol OpenCodeAPIClientFactoryProtocol: Sendable {
 }
 
 public enum OpenCodeAPIClientFactoryDependencyKey: DependencyKey, Sendable {
-  public static let liveValue: OpenCodeAPIClientFactoryProtocol = MockFactory() // Default fallback
+  public static let liveValue: OpenCodeAPIClientFactoryProtocol = UnconfiguredFactory()
   public static let testValue: OpenCodeAPIClientFactoryProtocol = MockFactory()
 }
 
@@ -17,11 +17,17 @@ public extension DependencyValues {
   }
 }
 
+private struct UnconfiguredFactory: OpenCodeAPIClientFactoryProtocol {
+  let make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol = { _ in
+    print("ERROR: OpenCodeAPIClientFactory dependency not configured properly")
+    fatalError(
+      "OpenCodeAPIClientFactory dependency must be explicitly set. Use OpenCodeAPIClientFactory.live in production."
+    )
+  }
+}
+
 private struct MockFactory: OpenCodeAPIClientFactoryProtocol {
   let make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol = { _ in
-    Task { @MainActor in
-      AppLogger.shared.log("Creating MockOpenCodeAPIClient (fallback)", level: .warning, category: .api)
-    }
     return MockOpenCodeAPIClient()
   }
 }

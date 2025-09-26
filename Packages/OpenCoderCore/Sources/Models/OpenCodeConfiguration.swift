@@ -6,7 +6,7 @@ public struct OpenCodeConfiguration: Equatable, Sendable {
   public let retryCount: Int
 
   public init(
-    serverURL: URL = URL(string: "http://localhost:8080")!,
+    serverURL: URL,
     timeout: TimeInterval = 30,
     retryCount: Int = 3
   ) {
@@ -16,7 +16,7 @@ public struct OpenCodeConfiguration: Equatable, Sendable {
   }
 
   public static let development = OpenCodeConfiguration(
-    serverURL: URL(string: "http://localhost:8080")!
+    serverURL: URL(string: "http://127.0.0.1:8080")!
   )
 
   public static let production = OpenCodeConfiguration(

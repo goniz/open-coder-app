@@ -12,7 +12,7 @@ public struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
   public let configuration: OpenCodeConfiguration
 
   public init(
-    configuration: OpenCodeConfiguration = .development,
+    configuration: OpenCodeConfiguration,
     transport: any ClientTransport = AsyncHTTPClientTransport()
   ) {
     self.configuration = configuration

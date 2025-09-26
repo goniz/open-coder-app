@@ -50,6 +50,33 @@ struct WorkspaceInteractionView: View {
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
           .transition(.opacity)
+        } else if case let .error(message) = store.onlineState, !message.isEmpty {
+          VStack(alignment: .leading, spacing: 8) {
+            HStack {
+              Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.red)
+                .font(.title3)
+              VStack(alignment: .leading) {
+                Text("Connection Failed")
+                  .font(.headline)
+                  .foregroundColor(.red)
+                Text(message)
+                  .font(.body)
+                  .foregroundColor(.secondary)
+                  .multilineTextAlignment(.leading)
+              }
+            }
+            Button("Retry Connection") {
+              store.send(.retryConnection)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+          }
+          .padding()
+          .background(Color.red.opacity(0.1))
+          .cornerRadius(12)
+          .padding()
+          .transition(.opacity.combined(with: .scale))
         }
 
          TabView(
@@ -121,7 +148,7 @@ struct WorkspaceInteractionView: View {
       case .idle: return (.gray, "Idle")
       case let .spawning(phase): return (.orange, phase.rawValue)
       case let .online(port): return (.green, "Online :\(port)")
-      case .error: return (.red, "Error")
+      case let .error(message): return (.red, message.isEmpty ? "Error" : message.prefix(20) + (message.count > 20 ? "..." : ""))
       }
     }()
 
@@ -191,6 +218,37 @@ struct WorkspaceInteractionView: View {
             }
           }
         }
+
+        // Add recent logs section
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Recent Logs")
+            .font(.headline)
+            .padding(.top)
+          ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+              ForEach(Array(AppLogger.shared.recentLogs.prefix(10)), id: \.id) { log in
+                HStack {
+                  Image(systemName: log.level.icon)
+                    .foregroundColor(log.level.color)
+                    .font(.caption)
+                  VStack(alignment: .leading) {
+                    Text(log.message)
+                      .font(.caption)
+                      .lineLimit(2)
+                    Text(log.timestamp, style: .time)
+                      .font(.caption2)
+                      .foregroundColor(.secondary)
+                  }
+                }
+              }
+            }
+            .padding(.horizontal, 8)
+          }
+          .frame(height: 200)
+          .background(Color.secondary.opacity(0.05))
+          .cornerRadius(8)
+        }
+        .padding()
       }
     }
   }

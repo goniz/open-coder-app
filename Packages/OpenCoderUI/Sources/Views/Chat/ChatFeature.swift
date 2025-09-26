@@ -110,7 +110,8 @@ public struct ChatFeature: Sendable {
 
   public init() {
     print("ChatFeature init: Factory type: \(type(of: openCodeAPIFactory))")
-    let config = OpenCodeConfiguration.development
+    print("ChatFeature init: Configuration: \(openCodeConfiguration)")
+    let config = openCodeConfiguration
     let client = openCodeAPIFactory.make(config)
     print("ChatFeature init: Client type: \(type(of: client))")
   }
