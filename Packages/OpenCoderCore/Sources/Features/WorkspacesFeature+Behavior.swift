@@ -104,13 +104,10 @@ extension WorkspacesFeature {
   }
 
     private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
-      print("DEBUG: resetWorkspaceState called for index: \(index), id: \(id)")
       guard index < state.workspaces.count else {
-        print("ERROR: resetWorkspaceState index \(index) out of bounds, workspaces count: \(state.workspaces.count)")
         return
       }
 
-      print("DEBUG: Resetting workspace state")
       state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
       state.workspaces[index].openCodeSession = nil
       state.workspaces[index].openCodeSessions = []
@@ -119,7 +116,6 @@ extension WorkspacesFeature {
       state.selectedWorkspace = id
       state.interactionInitialTab = .activity
       state.showingWorkspaceInteraction = true
-      print("DEBUG: resetWorkspaceState completed successfully")
     }
 
    private func createSSHConfigErrorEffect(
@@ -138,49 +134,38 @@ extension WorkspacesFeature {
    }
 
    func handleOpenWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
-      print("DEBUG: handleOpenWorkspace called for workspace ID: \(id)")
 
-      guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else {
-        print("DEBUG: Could not find workspace with ID: \(id)")
-        return .none
-      }
-
-      print("DEBUG: Found workspace at index: \(index)")
-      resetWorkspaceState(&state, index: index, id: id)
-      let workspace = state.workspaces[index].workspace
-      print("DEBUG: Got workspace: \(workspace.name)")
-
-      print("DEBUG: Creating WorkspaceInteractionFeature.State")
-      state.workspaceInteraction = WorkspaceInteractionFeature.State(
-        workspace: workspace,
-        onlineState: .idle, // Start with idle, then transition to spawning
-        selectedTab: state.interactionInitialTab,
-        forwardedPort: state.workspaces[index].forwardedPort,
-        openCodeSessionID: state.workspaces[index].openCodeSession?.id
-      )
-      print("DEBUG: Created WorkspaceInteractionFeature.State successfully")
-
-      print("DEBUG: Getting cleanup effect")
-      let cleanup = stopPortForward(&state, id: id)
-
-      print("DEBUG: Loading SSH config for workspace")
-      guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
-        print("DEBUG: No SSH config found for workspace")
-        return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
-      }
-      print("DEBUG: Got SSH config: \(serverConfig.host)")
-
-      print("DEBUG: Creating merge effect with spawn")
-      return .merge(
-        cleanup,
-        .send(.workspaceInteraction(.onlineStateChanged(.spawning(phase: .sshConnection)))),
-        spawnWorkspaceSession(
-          workspace: workspace,
-          workspaceID: id,
-          serverConfig: serverConfig
-        )
-      )
+    guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else {
+      return .none
     }
+
+    resetWorkspaceState(&state, index: index, id: id)
+    let workspace = state.workspaces[index].workspace
+
+    state.workspaceInteraction = WorkspaceInteractionFeature.State(
+      workspace: workspace,
+      onlineState: .idle, // Start with idle, then transition to spawning
+      selectedTab: state.interactionInitialTab,
+      forwardedPort: state.workspaces[index].forwardedPort,
+      openCodeSessionID: state.workspaces[index].openCodeSession?.id
+    )
+
+    let cleanup = stopPortForward(&state, id: id)
+
+    guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
+      return createSSHConfigErrorEffect(cleanup: cleanup, workspaceID: id)
+    }
+
+    return .merge(
+      cleanup,
+      .send(.workspaceInteraction(.onlineStateChanged(.spawning(phase: .sshConnection)))),
+      spawnWorkspaceSession(
+        workspace: workspace,
+        workspaceID: id,
+        serverConfig: serverConfig
+      )
+    )
+  }
 
    private func updateWorkspaceStateWithSpawnResult(
      _ state: inout State,
@@ -345,15 +330,47 @@ extension WorkspacesFeature {
     return .none
   }
 
+  private func performForwardingAndHandshake(
+    workspace: Workspace,
+    workspaceID: WorkspaceState.ID,
+    serverConfig: SSHServerConfiguration,
+    remotePort: Int,
+    send: @escaping (Action) -> Void
+  ) async throws -> Int {
+    await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
+    let token = try await portForwarding.startForward(
+      workspace: workspace,
+      serverConfig: serverConfig,
+      remotePort: remotePort
+    )
+
+    await send(.workspacePortForwardEstablished(workspaceID, token))
+    await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
+
+    guard let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)") else {
+      throw SSHError.connectionFailed("Failed to create server URL")
+    }
+
+    let apiConfiguration = OpenCodeConfiguration(
+      serverURL: serverURL,
+      timeout: openCodeConfiguration.timeout,
+      retryCount: openCodeConfiguration.retryCount
+    )
+
+    let apiClient = openCodeAPIFactory.make(apiConfiguration)
+
+    _ = try await apiClient.getConfig()
+
+    return token.localPort
+  }
+
    func spawnWorkspaceSession(
       workspace: Workspace,
       workspaceID: WorkspaceState.ID,
       serverConfig: SSHServerConfiguration
     ) -> Effect<Action> {
-      print("DEBUG: spawnWorkspaceSession called for workspace: \(workspace.name)")
       return .run { send in
         do {
-          print("DEBUG: Starting spawn session process")
          await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
          let workspaceService = WorkspaceService(config: serverConfig)
          await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
@@ -364,63 +381,29 @@ extension WorkspacesFeature {
            return
          }
 
-         await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
-         let token = try await portForwarding.startForward(
+         let localPort = try await performForwardingAndHandshake(
            workspace: workspace,
+           workspaceID: workspaceID,
            serverConfig: serverConfig,
-           remotePort: spawnResult.port
+           remotePort: spawnResult.port,
+           send: send
          )
 
-          await send(.workspacePortForwardEstablished(workspaceID, token))
-          await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
-
-          guard let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)") else {
-            print("ERROR: Failed to create URL for port: \(token.localPort)")
-            let connectionError = SSHError.connectionFailed("Failed to create server URL")
-            await send(.workspaceOpened(workspaceID, .failure(connectionError)))
-            return
-          }
-
-          print("DEBUG: Creating API configuration for URL: \(serverURL)")
-          let apiConfiguration = OpenCodeConfiguration(
-            serverURL: serverURL,
-            timeout: openCodeConfiguration.timeout,
-            retryCount: openCodeConfiguration.retryCount
-          )
-
-          print("DEBUG: About to create API client with factory type: \(type(of: openCodeAPIFactory))")
-          print("DEBUG: API configuration: \(apiConfiguration)")
-
-          print("DEBUG: About to call openCodeAPIFactory.make")
-          let apiClient = openCodeAPIFactory.make(apiConfiguration)
-          print("DEBUG: Created API client of type: \(type(of: apiClient))")
-
-         do {
-           _ = try await apiClient.getConfig()
-         } catch {
-           let connectionError = SSHError.connectionFailed(
-             "Failed to connect to OpenCode server API: \(error.localizedDescription)"
-           )
-           await send(.workspaceOpened(workspaceID, .failure(connectionError)))
-           return
-         }
-
          let forwardedResult = WorkspaceService.SpawnResult(
-           port: token.localPort,
+           port: localPort,
            online: true,
            error: spawnResult.error
          )
          await send(.workspaceOpened(workspaceID, .success(forwardedResult)))
          await send(.refreshWorkspace(workspaceID))
-       } catch {
-         if let sshError = error as? SSHError {
-           await send(.workspaceOpened(workspaceID, .failure(sshError)))
-         } else {
-           let connectionError = SSHError.connectionFailed(error.localizedDescription)
-           await send(.workspaceOpened(workspaceID, .failure(connectionError)))
-         }
-       }
-     }
-   }
-
+        } catch {
+          if let sshError = error as? SSHError {
+            await send(.workspaceOpened(workspaceID, .failure(sshError)))
+          } else {
+            let connectionError = SSHError.connectionFailed(error.localizedDescription)
+            await send(.workspaceOpened(workspaceID, .failure(connectionError)))
+          }
+        }
+      }
+    }
 }
