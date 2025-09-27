@@ -1,5 +1,5 @@
 {
-  "originHash" : "1a1eb8dfc5816d2902e44e43468a5fdea88a5dc72153a82b390176c80c48237d",
+  "originHash" : "12698a390dabf2ec783bbce7d3c9023773235d34a4bef201e457e951e1031247",
   "pins" : [
     {
       "identity" : "activityindicatorview",
@@ -321,8 +321,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-numerics.git",
       "state" : {
-        "revision" : "bbadd4b853a33fd78c4ae977d17bb2af15eb3f2a",
-        "version" : "1.1.0"
+        "revision" : "0c0290ff6b24942dadb83a929ffaaa1481df04a2",
+        "version" : "1.1.1"
       }
     },
     {
