@@ -1,0 +1,40 @@
+load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
+
+# Root BUILD file for OpenCoder workspace
+
+filegroup(
+    name = "package_files",
+    srcs = [
+        "Package.swift",
+        "Package.resolved",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Alias to the generated OpenCoderCore from Swift Package Manager
+alias(
+    name = "OpenCoderCore",
+    actual = "@swiftpkg_opencodercore//:OpenCoderCore",
+    visibility = ["//visibility:public"],
+)
+
+# Alias to the generated OpenCoderApp from Swift Package Manager
+alias(
+    name = "OpenCoderApp",
+    actual = "@swiftpkg_opencoderapp//:OpenCoderApp",
+    visibility = ["//visibility:public"],
+)
+
+# iOS Application target
+ios_application(
+    name = "OpenCoder",
+    bundle_id = "com.goniz.opencoderapp",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info.plist"],
+    minimum_os_version = "15.0",
+    deps = [
+        ":OpenCoderApp",
+    ],
+)
