@@ -1,5 +1,6 @@
 import Foundation
 import Models
+import Protocols
 
 struct TmuxService: Sendable {
   private let config: Models.SSHServerConfiguration

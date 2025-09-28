@@ -3,6 +3,7 @@ import NIOCore
 import NIOPosix
 import NIOSSH
 import Models
+import Protocols
 
 public struct LivePortForwardingClient: PortForwardingClient, Sendable {
   private let manager = PortForwardListenerManager()
@@ -113,8 +114,8 @@ private actor PortForwardListenerManager {
           channel.close(promise: nil)
         }
         promise.fail(error)
-      }
-    }
+  }
+}
 
     return promise.futureResult
   }
@@ -211,4 +212,11 @@ private final class SSHDirectTCPIPHandler: ChannelDuplexHandler, @unchecked Send
     }
     context.close(promise: nil)
   }
+}
+
+
+// MARK: - Dependency Registration
+
+extension PortForwardingClientKey {
+  public static let liveValue: PortForwardingClient = LivePortForwardingClient()
 }

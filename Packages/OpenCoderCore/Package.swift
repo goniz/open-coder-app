@@ -84,6 +84,7 @@ let package = Package(
               dependencies: [
                   "Models",
                   "Protocols",
+                  "Implementations",
                   "OpenAPIGenerated",
                   .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                   .product(name: "Dependencies", package: "swift-dependencies"),

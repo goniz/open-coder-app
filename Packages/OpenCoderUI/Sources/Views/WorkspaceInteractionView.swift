@@ -1,6 +1,6 @@
 import ComposableArchitecture
- import OpenCoderCore
- import SwiftUI
+import OpenCoderCore
+import SwiftUI
 
 struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
@@ -51,60 +51,35 @@ struct WorkspaceInteractionView: View {
           .padding(.vertical, 8)
           .transition(.opacity)
         } else if case let .error(message) = store.onlineState, !message.isEmpty {
-          VStack(alignment: .leading, spacing: 8) {
-            HStack {
-              Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
-                .font(.title3)
-              VStack(alignment: .leading) {
-                Text("Connection Failed")
-                  .font(.headline)
-                  .foregroundColor(.red)
-                Text(message)
-                  .font(.body)
-                  .foregroundColor(.secondary)
-                  .multilineTextAlignment(.leading)
-              }
-            }
-            Button("Retry Connection") {
-              store.send(.retryConnection)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
-          }
-          .padding()
-          .background(Color.red.opacity(0.1))
-          .cornerRadius(12)
-          .padding()
-          .transition(.opacity.combined(with: .scale))
+          WorkspaceInteractionErrorView(message: message) { store.send(.retryConnection) }
         }
 
-         TabView(
-           selection: Binding(
-             get: { store.selectedTab },
-             set: { store.send(.tabSelected($0)) }
-           )
-         ) {
-           activityView
-             .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
-             .tag(WorkspaceInteractionFeature.Tab.activity)
+        TabView(
+          selection: Binding(
+            get: { store.selectedTab },
+            set: { store.send(.tabSelected($0)) }
+          )
+        ) {
+          activityView
+            .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
+            .tag(WorkspaceInteractionFeature.Tab.activity)
 
-           ChatView(store: chatStoreValue)
-             .tabItem { Label("Chat", systemImage: "message") }
-             .tag(WorkspaceInteractionFeature.Tab.chat)
+          ChatView(store: chatStoreValue)
+            .tabItem { Label("Chat", systemImage: "message") }
+            .tag(WorkspaceInteractionFeature.Tab.chat)
 
-           terminalView
-             .tabItem { Label("Terminal", systemImage: "terminal") }
-             .tag(WorkspaceInteractionFeature.Tab.terminal)
+          terminalView
+            .tabItem { Label("Terminal", systemImage: "terminal") }
+            .tag(WorkspaceInteractionFeature.Tab.terminal)
 
-           filesView
-             .tabItem { Label("Files", systemImage: "folder") }
-             .tag(WorkspaceInteractionFeature.Tab.files)
+          filesView
+            .tabItem { Label("Files", systemImage: "folder") }
+            .tag(WorkspaceInteractionFeature.Tab.files)
 
-           WorkspaceLiveOutputTabView(workspace: store.workspace)
-             .tabItem { Label("Live Output", systemImage: "text.alignleft") }
-             .tag(WorkspaceInteractionFeature.Tab.liveOutput)
-         }
+          WorkspaceLiveOutputTabView(workspace: store.workspace)
+            .tabItem { Label("Live Output", systemImage: "text.alignleft") }
+            .tag(WorkspaceInteractionFeature.Tab.liveOutput)
+        }
       }
       .navigationTitle(store.workspace.name)
       #if os(iOS)
@@ -121,64 +96,98 @@ struct WorkspaceInteractionView: View {
   }
 
   private var header: some View {
+    HeaderView(
+      workspace: store.workspace,
+      serverConnection: store.serverConnection,
+      onlineState: store.onlineState
+    )
+  }
+
+  private var activityView: some View {
+    ActivityTabView(store: store)
+  }
+
+  private var terminalView: some View {
+    PlaceholderView(title: "Terminal", subtitle: "Interactive terminal coming soon", icon: "terminal")
+  }
+
+  private var filesView: some View {
+    PlaceholderView(title: "Files", subtitle: "File browser coming soon", icon: "folder")
+  }
+}
+
+struct HeaderView: View {
+  let workspace: Workspace
+  let serverConnection: ConnectionState
+  let onlineState: WorkspaceOnlineState
+
+  var body: some View {
     HStack(alignment: .center, spacing: 8) {
       VStack(alignment: .leading, spacing: 1) {
-        Text("\(store.workspace.user)@\(store.workspace.host)")
+        Text("\(workspace.user)@\(workspace.host)")
           .font(.caption)
           .foregroundColor(.secondary)
-        Text(store.workspace.remotePath)
+        Text(workspace.remotePath)
           .font(.caption2)
           .foregroundColor(.secondary)
       }
       Spacer()
       HStack(spacing: 4) {
-        serverBadge
-        statusPill
+        ServerBadgeView(state: serverConnection)
+        StatusPillView(state: onlineState)
       }
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 4)
     .background(.quaternary)
   }
+}
 
-  private var statusPill: some View {
-    let state = store.onlineState
-    let (color, text): (Color, String) = {
-      switch state {
-      case .idle: return (.gray, "Idle")
-      case let .spawning(phase): return (.orange, phase.rawValue)
-      case let .online(port): return (.green, "Online :\(port)")
-      case let .error(message): return (.red, message.isEmpty ? "Error" : message.prefix(20) + (message.count > 20 ? "..." : ""))
-      }
-    }()
+struct ServerBadgeView: View {
+  let state: ConnectionState
 
-    return HStack(spacing: 3) {
-      Circle().fill(color).frame(width: 5, height: 5)
-      Text(text).font(.caption2)
-    }
-    .padding(.horizontal, 4)
-    .padding(.vertical, 1)
-    .background(color.opacity(0.15))
-    .cornerRadius(6)
-  }
-
-  private var serverBadge: some View {
-    let state = store.serverConnection
+  var body: some View {
     let color: Color = {
       switch state {
-      case .connected: return .green
-      case .connecting: return .orange
-      case .error: return .red
-      case .disconnected: return .gray
+      case .connected:
+        return .green
+      case .connecting:
+        return .orange
+      case .error:
+        return .red
+      case .disconnected:
+        return .gray
       }
     }()
 
-    let text: String = {
+    let text = "SSH"
+
+    return HStack(spacing: 3) {
+      Circle().fill(color).frame(width: 5, height: 5)
+      Text(text).font(.caption2)
+    }
+    .padding(.horizontal, 4)
+    .padding(.vertical, 1)
+    .background(color.opacity(0.15))
+    .cornerRadius(6)
+  }
+}
+
+struct StatusPillView: View {
+  let state: WorkspaceOnlineState
+
+  var body: some View {
+    let (color, text): (Color, String) = {
       switch state {
-      case .connected: return "SSH"
-      case .connecting: return "SSH"
-      case .error: return "SSH"
-      case .disconnected: return "SSH"
+      case .idle:
+        return (.gray, "Idle")
+      case let .spawning(phase):
+        return (.orange, phase.rawValue)
+      case let .online(port):
+        return (.green, "Online :\(port)")
+      case let .error(message):
+        let displayText = message.isEmpty ? "Error" : String(message.prefix(20)) + (message.count > 20 ? "..." : "")
+        return (.red, displayText)
       }
     }()
 
@@ -191,8 +200,46 @@ struct WorkspaceInteractionView: View {
     .background(color.opacity(0.15))
     .cornerRadius(6)
   }
+}
 
-  private var activityView: some View {
+struct WorkspaceInteractionErrorView: View {
+  let message: String
+  let onRetry: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .foregroundColor(.red)
+          .font(.title3)
+        VStack(alignment: .leading) {
+          Text("Connection Failed")
+            .font(.headline)
+            .foregroundColor(.red)
+          Text(message)
+            .font(.body)
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.leading)
+        }
+      }
+      Button("Retry Connection") {
+        onRetry()
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(.blue)
+    }
+    .padding()
+    .background(Color.red.opacity(0.1))
+    .cornerRadius(12)
+    .padding()
+    .transition(.opacity.combined(with: .scale))
+  }
+}
+
+struct ActivityTabView: View {
+  let store: StoreOf<WorkspaceInteractionFeature>
+
+  var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         if store.activityEvents.isEmpty {
@@ -219,49 +266,26 @@ struct WorkspaceInteractionView: View {
           }
         }
 
-        // Add recent logs section
-        VStack(alignment: .leading, spacing: 8) {
-          Text("Recent Logs")
-            .font(.headline)
-            .padding(.top)
-          ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
-              ForEach(Array(AppLogger.shared.recentLogs.prefix(10)), id: \.id) { log in
-                HStack {
-                  Image(systemName: log.level.icon)
-                    .foregroundColor(log.level.color)
-                    .font(.caption)
-                  VStack(alignment: .leading) {
-                    Text(log.message)
-                      .font(.caption)
-                      .lineLimit(2)
-                    Text(log.timestamp, style: .time)
-                      .font(.caption2)
-                      .foregroundColor(.secondary)
-                  }
-                }
-              }
-            }
-            .padding(.horizontal, 8)
-          }
-          .frame(height: 200)
-          .background(Color.secondary.opacity(0.05))
-          .cornerRadius(8)
-        }
-        .padding()
+        RecentLogsView()
       }
     }
   }
+}
 
-  private var terminalView: some View {
+struct PlaceholderView: View {
+  let title: String
+  let subtitle: String
+  let icon: String
+
+  var body: some View {
     VStack(spacing: 8) {
-      Image(systemName: "terminal")
+      Image(systemName: icon)
         .font(.title2)
         .foregroundColor(.secondary)
-      Text("Terminal")
+      Text(title)
         .font(.headline)
         .fontWeight(.medium)
-      Text("Interactive terminal coming soon")
+      Text(subtitle)
         .font(.subheadline)
         .foregroundColor(.secondary)
     }
@@ -269,22 +293,39 @@ struct WorkspaceInteractionView: View {
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
   }
+}
 
-  private var filesView: some View {
-    VStack(spacing: 8) {
-      Image(systemName: "folder")
-        .font(.title2)
-        .foregroundColor(.secondary)
-      Text("Files")
+struct RecentLogsView: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Recent Logs")
         .font(.headline)
-        .fontWeight(.medium)
-      Text("File browser coming soon")
-        .font(.subheadline)
-        .foregroundColor(.secondary)
+        .padding(.top)
+      ScrollView {
+        VStack(alignment: .leading, spacing: 4) {
+          ForEach(Array(AppLogger.shared.recentLogs.prefix(10)), id: \.id) { log in
+            HStack {
+              Image(systemName: log.level.icon)
+                .foregroundColor(log.level.color)
+                .font(.caption)
+              VStack(alignment: .leading) {
+                Text(log.message)
+                  .font(.caption)
+                  .lineLimit(2)
+                Text(log.timestamp, style: .time)
+                  .font(.caption2)
+                  .foregroundColor(.secondary)
+              }
+            }
+          }
+        }
+        .padding(.horizontal, 8)
+      }
+      .frame(height: 200)
+      .background(Color.secondary.opacity(0.05))
+      .cornerRadius(8)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
+    .padding()
   }
 }
 

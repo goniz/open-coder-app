@@ -32,7 +32,7 @@ struct RemotePathPickerView: View {
           ProgressView("Loading directory...")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage = errorMessage {
-          ErrorView(message: errorMessage) {
+          RemotePathErrorView(message: errorMessage) {
             Task { await loadDirectory(currentPath) }
           }
         } else {
@@ -359,7 +359,7 @@ private struct FileRowView: View {
   }
 }
 
-private struct ErrorView: View {
+private struct RemotePathErrorView: View {
   let message: String
   let onRetry: () -> Void
 

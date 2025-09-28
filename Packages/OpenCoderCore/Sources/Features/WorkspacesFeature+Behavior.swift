@@ -1,9 +1,10 @@
 import ComposableArchitecture
 import Protocols
+import Implementations
 import Foundation
 import Models
 
-private typealias Send = WorkspacesFeature.Action
+private typealias Send = (WorkspacesFeature.Action) -> Void
 
 extension WorkspacesFeature {
   func handleWorkspacesLoaded(state: inout State, workspaces: [WorkspaceState]) -> Effect<Action> {
@@ -330,40 +331,6 @@ extension WorkspacesFeature {
     return .none
   }
 
-  private func performForwardingAndHandshake(
-    workspace: Workspace,
-    workspaceID: WorkspaceState.ID,
-    serverConfig: SSHServerConfiguration,
-    remotePort: Int,
-    send: @escaping (Action) -> Void
-  ) async throws -> Int {
-    await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
-    let token = try await portForwarding.startForward(
-      workspace: workspace,
-      serverConfig: serverConfig,
-      remotePort: remotePort
-    )
-
-    await send(.workspacePortForwardEstablished(workspaceID, token))
-    await send(.spawnPhaseUpdated(workspaceID, .apiHandshake))
-
-    guard let serverURL = URL(string: "http://127.0.0.1:\(token.localPort)") else {
-      throw SSHError.connectionFailed("Failed to create server URL")
-    }
-
-    let apiConfiguration = OpenCodeConfiguration(
-      serverURL: serverURL,
-      timeout: openCodeConfiguration.timeout,
-      retryCount: openCodeConfiguration.retryCount
-    )
-
-    let apiClient = openCodeAPIFactory.make(apiConfiguration)
-
-    _ = try await apiClient.getConfig()
-
-    return token.localPort
-  }
-
    func spawnWorkspaceSession(
       workspace: Workspace,
       workspaceID: WorkspaceState.ID,
@@ -381,13 +348,13 @@ extension WorkspacesFeature {
            return
          }
 
-         let localPort = try await performForwardingAndHandshake(
-           workspace: workspace,
-           workspaceID: workspaceID,
-           serverConfig: serverConfig,
-           remotePort: spawnResult.port,
-           send: send
-         )
+let localPort = try await performForwardingAndHandshake(
+  workspace: workspace,
+  workspaceID: workspaceID,
+  serverConfig: serverConfig,
+  remotePort: spawnResult.port,
+  send: { action in await send(action) }
+)
 
          let forwardedResult = WorkspaceService.SpawnResult(
            port: localPort,

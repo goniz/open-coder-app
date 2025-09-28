@@ -4,6 +4,7 @@ import Foundation
 import Models
 import NIOCore
 @preconcurrency import NIOSSH
+import Protocols
 
 public struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
