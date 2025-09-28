@@ -61,21 +61,23 @@ A SwiftUI iOS app for remote development productivity, featuring SSH server mana
 ### Development Commands
 
 ```bash
-# Build the project
-swift build
+# Build all packages
 just build
 
-# Run tests
-swift test
+# Build and test core package on macOS (faster)
+just build-core-macos
+
+# Run tests across all packages
 just test
 
-# Run specific test target
-swift test --filter ModelsTests
-swift test --filter FeaturesTests.AppFeatureTests
-
-# Lint code
-swiftlint Sources
+# Lint code across all packages
 just lint
+
+# Fix lint issues across all packages
+just fix
+
+# Development cycle (lint, build, build-ios, test)
+just devcycle
 
 # Deploy beta build
 just beta
@@ -83,22 +85,39 @@ just beta
 
 ## Architecture
 
-OpenCoder uses a modular Swift Package structure with clear separation of concerns:
+OpenCoder uses a multi-package Swift architecture with clear platform separation:
 
 ```
-Models → DependencyClients → Features → Views → OpenCoderLib
-   ↓           ↓                ↓        ↓
-Tests      Tests            Tests    Tests
+Packages/
+├── OpenCoderCore/           # Platform-agnostic business logic (iOS + macOS)
+│   ├── Models/             # Core data models
+│   ├── Protocols/          # Dependency protocols
+│   ├── Implementations/    # Network & SSH clients
+│   ├── Features/           # TCA reducers and business logic
+│   └── OpenAPIGenerated/   # Generated API clients
+├── OpenCoderUI/            # iOS-specific UI and platform integrations
+│   ├── Views/              # SwiftUI views and UI components
+│   └── IOSProtocols/       # iOS-specific dependency implementations
+└── OpenCoderApp/           # iOS app entry point and configuration
 ```
 
-### Modules
+### Package Benefits
 
-- **Models**: Core data models (CodingTask, SSHServerConfiguration, etc.)
-- **DependencyClients**: Protocol definitions for external dependencies (SSH, API, Background tasks)
-- **DependencyClientsLive**: Live implementations of dependency clients
+- **Faster Testing**: Core business logic tests run on macOS without iOS simulator overhead
+- **Platform Flexibility**: Core logic can be reused for potential macOS app
+- **Parallel Development**: Teams can work on packages independently
+- **Cleaner Architecture**: Clear separation between business logic and UI
+- **Better Testability**: Easy mocking of platform-specific dependencies
+
+### Core Package (macOS + iOS)
+- **Models**: Platform-agnostic data models with proper platform guards
+- **Protocols**: Dependency protocols for external services
+- **Implementations**: Network, SSH, and API client implementations
 - **Features**: TCA reducers and business logic
-- **Views**: SwiftUI views and UI components
-- **OpenCoderLib**: Main app composition and dependency injection
+
+### UI Package (iOS Only)
+- **Views**: SwiftUI views and iOS-specific UI components
+- **IOSProtocols**: iOS platform integrations (UserDefaults, ActivityKit, UIKit)
 
 ### Key Features Implementation
 

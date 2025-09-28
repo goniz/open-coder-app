@@ -1,14 +1,15 @@
 # AGENTS.md - SwiftUI + TCA iOS App
 
 ## Commands
-- Build: `swift build` or `just build`
+- **Build all packages: `just build`** - Builds OpenCoderCore (macOS+iOS), OpenCoderUI (iOS), and OpenCoderApp (iOS)
+- **Build core package on macOS: `just build-core-macos`** - Faster testing of business logic without iOS simulator
 - Build iOS app: `just build-ios` (development build without publishing)
-- Test all: `swift test` or `just test`
-- Test single target: `swift test --filter ModelsTests` or `swift test --filter FeaturesTests.AppFeatureTests`
-- Lint: `swiftlint Sources --strict` or `just lint` (treats warnings as errors)
-- **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations where possible
-- Format: `swift-format --in-place --recursive Sources/` or `just fmt`
-- Update packages: `swift package update` or `just update`
+- Test core package: `just test` - Runs tests for OpenCoderCore package only
+- Test single core package: `cd Packages/OpenCoderCore && swift test`
+- **Lint all packages: `just lint`** - Lints all packages with strict mode (warnings as errors)
+- **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations across all packages
+- Format all packages: `just fmt` - Formats code across all packages
+- Update packages: `just update` - Updates dependencies for root workspace
 - **Development cycle: `just devcycle`** - Runs lint, build, build-ios, and test in sequence with early exit on failure
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
 
@@ -17,7 +18,7 @@
 1. SwiftLint checks with strict mode (warnings as errors)
 2. Swift package build with warnings as errors
 3. iOS app build for simulator 
-4. All unit tests
+4. Core package unit tests
 
 This ensures code quality and prevents issues from propagating through the codebase. The command uses `&&` chaining to exit immediately on any failure.
 
@@ -28,14 +29,18 @@ This ensures code quality and prevents issues from propagating through the codeb
 **Git Usage**: NEVER use `git add .` - always add specific paths to avoid committing unwanted files like node_modules. Use `git add <specific-file>` or `git add <directory>` for targeted changes.
 
 ## Architecture
-- Modular Swift Package with TCA (The Composable Architecture)
-- Dependency hierarchy: Models → DependencyClients → Features → Views → OpenCoderLib
-- Test targets for Features, Models, and Views modules
+- **Multi-package Swift architecture** with platform separation and TCA (The Composable Architecture)
+- **OpenCoderCore** (iOS + macOS): Models, Protocols, Implementations, Features, OpenAPIGenerated
+- **OpenCoderUI** (iOS only): Views, IOSProtocols (platform-specific implementations)
+- **OpenCoderApp** (iOS only): App entry point with dependency configuration
+- **Platform separation**: Core business logic testable on macOS, UI layer iOS-specific
+- Test targets for each package and module
 
 ## Generated API Files
-- Auto-generated API files are created during the build process from OpenAPI specifications in `OpenAPIGenerated/`.
+- Auto-generated API files are created during the build process from OpenAPI specifications in `Packages/OpenCoderCore/Sources/OpenAPIGenerated/`.
 - Key files include `Types.swift` which contains type definitions for API models.
-- After running `swift build`, generated files can be found in the `.build/` directory under the appropriate target.
+- After running `swift build`, generated files can be found in the `.build/` directory under the OpenAPIGenerated target.
+- Use `just generate-opencode-api` to regenerate API specifications from the latest OpenCode CLI.
 
 ## Code Style
 - Swift 6.0 with strict concurrency

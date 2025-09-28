@@ -1,24 +1,6 @@
 {
-  "originHash" : "2a951904bb3d92311368cc3e2f98bde1c8b4ff8ab9092d2cd5ed5631d71407bc",
+  "originHash" : "10d9b0abe520ef1f92aa2c69474f10a11c4d715a91a577e56d4ab6e64dfa9527",
   "pins" : [
-    {
-      "identity" : "activityindicatorview",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/ActivityIndicatorView",
-      "state" : {
-        "revision" : "36140867802ae4a1d2b11490bcbbefe058001d14",
-        "version" : "1.2.1"
-      }
-    },
-    {
-      "identity" : "anchoredpopup",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/AnchoredPopup.git",
-      "state" : {
-        "revision" : "d7478c34e761725ff06ad74e44e675d0d56a4150",
-        "version" : "1.0.7"
-      }
-    },
     {
       "identity" : "async-http-client",
       "kind" : "remoteSourceControl",
@@ -29,57 +11,12 @@
       }
     },
     {
-      "identity" : "chat",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/Chat.git",
-      "state" : {
-        "revision" : "ba90176cd2936f57827c83c274851ba0bb92269e",
-        "version" : "2.7.0"
-      }
-    },
-    {
       "identity" : "combine-schedulers",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/combine-schedulers",
       "state" : {
         "revision" : "5928286acce13def418ec36d05a001a9641086f2",
         "version" : "1.0.3"
-      }
-    },
-    {
-      "identity" : "giphy-ios-sdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Giphy/giphy-ios-sdk",
-      "state" : {
-        "revision" : "37f5b1ff6cf8bc4a78c0bc5eb1b814381bac9580",
-        "version" : "2.2.16"
-      }
-    },
-    {
-      "identity" : "kingfisher",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/onevcat/Kingfisher",
-      "state" : {
-        "revision" : "2015fda791daa72c8058619545a593bf8c1dd59f",
-        "version" : "8.5.0"
-      }
-    },
-    {
-      "identity" : "libwebp-xcode",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SDWebImage/libwebp-Xcode",
-      "state" : {
-        "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
-        "version" : "1.5.0"
-      }
-    },
-    {
-      "identity" : "mediapicker",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/MediaPicker.git",
-      "state" : {
-        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
-        "version" : "3.1.7"
       }
     },
     {
@@ -130,7 +67,7 @@
     {
       "identity" : "swift-atomics",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-atomics",
+      "location" : "https://github.com/apple/swift-atomics.git",
       "state" : {
         "revision" : "b601256eab081c0f92f059e12818ac1d4f178ff7",
         "version" : "1.3.0"
