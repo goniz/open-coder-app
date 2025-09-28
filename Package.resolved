@@ -1,5 +1,5 @@
 {
-  "originHash" : "12698a390dabf2ec783bbce7d3c9023773235d34a4bef201e457e951e1031247",
+  "originHash" : "2a951904bb3d92311368cc3e2f98bde1c8b4ff8ab9092d2cd5ed5631d71407bc",
   "pins" : [
     {
       "identity" : "activityindicatorview",
@@ -47,15 +47,6 @@
       }
     },
     {
-      "identity" : "exytemediapicker",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/exyte/MediaPicker.git",
-      "state" : {
-        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
-        "version" : "3.1.7"
-      }
-    },
-    {
       "identity" : "giphy-ios-sdk",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Giphy/giphy-ios-sdk",
@@ -80,6 +71,15 @@
       "state" : {
         "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "mediapicker",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/exyte/MediaPicker.git",
+      "state" : {
+        "revision" : "a4d1c69807d80af1350073eac6aa2bc25d5e55fb",
+        "version" : "3.1.7"
       }
     },
     {
@@ -258,8 +258,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/swift-navigation",
       "state" : {
-        "revision" : "65806ffbc9eb3be026b56fafaf26de0bb8b132de",
-        "version" : "2.5.0"
+        "revision" : "91415670c91d41e8e1872ef6fe1bf118e20dee37",
+        "version" : "2.5.1"
       }
     },
     {

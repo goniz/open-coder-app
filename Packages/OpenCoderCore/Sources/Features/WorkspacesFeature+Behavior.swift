@@ -29,13 +29,21 @@ extension WorkspacesFeature {
       }
       return merged
     }
+    let activeWorkspaceIDs = Set(state.workspaces.map(\.id))
+    let stalePortForwardIDs = Array(state.portForwardTokens.keys).filter { !activeWorkspaceIDs.contains($0) }
+    var accumulatedEffects: [Effect<Action>] = []
+    for staleID in stalePortForwardIDs {
+      accumulatedEffects.append(stopPortForward(&state, id: staleID))
+    }
     state.isLoading = false
 
     guard let selectedID = state.selectedWorkspace,
       let selectedWorkspace = state.workspaces.first(where: { $0.id == selectedID }),
       state.workspaceInteraction != nil
     else {
-      return .none
+      return accumulatedEffects.reduce(.none) { combined, effect in
+        Effect.merge(combined, effect)
+      }
     }
 
     state.workspaceInteraction?.workspace = selectedWorkspace.workspace
@@ -43,10 +51,16 @@ extension WorkspacesFeature {
     state.workspaceInteraction?.forwardedPort = selectedWorkspace.forwardedPort
     // Note: Chat server URL handling moved to UI layer to separate platform-specific logic from core business logic.
 
-    return .merge(
-      .send(.workspaceInteraction(.forwardedPortUpdated(selectedWorkspace.forwardedPort))),
+    accumulatedEffects.append(
+      .send(.workspaceInteraction(.forwardedPortUpdated(selectedWorkspace.forwardedPort)))
+    )
+    accumulatedEffects.append(
       .send(.workspaceInteraction(.openCodeSessionUpdated(selectedWorkspace.openCodeSession)))
     )
+
+    return accumulatedEffects.reduce(.none) { combined, effect in
+      Effect.merge(combined, effect)
+    }
   }
 
   func handleAddWorkspace(state: inout State) -> Effect<Action> {

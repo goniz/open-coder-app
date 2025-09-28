@@ -21,6 +21,7 @@ public struct OpenCoderApp: App {
               $0.openCodeConfiguration = configuration
               AppLogger.shared.log("OpenCoderApp: Setting live factory", level: .info, category: .general)
               $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+              $0.portForwarding = LivePortForwardingClient()
               AppLogger.shared.log("OpenCoderApp: Factory configured", level: .info, category: .general)
             }
         )

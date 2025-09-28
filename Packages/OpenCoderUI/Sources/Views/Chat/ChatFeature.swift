@@ -112,8 +112,6 @@ public struct ChatFeature: Sendable {
     let factoryType = String(describing: type(of: openCodeAPIFactory))
     let config = openCodeConfiguration
     let configDescription = String(describing: config)
-    let client = openCodeAPIFactory.make(config)
-    let clientType = String(describing: type(of: client))
 
     Task.detached {
       await AppLogger.shared.log(
@@ -123,11 +121,6 @@ public struct ChatFeature: Sendable {
       )
       await AppLogger.shared.log(
         "ChatFeature init: Configuration: \(configDescription)",
-        level: .debug,
-        category: .chat
-      )
-      await AppLogger.shared.log(
-        "ChatFeature init: Client type: \(clientType)",
         level: .debug,
         category: .chat
       )

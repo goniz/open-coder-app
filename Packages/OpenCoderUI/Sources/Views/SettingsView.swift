@@ -1,6 +1,6 @@
 import ComposableArchitecture
- import OpenCoderCore
- import SwiftUI
+import OpenCoderCore
+import SwiftUI
 
 #if canImport(UIKit)
   import UIKit
@@ -32,14 +32,21 @@ struct SettingsView: View {
       }
 
       Section(header: Text("Live Logs")) {
-        Button("View Logs") {
+        Button("View Current Logs") {
           store.send(.toggleLogs)
+        }
+
+        Button("View Previous Launch Logs") {
+          store.send(.togglePreviousLogs)
         }
       }
     }
     .navigationTitle("Settings")
     .sheet(isPresented: $store.showingLogs) {
       LogsView(store: store)
+    }
+    .sheet(isPresented: $store.showingPreviousLogs) {
+      PreviousLogsView(store: store)
     }
     .task {
       await store.send(.task).finish()
@@ -110,6 +117,118 @@ struct LogsView: View {
             store.send(.clearLogs)
           }
           .foregroundColor(.red)
+        }
+      }
+    }
+    .onDisappear {
+      scrollTask?.cancel()
+      scrollTask = nil
+      pendingProgrammaticScroll = false
+    }
+  }
+
+  @MainActor
+  private func scheduleScrollToBottom(proxy: ScrollViewProxy, force: Bool = false) {
+    if !force && !isPinnedToBottom {
+      return
+    }
+
+    pendingProgrammaticScroll = true
+    scrollTask?.cancel()
+    scrollTask = Task { @MainActor in
+      defer {
+        pendingProgrammaticScroll = false
+        scrollTask = nil
+      }
+
+      await Task.yield()
+      guard !Task.isCancelled else { return }
+
+      withAnimation(.easeOut(duration: 0.3)) {
+        proxy.scrollTo(bottomSentinelID, anchor: .bottom)
+      }
+    }
+  }
+}
+
+struct PreviousLogsView: View {
+  @Bindable var store: StoreOf<SettingsFeature>
+  @StateObject private var logger = AppLogger.shared
+  @State private var isPinnedToBottom = true
+  @State private var pendingProgrammaticScroll = false
+  @State private var scrollTask: Task<Void, Never>?
+
+  private let bottomSentinelID = UUID()
+
+  var body: some View {
+    NavigationView {
+      ScrollViewReader { proxy in
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 12) {
+            if logger.previousLaunchLogs.isEmpty {
+              VStack(spacing: 16) {
+                Image(systemName: "doc.text")
+                  .font(.system(size: 48))
+                  .foregroundColor(.secondary)
+
+                Text("No Previous Launch Logs")
+                  .font(.title2)
+                  .fontWeight(.medium)
+                  .foregroundColor(.secondary)
+
+                Text("Logs from previous app launches will appear here to help debug crashes and issues.")
+                  .font(.body)
+                  .foregroundColor(.secondary)
+                  .multilineTextAlignment(.center)
+                  .padding(.horizontal, 32)
+              }
+              .frame(maxWidth: .infinity)
+              .padding(.top, 100)
+            } else {
+              ForEach(logger.previousLaunchLogs) { entry in
+                LogEntryView(entry: entry)
+                  .id(entry.id)
+              }
+            }
+
+            Color.clear
+              .frame(height: 1)
+              .id(bottomSentinelID)
+              .onAppear {
+                isPinnedToBottom = true
+                pendingProgrammaticScroll = false
+              }
+              .onDisappear {
+                if !pendingProgrammaticScroll {
+                  isPinnedToBottom = false
+                }
+              }
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 12)
+        }
+        .background(.gray.opacity(0.1))
+        .onAppear {
+          scheduleScrollToBottom(proxy: proxy, force: true)
+        }
+        .onChange(of: logger.previousLaunchLogs.count) { _, _ in
+          scheduleScrollToBottom(proxy: proxy)
+        }
+      }
+      .navigationTitle("Previous Launch Logs")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Done") {
+            store.send(.togglePreviousLogs)
+          }
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+          Button("Clear") {
+            store.send(.clearPreviousLogs)
+          }
+          .foregroundColor(.red)
+          .disabled(logger.previousLaunchLogs.isEmpty)
         }
       }
     }

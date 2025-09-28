@@ -9,6 +9,7 @@ public struct SettingsFeature: Sendable {
     public var notificationsEnabled = true
     public var autoSaveEnabled = true
     public var showingLogs = false
+    public var showingPreviousLogs = false
 
     public init() {}
   }
@@ -19,6 +20,8 @@ public struct SettingsFeature: Sendable {
     case resetToDefaults
     case toggleLogs
     case clearLogs
+    case togglePreviousLogs
+    case clearPreviousLogs
   }
 
   public init() {}
@@ -48,6 +51,15 @@ public struct SettingsFeature: Sendable {
     case .clearLogs:
       return .run { _ in
         await AppLogger.shared.clearLogs()
+      }
+
+    case .togglePreviousLogs:
+      state.showingPreviousLogs.toggle()
+      return .none
+
+    case .clearPreviousLogs:
+      return .run { _ in
+        await AppLogger.shared.clearPreviousLogs()
       }
     }
   }

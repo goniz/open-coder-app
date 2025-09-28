@@ -22,7 +22,7 @@ public struct WorkspacesFeature: Sendable {
   }
 
   public struct WorkspaceState: Equatable, Identifiable, Sendable {
-    public let id = UUID()
+    public var id: Workspace.ID { workspace.id }
     public var workspace: Workspace
     public var onlineState: WorkspaceOnlineState = .idle
     public var lastConnectedAt: Date?

@@ -215,7 +215,3 @@ private final class SSHDirectTCPIPHandler: ChannelDuplexHandler, @unchecked Send
 }
 
 // MARK: - Dependency Registration
-
-extension PortForwardingClientKey {
-  public static let liveValue: PortForwardingClient = LivePortForwardingClient()
-}

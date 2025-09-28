@@ -10,8 +10,7 @@ let package = Package(
   name: "OpenCoderAppRootPackage",
   defaultLocalization: "en",
   platforms: [
-    .iOS(.v17),
-    .macOS(.v14),
+    .iOS(.v17)
   ],
   products: [
     // No products - all functionality is in the packages
