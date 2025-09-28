@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import ComposableArchitecture
 import Protocols
 import Implementations
@@ -331,6 +333,7 @@ extension WorkspacesFeature {
     return .none
   }
 
+   // swiftlint:disable:next function_body_length
    func spawnWorkspaceSession(
       workspace: Workspace,
       workspaceID: WorkspaceState.ID,
@@ -339,18 +342,18 @@ extension WorkspacesFeature {
       return .run { send in
         do {
          await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
-         
+
          guard !Task.isCancelled else {
            throw SSHError.connectionFailed("Workspace spawn was cancelled")
          }
-         
+
          let workspaceService = WorkspaceService(config: serverConfig)
          await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
-         
+
          guard !Task.isCancelled else {
            throw SSHError.connectionFailed("Workspace spawn was cancelled during setup")
          }
-         
+
          let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
 
          guard !Task.isCancelled else {
@@ -391,7 +394,7 @@ extension WorkspacesFeature {
             level: .error,
             category: .workspace
           )
-          
+
           if let sshError = error as? SSHError {
             await send(.workspaceOpened(workspaceID, .failure(sshError)))
           } else if error is CancellationError {

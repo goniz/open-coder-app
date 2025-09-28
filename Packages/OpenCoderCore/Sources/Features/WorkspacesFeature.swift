@@ -73,7 +73,7 @@ public struct WorkspacesFeature: Sendable {
       }
   }
 
-  // swiftlint:disable:next cyclomatic_complexity
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   public func core(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:

@@ -12,11 +12,11 @@ extension WorkspacesFeature {
     send: @escaping @Sendable (Action) async -> Void
   ) async throws -> Int {
     await send(.spawnPhaseUpdated(workspaceID, .portForwarding))
-    
+
     guard !Task.isCancelled else {
       throw SSHError.connectionFailed("Port forwarding cancelled")
     }
-    
+
     let token: PortForwardToken
     do {
       token = try await portForwarding.startForward(
