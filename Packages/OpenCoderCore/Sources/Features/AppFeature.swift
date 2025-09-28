@@ -43,11 +43,29 @@ public struct AppFeature: Sendable {
     switch action {
     case .task:
       // Test the factory and client creation
-      print("DEBUG AppFeature.task: Factory type: \(type(of: openCodeAPIFactory))")
+      Task {
+        await AppLogger.shared.log(
+          "AppFeature.task: Factory type: \(type(of: openCodeAPIFactory))",
+          level: .debug,
+          category: .app
+        )
+      }
       let config = OpenCodeConfiguration.development
-      print("DEBUG AppFeature.task: About to create client with factory")
+      Task {
+        await AppLogger.shared.log(
+          "AppFeature.task: About to create client with factory",
+          level: .debug,
+          category: .app
+        )
+      }
       let client = openCodeAPIFactory.make(config)
-      print("DEBUG AppFeature.task: Created client type: \(type(of: client))")
+      Task {
+        await AppLogger.shared.log(
+          "AppFeature.task: Created client type: \(type(of: client))",
+          level: .debug,
+          category: .app
+        )
+      }
       state.showOnboarding = !hasSavedServers()
 
       return .none

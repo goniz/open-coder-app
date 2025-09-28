@@ -247,7 +247,13 @@ private extension LiveActivityFeature {
         state.currentActivity = activity
         state.isActivityActive = true
       } catch {
-        print("Failed to start Live Activity: \(error)")
+        Task {
+          await AppLogger.shared.log(
+            "Failed to start Live Activity: \(error)",
+            level: .error,
+            category: .activity
+          )
+        }
       }
     #else
       state.isActivityActive = true

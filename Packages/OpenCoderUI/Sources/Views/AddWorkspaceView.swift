@@ -299,7 +299,13 @@ struct ServerSelectionView: View {
       servers = configurations
       isLoading = false
     } catch {
-      print("Failed to load servers: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to load servers: \(error)",
+          level: .error,
+          category: .ssh
+        )
+      }
       isLoading = false
     }
   }

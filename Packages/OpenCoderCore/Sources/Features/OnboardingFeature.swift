@@ -141,7 +141,11 @@ public struct OnboardingFeature: Sendable {
           UserDefaults.standard.set(updatedData, forKey: "savedServers")
         }
       } catch {
-        print("Failed to update saved servers: \(error)")
+        await AppLogger.shared.log(
+          "Failed to update saved servers: \(error)",
+          level: .error,
+          category: .ssh
+        )
         await saveNewServerConfigurationAsync(config)
       }
     }.value
@@ -153,7 +157,11 @@ public struct OnboardingFeature: Sendable {
         let data = try JSONEncoder().encode([config])
         UserDefaults.standard.set(data, forKey: "savedServers")
       } catch {
-        print("Failed to save server configuration: \(error)")
+        await AppLogger.shared.log(
+          "Failed to save server configuration: \(error)",
+          level: .error,
+          category: .ssh
+        )
       }
     }.value
   }

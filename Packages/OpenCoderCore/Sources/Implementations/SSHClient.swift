@@ -349,8 +349,6 @@ private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
 }
 
-
-
 // Helper function to extract detailed error information from NIOSSH errors
 private func detailedErrorDescription(_ error: any Swift.Error) -> String {
   // Map ChannelError to friendly descriptions first
@@ -1353,8 +1351,6 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
     validationCompletePromise.succeed(())
   }
 }
-
-
 
 // MARK: - Connection Management
 // MARK: - Connection Management

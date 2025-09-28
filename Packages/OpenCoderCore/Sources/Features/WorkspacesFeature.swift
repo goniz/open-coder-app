@@ -89,11 +89,22 @@ public struct WorkspacesFeature: Sendable {
       return handleAddWorkspaceCompleted(state: &state, workspace: workspace)
 
     case let .openWorkspace(id):
-      print("DEBUG: WorkspacesFeature received .openWorkspace action for id: \(id)")
-      print("DEBUG: Current state has \(state.workspaces.count) workspaces")
-      print("DEBUG: About to call handleOpenWorkspace")
+      let workspaceCount = state.workspaces.count
+      Task {
+        await AppLogger.shared.log(
+          "WorkspacesFeature received openWorkspace action for id: \(id), state has \(workspaceCount) workspaces",
+          level: .debug,
+          category: .workspace
+        )
+      }
       let result = handleOpenWorkspace(state: &state, id: id)
-      print("DEBUG: handleOpenWorkspace returned successfully")
+      Task {
+        await AppLogger.shared.log(
+          "handleOpenWorkspace completed successfully for id: \(id)",
+          level: .debug,
+          category: .workspace
+        )
+      }
       return result
 
     case let .workspaceOpened(id, result):

@@ -11,7 +11,13 @@ extension WorkspacesFeature {
     fallbackSessions: [SessionMeta]
   ) -> Effect<Action> {
     let baseConfiguration = openCodeConfiguration
-    let serverURL = URL(string: "http://127.0.0.1:\(forwardedPort)")!
+
+    guard let serverURL = URL(string: "http://127.0.0.1:\(forwardedPort)") else {
+      return .run { send in
+        await send(.workspaceRefreshed(workspaceID, fallbackSessions, []))
+      }
+    }
+
     let configuration = OpenCodeConfiguration(
       serverURL: serverURL,
       timeout: baseConfiguration.timeout,

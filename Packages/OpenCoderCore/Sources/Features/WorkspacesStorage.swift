@@ -8,7 +8,13 @@ enum WorkspacesStorage {
       let workspaces = try JSONDecoder().decode([Workspace].self, from: data)
       return workspaces
     } catch {
-      print("Failed to load workspaces: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to load workspaces: \(error)",
+          level: .error,
+          category: .workspace
+        )
+      }
       return []
     }
   }
@@ -18,7 +24,13 @@ enum WorkspacesStorage {
       let data = try JSONEncoder().encode(workspaces)
       UserDefaults.standard.set(data, forKey: "savedWorkspaces")
     } catch {
-      print("Failed to save workspaces: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to save workspaces: \(error)",
+          level: .error,
+          category: .workspace
+        )
+      }
     }
   }
 
@@ -46,7 +58,13 @@ enum WorkspacesStorage {
       let servers = try JSONDecoder().decode([SSHServerConfiguration].self, from: data)
       return servers
     } catch {
-      print("Failed to load server configurations: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to load server configurations: \(error)",
+          level: .error,
+          category: .ssh
+        )
+      }
       return []
     }
   }

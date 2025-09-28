@@ -24,7 +24,7 @@ public struct SSHPTYSession {
   public let stdout: FileHandle
   public let stderr: FileHandle
   public let processId: Int32
-  
+
   public init(stdin: FileHandle, stdout: FileHandle, stderr: FileHandle, processId: Int32) {
     self.stdin = stdin
     self.stdout = stdout
@@ -37,7 +37,7 @@ public struct SSHStream {
   public let input: FileHandle
   public let output: FileHandle
   public let close: () -> Void
-  
+
   public init(input: FileHandle, output: FileHandle, close: @escaping () -> Void) {
     self.input = input
     self.output = output

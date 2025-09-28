@@ -28,7 +28,13 @@ public struct SSHServerConfiguration: Equatable, Hashable, Identifiable, Sendabl
           try KeychainManager.saveSSHPassword(for: id.uuidString, password: newValue)
         }
       } catch {
-        print("Failed to save SSH password to keychain: \(error)")
+        Task {
+          await AppLogger.shared.log(
+            "Failed to save SSH password to keychain: \(error)",
+            level: .error,
+            category: .ssh
+          )
+        }
       }
     }
   }
@@ -49,7 +55,13 @@ public struct SSHServerConfiguration: Equatable, Hashable, Identifiable, Sendabl
           try KeychainManager.deleteSSHPrivateKey(for: id.uuidString)
         }
       } catch {
-        print("Failed to save SSH private key to keychain: \(error)")
+        Task {
+          await AppLogger.shared.log(
+            "Failed to save SSH private key to keychain: \(error)",
+            level: .error,
+            category: .ssh
+          )
+        }
       }
     }
   }
@@ -97,7 +109,13 @@ public struct SSHServerConfiguration: Equatable, Hashable, Identifiable, Sendabl
     do {
       try KeychainManager.deleteAllSSHCredentials(for: id.uuidString)
     } catch {
-      print("Failed to delete SSH credentials from keychain: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to delete SSH credentials from keychain: \(error)",
+          level: .error,
+          category: .ssh
+        )
+      }
     }
   }
 

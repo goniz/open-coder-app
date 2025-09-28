@@ -339,22 +339,44 @@ extension WorkspacesFeature {
       return .run { send in
         do {
          await send(.spawnPhaseUpdated(workspaceID, .sshConnection))
+         
+         guard !Task.isCancelled else {
+           throw SSHError.connectionFailed("Workspace spawn was cancelled")
+         }
+         
          let workspaceService = WorkspaceService(config: serverConfig)
          await send(.spawnPhaseUpdated(workspaceID, .openCodeSpawn))
+         
+         guard !Task.isCancelled else {
+           throw SSHError.connectionFailed("Workspace spawn was cancelled during setup")
+         }
+         
          let spawnResult = try await workspaceService.attachOrSpawn(workspace: workspace)
+
+         guard !Task.isCancelled else {
+           throw SSHError.connectionFailed("Workspace spawn was cancelled after opencode setup")
+         }
 
          guard spawnResult.online else {
            await send(.workspaceOpened(workspaceID, .success(spawnResult)))
            return
          }
 
-let localPort = try await performForwardingAndHandshake(
-  workspace: workspace,
-  workspaceID: workspaceID,
-  serverConfig: serverConfig,
-  remotePort: spawnResult.port,
-  send: { action in await send(action) }
-)
+         guard !Task.isCancelled else {
+           throw SSHError.connectionFailed("Workspace spawn was cancelled before port forwarding")
+         }
+
+         let localPort = try await performForwardingAndHandshake(
+           workspace: workspace,
+           workspaceID: workspaceID,
+           serverConfig: serverConfig,
+           remotePort: spawnResult.port,
+           send: { action in await send(action) }
+         )
+
+         guard !Task.isCancelled else {
+           throw SSHError.connectionFailed("Workspace spawn was cancelled after port forwarding")
+         }
 
          let forwardedResult = WorkspaceService.SpawnResult(
            port: localPort,
@@ -364,10 +386,19 @@ let localPort = try await performForwardingAndHandshake(
          await send(.workspaceOpened(workspaceID, .success(forwardedResult)))
          await send(.refreshWorkspace(workspaceID))
         } catch {
+          await AppLogger.shared.log(
+            "Workspace spawn failed for \(workspace.name): \(error)",
+            level: .error,
+            category: .workspace
+          )
+          
           if let sshError = error as? SSHError {
             await send(.workspaceOpened(workspaceID, .failure(sshError)))
+          } else if error is CancellationError {
+            let cancellationError = SSHError.connectionFailed("Workspace spawn was cancelled")
+            await send(.workspaceOpened(workspaceID, .failure(cancellationError)))
           } else {
-            let connectionError = SSHError.connectionFailed(error.localizedDescription)
+            let connectionError = SSHError.connectionFailed("Workspace spawn failed: \(error.localizedDescription)")
             await send(.workspaceOpened(workspaceID, .failure(connectionError)))
           }
         }

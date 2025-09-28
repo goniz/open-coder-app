@@ -117,4 +117,7 @@ public enum LogCategory: String, CaseIterable, Sendable {
   case api = "API"
   case workspace = "Workspace"
   case fileSystem = "FileSystem"
+  case app = "App"
+  case chat = "Chat"
+  case activity = "Activity"
 }

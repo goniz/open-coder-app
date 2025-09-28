@@ -214,7 +214,6 @@ private final class SSHDirectTCPIPHandler: ChannelDuplexHandler, @unchecked Send
   }
 }
 
-
 // MARK: - Dependency Registration
 
 extension PortForwardingClientKey {

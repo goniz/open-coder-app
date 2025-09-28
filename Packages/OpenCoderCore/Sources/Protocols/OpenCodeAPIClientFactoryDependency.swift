@@ -19,7 +19,13 @@ public extension DependencyValues {
 
 private struct UnconfiguredFactory: OpenCodeAPIClientFactoryProtocol {
   let make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol = { _ in
-    print("ERROR: OpenCodeAPIClientFactory dependency not configured properly")
+    Task {
+      await AppLogger.shared.log(
+        "ERROR: OpenCodeAPIClientFactory dependency not configured properly",
+        level: .error,
+        category: .api
+      )
+    }
     fatalError(
       "OpenCodeAPIClientFactory dependency must be explicitly set. Use OpenCodeAPIClientFactory.live in production."
     )

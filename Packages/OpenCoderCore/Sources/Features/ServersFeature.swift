@@ -270,14 +270,27 @@ public struct ServersFeature: Sendable {
       // but we should re-save to remove any legacy password data from JSON
       let hasLegacyData = hasLegacyPasswordInJSON(data)
       if hasLegacyData {
-        print("🔐 Migrating SSH credentials to keychain...")
+        // Log migration asynchronously
+        Task {
+          await AppLogger.shared.log(
+            "🔐 Migrating SSH credentials to keychain...",
+            level: .info,
+            category: .ssh
+          )
+        }
         // Re-save without legacy password data
         saveServersToStorage(configurations.map { ServerState(configuration: $0) })
       }
 
       return configurations.map { ServerState(configuration: $0) }
     } catch {
-      print("Failed to load servers: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to load servers: \(error)",
+          level: .error,
+          category: .ssh
+        )
+      }
       return []
     }
   }
@@ -293,7 +306,13 @@ public struct ServersFeature: Sendable {
       let data = try JSONEncoder().encode(configurations)
       UserDefaults.standard.set(data, forKey: "savedServers")
     } catch {
-      print("Failed to save servers: \(error)")
+      Task {
+        await AppLogger.shared.log(
+          "Failed to save servers: \(error)",
+          level: .error,
+          category: .ssh
+        )
+      }
     }
   }
 
