@@ -11,7 +11,8 @@ extension WorkspacesFeature {
   ) -> Effect<Action> {
     var effects: [Effect<Action>] = []
     state.portForwardTokens[id] = token
-    if let index = state.workspaces.firstIndex(where: { $0.id == id }) {
+    if let index = state.workspaces.firstIndex(where: { $0.id == id }),
+       index < state.workspaces.count {
       state.workspaces[index].forwardedPort = token.localPort
       state.workspaces[index].remotePort = token.remotePort
       let interactionWorkspace = state.workspaces[index].workspace
@@ -33,7 +34,8 @@ extension WorkspacesFeature {
 
     var effects: [Effect<Action>] = []
 
-    if let index = state.workspaces.firstIndex(where: { $0.id == id }) {
+    if let index = state.workspaces.firstIndex(where: { $0.id == id }),
+       index < state.workspaces.count {
       state.workspaces[index].forwardedPort = nil
       state.workspaces[index].remotePort = nil
     }

@@ -106,20 +106,28 @@ extension WorkspacesFeature {
     }
   }
 
-    private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
-      guard index < state.workspaces.count else {
-        return
-      }
+   private func resetWorkspaceState(_ state: inout State, index: Int, id: WorkspaceState.ID) {
+     let workspaceCount = state.workspaces.count
+     guard index >= 0 && index < workspaceCount else {
+       Task {
+         await AppLogger.shared.log(
+           "resetWorkspaceState: Index \(index) out of bounds (array size: \(workspaceCount))",
+           level: .error,
+           category: .workspace
+         )
+       }
+       return
+     }
 
-      state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
-      state.workspaces[index].openCodeSession = nil
-      state.workspaces[index].openCodeSessions = []
-      state.workspaces[index].forwardedPort = nil
-      state.workspaces[index].remotePort = nil
-      state.selectedWorkspace = id
-      state.interactionInitialTab = .activity
-      state.showingWorkspaceInteraction = true
-    }
+     state.workspaces[index].onlineState = .spawning(phase: .sshConnection)
+     state.workspaces[index].openCodeSession = nil
+     state.workspaces[index].openCodeSessions = []
+     state.workspaces[index].forwardedPort = nil
+     state.workspaces[index].remotePort = nil
+     state.selectedWorkspace = id
+     state.interactionInitialTab = .activity
+     state.showingWorkspaceInteraction = true
+   }
 
    private func createSSHConfigErrorEffect(
      cleanup: Effect<Action>,
@@ -143,6 +151,9 @@ extension WorkspacesFeature {
     }
 
     resetWorkspaceState(&state, index: index, id: id)
+
+    // Re-check bounds after resetWorkspaceState
+    guard index < state.workspaces.count else { return .none }
     let workspace = state.workspaces[index].workspace
 
     state.workspaceInteraction = WorkspaceInteractionFeature.State(
@@ -176,6 +187,19 @@ extension WorkspacesFeature {
      result: Result<WorkspaceService.SpawnResult, SSHError>,
      isSelected: Bool
    ) -> Bool {
+     // Defensive programming: ensure index is still valid
+     let workspaceCount = state.workspaces.count
+     guard index >= 0 && index < workspaceCount else {
+       Task {
+         await AppLogger.shared.log(
+           "updateWorkspaceStateWithSpawnResult: Index \(index) out of bounds (array size: \(workspaceCount))",
+           level: .error,
+           category: .workspace
+         )
+       }
+       return false
+     }
+
      var workspaceState = state.workspaces[index]
 
      switch result {
@@ -193,6 +217,18 @@ extension WorkspacesFeature {
      case .failure(let error):
        workspaceState.onlineState = .error(error.localizedDescription)
        workspaceState.isRefreshing = false
+     }
+
+     // Double-check bounds before writing back
+     guard index < state.workspaces.count else {
+       Task {
+         await AppLogger.shared.log(
+           "updateWorkspaceStateWithSpawnResult: Index became invalid during update",
+           level: .error,
+           category: .workspace
+         )
+       }
+       return false
      }
 
      state.workspaces[index] = workspaceState
@@ -240,23 +276,29 @@ extension WorkspacesFeature {
 
   func handleRefreshWorkspace(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+    guard index < state.workspaces.count else { return .none }
     guard case .online = state.workspaces[index].onlineState else { return .none }
 
     guard let forwardedPort = state.workspaces[index].forwardedPort else {
-      state.workspaces[index].isRefreshing = false
+      if index < state.workspaces.count {
+        state.workspaces[index].isRefreshing = false
+      }
       return .none
     }
 
-    state.workspaces[index].isRefreshing = true
-    let workspace = state.workspaces[index].workspace
-    let existingSessions = state.workspaces[index].sessions
+    if index < state.workspaces.count {
+      state.workspaces[index].isRefreshing = true
+      let workspace = state.workspaces[index].workspace
+      let existingSessions = state.workspaces[index].sessions
 
-    return fetchSessionsEffect(
-      workspace: workspace,
-      workspaceID: id,
-      forwardedPort: forwardedPort,
-      fallbackSessions: existingSessions
-    )
+      return fetchSessionsEffect(
+        workspace: workspace,
+        workspaceID: id,
+        forwardedPort: forwardedPort,
+        fallbackSessions: existingSessions
+      )
+    }
+    return .none
   }
 
    func handleWorkspaceRefreshed(
@@ -266,6 +308,7 @@ extension WorkspacesFeature {
      openCodeSessions: [OpenCodeSession]
    ) -> Effect<Action> {
      guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+     guard index < state.workspaces.count else { return .none }
 
      state.workspaces[index].sessions = sessions
      state.workspaces[index].openCodeSessions = openCodeSessions
@@ -286,6 +329,9 @@ extension WorkspacesFeature {
      guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
 
      resetWorkspaceState(&state, index: index, id: id)
+
+     // Re-check bounds after resetWorkspaceState
+     guard index < state.workspaces.count else { return .none }
      let workspace = state.workspaces[index].workspace
 
      let cleanup = stopPortForward(&state, id: id)
@@ -321,9 +367,13 @@ extension WorkspacesFeature {
     phase: SpawnPhase
   ) -> Effect<Action> {
     guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return .none }
+    guard index < state.workspaces.count else { return .none }
 
     var workspaceState = state.workspaces[index]
     workspaceState.onlineState = .spawning(phase: phase)
+
+    // Ensure index is still valid before writing back
+    guard index < state.workspaces.count else { return .none }
     state.workspaces[index] = workspaceState
 
     if state.selectedWorkspace == id {
