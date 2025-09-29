@@ -3255,7 +3255,7 @@
     "@@rules_swift_package_manager+//:extensions.bzl%swift_deps": {
       "general": {
         "bzlTransitiveDigest": "2EEerx/lybPV/DTrKc9aFYyaZ4ZmQizydTxUPa0+Nww=",
-        "usagesDigest": "Htovd1OEXzcPrwbewdf/l4DGIsRBffqq1CyosQmH+xk=",
+        "usagesDigest": "b5v3NLyRqYJL2FRGt2mSjzkeL0cNgAr1pNPs53tP+24=",
         "recordedFileInputs": {
           "@@//Package.resolved": "2ebf5150de3fa26cfec5cc90e1ce0bb72d6ce5073ea1a31672e56cdd765d7357"
         },
@@ -3276,16 +3276,7 @@
             "repoRuleId": "@@rules_swift_package_manager+//swiftpkg/internal:swift_package_tool_repo.bzl%swift_package_tool_repo",
             "attributes": {
               "env": {},
-              "package": "/Package.swift",
-              "build_path": ".build",
-              "cache_path": ".cache",
-              "config_path": ".config",
-              "dependency_caching": true,
-              "manifest_cache": "shared",
-              "manifest_caching": true,
-              "replace_scm_with_registry": true,
-              "security_path": ".security",
-              "use_registry_identity_for_scm": true
+              "package": "/Package.swift"
             }
           },
           "swiftpkg_opencodercore": {
@@ -3334,7 +3325,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_anchoredpopup": {
@@ -3356,7 +3347,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_async_http_client": {
@@ -3378,7 +3369,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_chat": {
@@ -3400,7 +3391,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_combine_schedulers": {
@@ -3422,7 +3413,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_giphy_ios_sdk": {
@@ -3444,7 +3435,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_kingfisher": {
@@ -3466,7 +3457,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_libwebp_xcode": {
@@ -3488,7 +3479,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_mediapicker": {
@@ -3510,7 +3501,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_openapikit": {
@@ -3532,7 +3523,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_algorithms": {
@@ -3554,7 +3545,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_argument_parser": {
@@ -3576,7 +3567,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_asn1": {
@@ -3598,7 +3589,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_async_algorithms": {
@@ -3620,7 +3611,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_atomics": {
@@ -3642,7 +3633,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_case_paths": {
@@ -3664,7 +3655,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_certificates": {
@@ -3686,7 +3677,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_clocks": {
@@ -3708,7 +3699,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_collections": {
@@ -3730,7 +3721,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_composable_architecture": {
@@ -3752,7 +3743,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_concurrency_extras": {
@@ -3774,7 +3765,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_crypto": {
@@ -3796,7 +3787,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_custom_dump": {
@@ -3818,7 +3809,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_dependencies": {
@@ -3840,7 +3831,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_http_structured_headers": {
@@ -3862,7 +3853,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_http_types": {
@@ -3884,7 +3875,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_identified_collections": {
@@ -3906,7 +3897,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_log": {
@@ -3928,7 +3919,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_navigation": {
@@ -3950,7 +3941,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio": {
@@ -3972,7 +3963,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio_extras": {
@@ -3994,7 +3985,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio_http2": {
@@ -4016,7 +4007,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio_ssh": {
@@ -4038,7 +4029,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio_ssl": {
@@ -4060,7 +4051,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_nio_transport_services": {
@@ -4082,7 +4073,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_numerics": {
@@ -4104,7 +4095,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_openapi_async_http_client": {
@@ -4126,7 +4117,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_openapi_generator": {
@@ -4148,7 +4139,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_openapi_runtime": {
@@ -4170,7 +4161,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_perception": {
@@ -4192,7 +4183,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_service_lifecycle": {
@@ -4214,7 +4205,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_sharing": {
@@ -4236,7 +4227,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_syntax": {
@@ -4258,7 +4249,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_swift_system": {
@@ -4280,7 +4271,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_xctest_dynamic_overlay": {
@@ -4302,7 +4293,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           },
           "swiftpkg_yams": {
@@ -4324,7 +4315,7 @@
               "patch_tool": "",
               "patches": [],
               "publicly_expose_all_targets": false,
-              "replace_scm_with_registry": true
+              "replace_scm_with_registry": false
             }
           }
         },

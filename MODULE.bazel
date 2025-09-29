@@ -19,10 +19,6 @@ swift_deps = use_extension(
     "@rules_swift_package_manager//:extensions.bzl",
     "swift_deps",
 )
-swift_deps.configure_swift_package(
-    replace_scm_with_registry = True,
-    use_registry_identity_for_scm = True,
-)
 swift_deps.from_package(
     declare_swift_deps_info = True,
     resolved = "//:Package.resolved",
