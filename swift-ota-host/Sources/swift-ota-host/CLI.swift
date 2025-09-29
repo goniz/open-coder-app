@@ -3,7 +3,7 @@ import Foundation
 
 @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
 struct OTAHostCLI: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
+    public static let configuration = CommandConfiguration(
         commandName: "swift-ota-host",
         abstract: "iOS App Over-The-Air Distribution Server",
         discussion: """
@@ -19,21 +19,21 @@ struct OTAHostCLI: AsyncParsableCommand {
     )
     
     @Flag(name: .long, help: "Development mode (self-signed certs, localhost)")
-    var dev = false
+    public var dev = false
     
     @Option(name: .long, help: "Server port (default: 443 prod, 8443 dev)")
-    var port: Int?
+    public var port: Int?
     
     @Option(name: .long, help: "Use specific IPA file")
-    var ipa: String?
+    public var ipa: String?
     
     @Flag(name: .long, help: "Exit after serving the first IPA file")
-    var once = false
+    public var once = false
     
     @Flag(name: .long, help: "Disable HTTPS (not recommended)")
-    var noHttps = false
+    public var noHttps = false
     
-    mutating func validate() throws {
+    public mutating func validate() throws {
         if let port = port {
             guard port > 0 && port <= 65535 else {
                 throw ValidationError("Port must be between 1 and 65535")
@@ -51,7 +51,7 @@ struct OTAHostCLI: AsyncParsableCommand {
         }
     }
     
-    mutating func run() async throws {
+    public mutating func run() async throws {
         let config = ServerConfig(
             port: port ?? (dev ? 8443 : 443),
             devMode: dev,

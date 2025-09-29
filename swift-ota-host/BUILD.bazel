@@ -1,0 +1,13 @@
+load("@build_bazel_rules_swift//swift:swift.bzl", "swift_binary")
+
+swift_binary(
+    name = "swift-ota-host",
+    srcs = glob(["Sources/swift-ota-host/**/*.swift"]),
+    deps = [
+        "@swiftpkg_swift_nio//:NIO",
+        "@swiftpkg_swift_nio//:NIOHTTP1",
+        "@swiftpkg_swift_nio_ssl//:NIOSSL",
+        "@swiftpkg_zipfoundation//:ZIPFoundation",
+        "@swiftpkg_swift_argument_parser//:ArgumentParser",
+    ],
+)

@@ -1,6 +1,6 @@
 import Foundation
 
-struct ServerConfig: Codable, Equatable {
+public struct ServerConfig: Codable, Equatable {
     let port: Int
     let devMode: Bool
     let customIpaPath: String?
