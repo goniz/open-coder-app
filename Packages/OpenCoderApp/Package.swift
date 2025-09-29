@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "OpenCoderApp",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(
             name: "OpenCoderApp",
@@ -17,7 +17,7 @@ let package = Package(
         .package(path: "../OpenCoderUI"),
         
         // TCA for app configuration
-        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.2"),
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.3"),
     ],
     targets: [
         // MARK: - App Module

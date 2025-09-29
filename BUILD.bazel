@@ -18,6 +18,13 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Alias to the generated OpenCoderUI from Swift Package Manager
+alias(
+    name = "OpenCoderUI",
+    actual = "@swiftpkg_opencoderui//:OpenCoderUI",
+    visibility = ["//visibility:public"],
+)
+
 # Alias to the generated OpenCoderApp from Swift Package Manager
 alias(
     name = "OpenCoderApp",
@@ -33,8 +40,8 @@ ios_application(
         "iphone",
     ],
     infoplists = [":Info.plist"],
-    minimum_os_version = "15.0",
+    minimum_os_version = "17.0",
     deps = [
-        ":OpenCoderApp",
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
     ],
 )

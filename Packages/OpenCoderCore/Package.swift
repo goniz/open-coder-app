@@ -15,7 +15,7 @@ let package = Package(
     ],
       dependencies: [
           // TCA and Dependencies
-          .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.2"),
+          .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.3"),
           .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.4"),
           .package(url: "https://github.com/pointfreeco/swift-custom-dump", exact: "1.3.3"),
 
