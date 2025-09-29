@@ -11,6 +11,12 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "swift_perception_patches",
+    srcs = ["patches/swift-perception-compiler-guard.patch"],
+    visibility = ["//visibility:public"],
+)
+
 # Alias to the generated OpenCoderCore from Swift Package Manager
 alias(
     name = "OpenCoderCore",

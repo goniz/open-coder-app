@@ -1,0 +1,11 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 1234567..abcdefg 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -95,7 +95,6 @@
+         "Sources/PerceptionCore/PerceptionTracking.swift",
+         "Sources/PerceptionCore/Perceptions.swift",
+-        "Sources/PerceptionCore/SwiftUI/Bindable.swift",
+         "Sources/PerceptionCore/SwiftUI/Environment.swift",
+         "Sources/PerceptionCore/SwiftUI/WithPerceptionTracking.swift",
+         "Sources/PerceptionCore/ThreadLocal.swift",

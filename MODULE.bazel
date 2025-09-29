@@ -24,6 +24,21 @@ swift_deps.from_package(
     resolved = "//:Package.resolved",
     swift = "//:Package.swift",
 )
+swift_deps.configure_package(
+    name = "swift-perception",
+    patches = ["//:patches/swift-perception-compiler-guard.patch"],
+    patch_args = ["-p1"],
+)
+swift_deps.configure_package(
+    name = "swift-sharing",
+    patches = ["//:patches/swift-sharing-compiler-guard.patch"],
+    patch_args = ["-p1"],
+)
+swift_deps.configure_package(
+    name = "swift-composable-architecture",
+    patches = ["//:patches/tca-compiler-guard.patch"],
+    patch_args = ["-p1"],
+)
 use_repo(
     swift_deps,
     "swift_deps_info",

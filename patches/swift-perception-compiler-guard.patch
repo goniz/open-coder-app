@@ -1,0 +1,21 @@
+diff --git a/Sources/PerceptionCore/SwiftUI/Bindable.swift b/Sources/PerceptionCore/SwiftUI/Bindable.swift
+index 27f9701..2128242 100644
+--- a/Sources/PerceptionCore/SwiftUI/Bindable.swift
++++ b/Sources/PerceptionCore/SwiftUI/Bindable.swift
+@@ -5,6 +5,8 @@
+   /// perceptible objects.
+   ///
+   /// > Important: This is a back-port of SwiftUI's `Bindable` property wrapper.
++  
++  #if compiler(<5.9)
+   @available(
+     iOS,
+     introduced: 13,
+@@ -103,6 +105,7 @@
+       lhs.object === rhs.object
+     }
+   }
++  #endif
+ 
+   #if DEBUG
+     extension Perceptible {
