@@ -53,3 +53,4 @@ bazel-*
 # Generated plist files (use templates instead)
 /Info.plist
 /Info.preview.plist
+MODULE.bazel.lock
