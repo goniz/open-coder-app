@@ -66,12 +66,13 @@ generate_plist_from_settings(
 ios_application(
     name = "OpenCoder.preview",
     bundle_id = "com.goniz.opencoderapp.preview",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
     families = [
         "iphone",
     ],
     infoplists = [":Info_preview_plist"],
     minimum_os_version = "17.0",
-    provisioning_profile = "//Xcode:development_preview_profile",
+    provisioning_profile = "//Xcode:adhoc_preview_profile",
     resources = [
         "//Xcode:app_assets",
     ],
@@ -84,6 +85,7 @@ ios_application(
 ios_application(
     name = "OpenCoder.appstore",
     bundle_id = "com.goniz.opencoderapp",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
     families = [
         "iphone",
     ],
