@@ -34,7 +34,7 @@ build-ios:
     cd Xcode && fastlane build
 
 beta:
-    cd Xcode && fastlane beta
+    cd Xcode && fastlane appstore
 
 preview:
     bazel build //:OpenCoder.preview

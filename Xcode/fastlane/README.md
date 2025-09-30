@@ -47,6 +47,14 @@ Build preview IPA
 
 Generate screenshots for development
 
+### ios appstore
+
+```sh
+[bundle exec] fastlane ios appstore
+```
+
+Publish to App Store using Bazel-built IPA
+
 ### ios check_builds
 
 ```sh
