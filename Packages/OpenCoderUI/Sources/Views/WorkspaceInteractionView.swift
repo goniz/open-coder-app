@@ -4,21 +4,13 @@ import SwiftUI
 
 struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
-  @State private var chatStore: StoreOf<ChatFeature>?
+  let chatStore: StoreOf<ChatFeature>
 
   init(store: StoreOf<WorkspaceInteractionFeature>) {
     self.store = store
-  }
-
-  private var chatStoreValue: StoreOf<ChatFeature> {
-    if let chatStore = chatStore {
-      return chatStore
-    }
-    let newStore = withDependencies(from: store) {
+    self.chatStore = withDependencies(from: store) {
       Store(initialState: ChatFeature.State(), reducer: { ChatFeature() })
     }
-    chatStore = newStore
-    return newStore
   }
 
   var body: some View {
@@ -64,7 +56,7 @@ struct WorkspaceInteractionView: View {
             .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
             .tag(WorkspaceInteractionFeature.Tab.activity)
 
-          ChatView(store: chatStoreValue)
+          ChatView(store: chatStore)
             .tabItem { Label("Chat", systemImage: "message") }
             .tag(WorkspaceInteractionFeature.Tab.chat)
 
@@ -91,8 +83,8 @@ struct WorkspaceInteractionView: View {
   }
 
   private func syncChat(state: WorkspaceInteractionFeature.State) {
-    chatStoreValue.send(.serverURLUpdated(state.openCodeServerURL))
-    chatStoreValue.send(.updateSession(state.openCodeSessionID))
+    chatStore.send(.serverURLUpdated(state.openCodeServerURL))
+    chatStore.send(.updateSession(state.openCodeSessionID))
   }
 
   private var header: some View {
