@@ -38,16 +38,39 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# iOS Application target
+# iOS Application target - Preview
 ios_application(
-    name = "OpenCoder",
+    name = "OpenCoder.preview",
+    bundle_id = "com.goniz.opencoderapp.preview",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info.plist"],
+    minimum_os_version = "17.0",
+    provisioning_profile = "//Xcode:development_preview_profile",
+    deps = [
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
+    ],
+)
+
+# iOS Application target - App Store
+ios_application(
+    name = "OpenCoder.appstore",
     bundle_id = "com.goniz.opencoderapp",
     families = [
         "iphone",
     ],
     infoplists = [":Info.plist"],
     minimum_os_version = "17.0",
+    provisioning_profile = "//Xcode:appstore_profile",
     deps = [
         "@swiftpkg_opencoderapp//:OpenCoderApp",
     ],
+)
+
+# Default alias to preview variant
+alias(
+    name = "OpenCoder",
+    actual = ":OpenCoder.preview",
+    visibility = ["//visibility:public"],
 )

@@ -1,0 +1,39 @@
+load("@build_bazel_rules_apple//apple:apple.bzl", "local_provisioning_profile")
+
+# Development profiles
+local_provisioning_profile(
+    name = "development_profile",
+    profile_name = "com.goniz.opencoderapp Development",
+    profile_extension = ".mobileprovision",
+    visibility = ["//visibility:public"],
+)
+
+local_provisioning_profile(
+    name = "development_preview_profile",
+    profile_name = "com.goniz.opencoderapp.preview Development",
+    profile_extension = ".mobileprovision",
+    visibility = ["//visibility:public"],
+)
+
+# AdHoc profiles
+local_provisioning_profile(
+    name = "adhoc_profile",
+    profile_name = "com.goniz.opencoderapp AdHoc",
+    profile_extension = ".mobileprovision",
+    visibility = ["//visibility:public"],
+)
+
+local_provisioning_profile(
+    name = "adhoc_preview_profile",
+    profile_name = "com.goniz.opencoderapp.preview AdHoc",
+    profile_extension = ".mobileprovision",
+    visibility = ["//visibility:public"],
+)
+
+# AppStore profile
+local_provisioning_profile(
+    name = "appstore_profile",
+    profile_name = "com.goniz.opencoderapp AppStore",
+    profile_extension = ".mobileprovision",
+    visibility = ["//visibility:public"],
+)
