@@ -12,7 +12,7 @@ public struct OpenCoderApp: App {
   public var body: some Scene {
     let configuration = Self.resolveConfiguration()
 
-    return WindowGroup(content: {
+    return WindowGroup {
       AppView(
         store: Store(
           initialState: AppFeature.State(),
@@ -26,7 +26,7 @@ public struct OpenCoderApp: App {
             }
         )
       )
-    })
+    }
   }
 }
 

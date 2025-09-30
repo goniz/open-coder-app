@@ -63,7 +63,7 @@ struct ChatMessageView: View {
           HStack {
             if !message.attachments.isEmpty {
               ForEach(message.attachments) { attachment in
-                AttachmentView(attachment: attachment, onTap: { showAttachmentClosure(attachment) })
+                AttachmentView(attachment: attachment) { showAttachmentClosure(attachment) }
               }
             }
 

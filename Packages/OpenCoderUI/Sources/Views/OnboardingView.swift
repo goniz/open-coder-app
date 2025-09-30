@@ -170,10 +170,9 @@ struct OnboardingView: View {
 #Preview {
   OnboardingView(
     store: .init(
-      initialState: .init(),
-      reducer: {
+      initialState: .init()
+    ) {
         OnboardingFeature()
       }
-    )
   )
 }

@@ -9,7 +9,7 @@ struct WorkspaceInteractionView: View {
   init(store: StoreOf<WorkspaceInteractionFeature>) {
     self.store = store
     self.chatStore = withDependencies(from: store) {
-      Store(initialState: ChatFeature.State(), reducer: { ChatFeature() })
+      Store(initialState: ChatFeature.State()) { ChatFeature() }
     }
   }
 
@@ -380,8 +380,7 @@ struct ActivityEventRow: View {
             message: "Workspace is now online and ready on port 8080"
           )
         ]
-      ),
-      reducer: { WorkspaceInteractionFeature() }
-    )
+      )
+    ) { WorkspaceInteractionFeature() }
   )
 }
