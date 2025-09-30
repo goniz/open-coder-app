@@ -86,9 +86,10 @@ extension ChatFeature {
     state.draft = ChatDraftState()
     state.isLoading = true
 
-    return .run { [openCodeAPIFactory] send in
+    return .run { send in
+      @Dependency(\.openCodeAPIFactory) var factory
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         _ = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
         await send(.messageSendCompleted(messageID: messageID))
       } catch {
@@ -141,9 +142,10 @@ extension ChatFeature {
     }
 
     state.isLoadingSessions = true
-    return .run { [openCodeAPIFactory] send in
+    return .run { send in
+      @Dependency(\.openCodeAPIFactory) var factory
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let sessions = try await apiClient.listSessions()
         await send(.sessionsLoaded(sessions))
       } catch {
@@ -178,9 +180,10 @@ extension ChatFeature {
     }
 
     state.isLoadingSessions = true
-    return .run { [openCodeAPIFactory] send in
+    return .run { send in
+      @Dependency(\.openCodeAPIFactory) var factory
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let session = try await apiClient.createSession()
         await send(.sessionCreated(session))
       } catch {
@@ -257,9 +260,10 @@ extension ChatFeature {
   }
 
   private func loadMessagesEffect(sessionID: String, serverURL: URL, isLoadMore: Bool = false) -> Effect<Action> {
-    .run { [openCodeAPIFactory] send in
+    .run { send in
+      @Dependency(\.openCodeAPIFactory) var factory
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let messages = try await apiClient.getMessages(sessionID: sessionID)
         if isLoadMore {
           await send(.loadMoreCompleted(messages, hasMore: false))
