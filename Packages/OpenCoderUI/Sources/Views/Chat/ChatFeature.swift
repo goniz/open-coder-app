@@ -109,22 +109,6 @@ public struct ChatFeature: Sendable {
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
 
   public init() {
-    let factoryType = String(describing: type(of: openCodeAPIFactory))
-    let config = openCodeConfiguration
-    let configDescription = String(describing: config)
-
-    Task.detached {
-      await AppLogger.shared.log(
-        "ChatFeature init: Factory type: \(factoryType)",
-        level: .debug,
-        category: .chat
-      )
-      await AppLogger.shared.log(
-        "ChatFeature init: Configuration: \(configDescription)",
-        level: .debug,
-        category: .chat
-      )
-    }
   }
 
   public var body: some ReducerOf<Self> {
