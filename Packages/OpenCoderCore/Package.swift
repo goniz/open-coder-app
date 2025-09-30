@@ -100,8 +100,9 @@ let package = Package(
             dependencies: [
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
             ],
-            plugins: [
-                .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
+            exclude: [
+                "openapi.yaml",
+                "openapi-generator-config.yaml"
             ]
         ),
         

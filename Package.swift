@@ -20,6 +20,9 @@ let package = Package(
     .package(path: "./Packages/OpenCoderCore"),
     .package(path: "./Packages/OpenCoderUI"),
     .package(path: "./Packages/OpenCoderApp"),
+    
+    // OpenAPI Generator for code generation
+    .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.0.0"),
   ],
   targets: [
     // Empty integration test target if needed in the future
@@ -30,7 +33,7 @@ let package = Package(
         .product(name: "OpenCoderUI", package: "OpenCoderUI"),
         .product(name: "OpenCoderApp", package: "OpenCoderApp"),
       ]
-    )
+    ),
   ]
 )
 

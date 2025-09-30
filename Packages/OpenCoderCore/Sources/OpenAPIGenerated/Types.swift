@@ -26,6 +26,11 @@ package protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /config`.
     /// - Remark: Generated from `#/paths//config/get(config.get)`.
     func config_period_get(_ input: Operations.config_period_get.Input) async throws -> Operations.config_period_get.Output
+    /// Update config
+    ///
+    /// - Remark: HTTP `PATCH /config`.
+    /// - Remark: Generated from `#/paths//config/patch(config.update)`.
+    func config_period_update(_ input: Operations.config_period_update.Input) async throws -> Operations.config_period_update.Output
     /// List all tool IDs (including built-in and dynamically registered)
     ///
     /// - Remark: HTTP `GET /experimental/tool/ids`.
@@ -282,6 +287,21 @@ extension APIProtocol {
         try await config_period_get(Operations.config_period_get.Input(
             query: query,
             headers: headers
+        ))
+    }
+    /// Update config
+    ///
+    /// - Remark: HTTP `PATCH /config`.
+    /// - Remark: Generated from `#/paths//config/patch(config.update)`.
+    package func config_period_update(
+        query: Operations.config_period_update.Input.Query = .init(),
+        headers: Operations.config_period_update.Input.Headers = .init(),
+        body: Operations.config_period_update.Input.Body? = nil
+    ) async throws -> Operations.config_period_update.Output {
+        try await config_period_update(Operations.config_period_update.Input(
+            query: query,
+            headers: headers,
+            body: body
         ))
     }
     /// List all tool IDs (including built-in and dynamically registered)
@@ -4290,8 +4310,6 @@ package enum Components {
                 ])
             }
         }
-        /// - Remark: Generated from `#/components/schemas/ToolIDs`.
-        package typealias ToolIDs = [Swift.String]
         /// - Remark: Generated from `#/components/schemas/Error`.
         package struct _Error: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Error/data`.
@@ -4325,6 +4343,8 @@ package enum Components {
                 case data
             }
         }
+        /// - Remark: Generated from `#/components/schemas/ToolIDs`.
+        package typealias ToolIDs = [Swift.String]
         /// - Remark: Generated from `#/components/schemas/ToolListItem`.
         package struct ToolListItem: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/ToolListItem/id`.
@@ -5104,6 +5124,26 @@ package enum Components {
             }
             /// - Remark: Generated from `#/components/schemas/TextPart/time`.
             package var time: Components.Schemas.TextPart.timePayload?
+            /// - Remark: Generated from `#/components/schemas/TextPart/metadata`.
+            package struct metadataPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                package var additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer]
+                /// Creates a new `metadataPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                package init(additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                package init(from decoder: any Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                package func encode(to encoder: any Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/TextPart/metadata`.
+            package var metadata: Components.Schemas.TextPart.metadataPayload?
             /// Creates a new `TextPart`.
             ///
             /// - Parameters:
@@ -5114,6 +5154,7 @@ package enum Components {
             ///   - text:
             ///   - synthetic:
             ///   - time:
+            ///   - metadata:
             package init(
                 id: Swift.String,
                 sessionID: Swift.String,
@@ -5121,7 +5162,8 @@ package enum Components {
                 _type: Components.Schemas.TextPart._typePayload,
                 text: Swift.String,
                 synthetic: Swift.Bool? = nil,
-                time: Components.Schemas.TextPart.timePayload? = nil
+                time: Components.Schemas.TextPart.timePayload? = nil,
+                metadata: Components.Schemas.TextPart.metadataPayload? = nil
             ) {
                 self.id = id
                 self.sessionID = sessionID
@@ -5130,6 +5172,7 @@ package enum Components {
                 self.text = text
                 self.synthetic = synthetic
                 self.time = time
+                self.metadata = metadata
             }
             package enum CodingKeys: String, CodingKey {
                 case id
@@ -5139,6 +5182,7 @@ package enum Components {
                 case text
                 case synthetic
                 case time
+                case metadata
             }
         }
         /// - Remark: Generated from `#/components/schemas/ReasoningPart`.
@@ -5935,6 +5979,26 @@ package enum Components {
             package var tool: Swift.String
             /// - Remark: Generated from `#/components/schemas/ToolPart/state`.
             package var state: Components.Schemas.ToolState
+            /// - Remark: Generated from `#/components/schemas/ToolPart/metadata`.
+            package struct metadataPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                package var additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer]
+                /// Creates a new `metadataPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                package init(additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                package init(from decoder: any Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                package func encode(to encoder: any Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/ToolPart/metadata`.
+            package var metadata: Components.Schemas.ToolPart.metadataPayload?
             /// Creates a new `ToolPart`.
             ///
             /// - Parameters:
@@ -5945,6 +6009,7 @@ package enum Components {
             ///   - callID:
             ///   - tool:
             ///   - state:
+            ///   - metadata:
             package init(
                 id: Swift.String,
                 sessionID: Swift.String,
@@ -5952,7 +6017,8 @@ package enum Components {
                 _type: Components.Schemas.ToolPart._typePayload,
                 callID: Swift.String,
                 tool: Swift.String,
-                state: Components.Schemas.ToolState
+                state: Components.Schemas.ToolState,
+                metadata: Components.Schemas.ToolPart.metadataPayload? = nil
             ) {
                 self.id = id
                 self.sessionID = sessionID
@@ -5961,6 +6027,7 @@ package enum Components {
                 self.callID = callID
                 self.tool = tool
                 self.state = state
+                self.metadata = metadata
             }
             package enum CodingKeys: String, CodingKey {
                 case id
@@ -5970,6 +6037,7 @@ package enum Components {
                 case callID
                 case tool
                 case state
+                case metadata
             }
         }
         /// - Remark: Generated from `#/components/schemas/StepStartPart`.
@@ -6464,6 +6532,26 @@ package enum Components {
             }
             /// - Remark: Generated from `#/components/schemas/TextPartInput/time`.
             package var time: Components.Schemas.TextPartInput.timePayload?
+            /// - Remark: Generated from `#/components/schemas/TextPartInput/metadata`.
+            package struct metadataPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                package var additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer]
+                /// Creates a new `metadataPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                package init(additionalProperties: [String: OpenAPIRuntime.OpenAPIValueContainer] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                package init(from decoder: any Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                package func encode(to encoder: any Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/TextPartInput/metadata`.
+            package var metadata: Components.Schemas.TextPartInput.metadataPayload?
             /// Creates a new `TextPartInput`.
             ///
             /// - Parameters:
@@ -6472,18 +6560,21 @@ package enum Components {
             ///   - text:
             ///   - synthetic:
             ///   - time:
+            ///   - metadata:
             package init(
                 id: Swift.String? = nil,
                 _type: Components.Schemas.TextPartInput._typePayload,
                 text: Swift.String,
                 synthetic: Swift.Bool? = nil,
-                time: Components.Schemas.TextPartInput.timePayload? = nil
+                time: Components.Schemas.TextPartInput.timePayload? = nil,
+                metadata: Components.Schemas.TextPartInput.metadataPayload? = nil
             ) {
                 self.id = id
                 self._type = _type
                 self.text = text
                 self.synthetic = synthetic
                 self.time = time
+                self.metadata = metadata
             }
             package enum CodingKeys: String, CodingKey {
                 case id
@@ -6491,6 +6582,7 @@ package enum Components {
                 case text
                 case synthetic
                 case time
+                case metadata
             }
         }
         /// - Remark: Generated from `#/components/schemas/FilePartInput`.
@@ -8618,33 +8710,6 @@ package enum Components {
                 case properties
             }
         }
-        /// - Remark: Generated from `#/components/schemas/Event.server.connected`.
-        package struct Event_period_server_period_connected: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/Event.server.connected/type`.
-            @frozen package enum _typePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case server_period_connected = "server.connected"
-            }
-            /// - Remark: Generated from `#/components/schemas/Event.server.connected/type`.
-            package var _type: Components.Schemas.Event_period_server_period_connected._typePayload
-            /// - Remark: Generated from `#/components/schemas/Event.server.connected/properties`.
-            package var properties: OpenAPIRuntime.OpenAPIObjectContainer
-            /// Creates a new `Event_period_server_period_connected`.
-            ///
-            /// - Parameters:
-            ///   - _type:
-            ///   - properties:
-            package init(
-                _type: Components.Schemas.Event_period_server_period_connected._typePayload,
-                properties: OpenAPIRuntime.OpenAPIObjectContainer
-            ) {
-                self._type = _type
-                self.properties = properties
-            }
-            package enum CodingKeys: String, CodingKey {
-                case _type = "type"
-                case properties
-            }
-        }
         /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated`.
         package struct Event_period_file_period_watcher_period_updated: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/type`.
@@ -8766,6 +8831,33 @@ package enum Components {
                 case properties
             }
         }
+        /// - Remark: Generated from `#/components/schemas/Event.server.connected`.
+        package struct Event_period_server_period_connected: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/Event.server.connected/type`.
+            @frozen package enum _typePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case server_period_connected = "server.connected"
+            }
+            /// - Remark: Generated from `#/components/schemas/Event.server.connected/type`.
+            package var _type: Components.Schemas.Event_period_server_period_connected._typePayload
+            /// - Remark: Generated from `#/components/schemas/Event.server.connected/properties`.
+            package var properties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `Event_period_server_period_connected`.
+            ///
+            /// - Parameters:
+            ///   - _type:
+            ///   - properties:
+            package init(
+                _type: Components.Schemas.Event_period_server_period_connected._typePayload,
+                properties: OpenAPIRuntime.OpenAPIObjectContainer
+            ) {
+                self._type = _type
+                self.properties = properties
+            }
+            package enum CodingKeys: String, CodingKey {
+                case _type = "type"
+                case properties
+            }
+        }
         /// - Remark: Generated from `#/components/schemas/Event.ide.installed`.
         package struct Event_period_ide_period_installed: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Event.ide.installed/type`.
@@ -8839,9 +8931,9 @@ package enum Components {
             /// - Remark: Generated from `#/components/schemas/Event/value14`.
             package var value14: Components.Schemas.Event_period_session_period_error?
             /// - Remark: Generated from `#/components/schemas/Event/value15`.
-            package var value15: Components.Schemas.Event_period_server_period_connected?
+            package var value15: Components.Schemas.Event_period_file_period_watcher_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value16`.
-            package var value16: Components.Schemas.Event_period_file_period_watcher_period_updated?
+            package var value16: Components.Schemas.Event_period_server_period_connected?
             /// - Remark: Generated from `#/components/schemas/Event/value17`.
             package var value17: Components.Schemas.Event_period_ide_period_installed?
             /// Creates a new `Event`.
@@ -8879,8 +8971,8 @@ package enum Components {
                 value12: Components.Schemas.Event_period_session_period_updated? = nil,
                 value13: Components.Schemas.Event_period_session_period_deleted? = nil,
                 value14: Components.Schemas.Event_period_session_period_error? = nil,
-                value15: Components.Schemas.Event_period_server_period_connected? = nil,
-                value16: Components.Schemas.Event_period_file_period_watcher_period_updated? = nil,
+                value15: Components.Schemas.Event_period_file_period_watcher_period_updated? = nil,
+                value16: Components.Schemas.Event_period_server_period_connected? = nil,
                 value17: Components.Schemas.Event_period_ide_period_installed? = nil
             ) {
                 self.value1 = value1
@@ -9394,6 +9486,194 @@ package enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen package enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            package init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            package var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            package static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Update config
+    ///
+    /// - Remark: HTTP `PATCH /config`.
+    /// - Remark: Generated from `#/paths//config/patch(config.update)`.
+    package enum config_period_update {
+        package static let id: Swift.String = "config.update"
+        package struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/config/PATCH/query`.
+            package struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/config/PATCH/query/directory`.
+                package var directory: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - directory:
+                package init(directory: Swift.String? = nil) {
+                    self.directory = directory
+                }
+            }
+            package var query: Operations.config_period_update.Input.Query
+            /// - Remark: Generated from `#/paths/config/PATCH/header`.
+            package struct Headers: Sendable, Hashable {
+                package var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.config_period_update.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                package init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.config_period_update.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            package var headers: Operations.config_period_update.Input.Headers
+            /// - Remark: Generated from `#/paths/config/PATCH/requestBody`.
+            @frozen package enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/config/PATCH/requestBody/content/application\/json`.
+                case json(Components.Schemas.Config)
+            }
+            package var body: Operations.config_period_update.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            ///   - body:
+            package init(
+                query: Operations.config_period_update.Input.Query = .init(),
+                headers: Operations.config_period_update.Input.Headers = .init(),
+                body: Operations.config_period_update.Input.Body? = nil
+            ) {
+                self.query = query
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen package enum Output: Sendable, Hashable {
+            package struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/config/PATCH/responses/200/content`.
+                @frozen package enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/config/PATCH/responses/200/content/application\/json`.
+                    case json(Components.Schemas.Config)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    package var json: Components.Schemas.Config {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                package var body: Operations.config_period_update.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                package init(body: Operations.config_period_update.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successfully updated config
+            ///
+            /// - Remark: Generated from `#/paths//config/patch(config.update)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.config_period_update.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            package var ok: Operations.config_period_update.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            package struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/config/PATCH/responses/400/content`.
+                @frozen package enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/config/PATCH/responses/400/content/application\/json`.
+                    case json(Components.Schemas._Error)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    package var json: Components.Schemas._Error {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                package var body: Operations.config_period_update.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                package init(body: Operations.config_period_update.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Bad request
+            ///
+            /// - Remark: Generated from `#/paths//config/patch(config.update)/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.config_period_update.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            package var badRequest: Operations.config_period_update.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
                             response: self
                         )
                     }
