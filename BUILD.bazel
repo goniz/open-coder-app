@@ -1,4 +1,5 @@
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
+load("//bazel:plist.bzl", "extract_xcode_version", "generate_plist")
 
 # Root BUILD file for OpenCoder workspace
 
@@ -38,6 +39,30 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Extract version from Xcode project (single source of truth)
+extract_xcode_version(
+    name = "xcode_version",
+    xcode_project = "//Xcode:OpenCoder.xcodeproj/project.pbxproj",
+)
+
+# Generate Info.plist for AppStore variant
+generate_plist(
+    name = "Info_plist",
+    template = "Info.plist.template",
+    version_info = ":xcode_version",
+    display_name = "Open Coder",
+    output_name = "Info.plist",
+)
+
+# Generate Info.plist for Preview variant
+generate_plist(
+    name = "Info_preview_plist",
+    template = "Info.plist.template",
+    version_info = ":xcode_version",
+    display_name = "Open Coder (Preview)",
+    output_name = "Info.preview.plist",
+)
+
 # iOS Application target - Preview
 ios_application(
     name = "OpenCoder.preview",
@@ -45,9 +70,12 @@ ios_application(
     families = [
         "iphone",
     ],
-    infoplists = [":Info.plist"],
+    infoplists = [":Info_preview_plist"],
     minimum_os_version = "17.0",
     provisioning_profile = "//Xcode:development_preview_profile",
+    resources = [
+        "//Xcode:app_assets",
+    ],
     deps = [
         "@swiftpkg_opencoderapp//:OpenCoderApp",
     ],
@@ -60,9 +88,12 @@ ios_application(
     families = [
         "iphone",
     ],
-    infoplists = [":Info.plist"],
+    infoplists = [":Info_plist"],
     minimum_os_version = "17.0",
     provisioning_profile = "//Xcode:appstore_profile",
+    resources = [
+        "//Xcode:app_assets",
+    ],
     deps = [
         "@swiftpkg_opencoderapp//:OpenCoderApp",
     ],

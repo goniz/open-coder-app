@@ -1,0 +1,4 @@
+exports_files([
+    "extract_xcode_version.sh",
+    "plist.bzl",
+])

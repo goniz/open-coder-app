@@ -128,8 +128,11 @@ platform :ios do
       key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
     )
     
-    puts "🔨 Building IPA with Bazel..."
-    sh("cd .. && bazel build -c opt //:OpenCoder.appstore")
+    # Increment Xcode build number (source of truth)
+    increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
+    
+    puts "🔨 Building IPA with Bazel (auto-extracting versions)..."
+    sh("cd ../.. && bazel build -c opt //:OpenCoder.appstore")
     
     fastlane_dir = File.dirname(__FILE__)
     ipa_path = File.expand_path("../../bazel-bin/OpenCoder.appstore.ipa", fastlane_dir)
@@ -138,18 +141,15 @@ platform :ios do
       UI.user_error!("IPA not found at #{ipa_path} after Bazel build.")
     end
     
-    upload_to_app_store(
+    puts "📦 Uploading IPA to TestFlight and waiting for processing..."
+    upload_to_testflight(
       api_key: api_key,
       ipa: ipa_path,
-      skip_metadata: true,
-      skip_screenshots: true,
-      skip_binary_upload: false,
-      submit_for_review: false,
-      precheck_include_in_app_purchases: false,
-      run_precheck_before_submit: false
+      app_platform: "ios",
+      skip_waiting_for_build_processing: false
     )
     
-    puts "✅ IPA uploaded to App Store Connect"
+    puts "✅ IPA uploaded and processed successfully in TestFlight"
   end
 
   desc "Check TestFlight build processing status"

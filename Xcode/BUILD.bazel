@@ -1,5 +1,17 @@
 load("@build_bazel_rules_apple//apple:apple.bzl", "local_provisioning_profile")
 
+# Export Xcode project file for version extraction
+exports_files(["OpenCoder.xcodeproj/project.pbxproj"])
+
+# App Icons asset catalog
+filegroup(
+    name = "app_assets",
+    srcs = glob([
+        "OpenCoder/Assets.xcassets/**",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
 # Development profiles
 local_provisioning_profile(
     name = "development_profile",
