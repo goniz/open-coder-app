@@ -1,5 +1,5 @@
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
-load("//bazel:plist.bzl", "extract_xcode_version", "generate_plist")
+load("//bazel:plist.bzl", "extract_xcode_all_settings", "generate_plist_from_settings")
 
 # Root BUILD file for OpenCoder workspace
 
@@ -39,26 +39,25 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# Extract version from Xcode project (single source of truth)
-extract_xcode_version(
-    name = "xcode_version",
+# Extract ALL settings from Xcode project (versions + INFOPLIST_KEY_* values)
+extract_xcode_all_settings(
+    name = "xcode_settings",
     xcode_project = "//Xcode:OpenCoder.xcodeproj/project.pbxproj",
+    target_name = "OpenCoder",
 )
 
-# Generate Info.plist for AppStore variant
-generate_plist(
+# Generate Info.plist for AppStore variant from Xcode settings
+generate_plist_from_settings(
     name = "Info_plist",
-    template = "Info.plist.template",
-    version_info = ":xcode_version",
+    settings_file = ":xcode_settings",
     display_name = "Open Coder",
     output_name = "Info.plist",
 )
 
-# Generate Info.plist for Preview variant
-generate_plist(
+# Generate Info.plist for Preview variant from Xcode settings
+generate_plist_from_settings(
     name = "Info_preview_plist",
-    template = "Info.plist.template",
-    version_info = ":xcode_version",
+    settings_file = ":xcode_settings",
     display_name = "Open Coder (Preview)",
     output_name = "Info.preview.plist",
 )

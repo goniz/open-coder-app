@@ -1,4 +1,6 @@
 exports_files([
     "extract_xcode_version.sh",
+    "extract_xcode_all_settings.sh",
+    "generate_plist_from_settings.sh",
     "plist.bzl",
 ])
