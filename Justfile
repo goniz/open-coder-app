@@ -7,7 +7,8 @@ test:
     cd Packages/OpenCoderCore && swift test -Xswiftc -warnings-as-errors
 
 build-core-macos:
-    cd Packages/OpenCoderCore && swift build -Xswiftc -warnings-as-errors
+    @echo "Building OpenCoderCore with Bazel..."
+    bazel build //:OpenCoderCore
 
 update:
     swift package --package-path Packages/OpenCoderCore/Sources update
