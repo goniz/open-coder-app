@@ -79,7 +79,7 @@ extension ChatFeature {
     state.messages.append(pendingMessage)
     state.exyteMessages.append(Message(
       id: messageID,
-      user: User(id: "user", name: "You", avatarURL: nil, isCurrentUser: true),
+      user: User(id: "user", name: "You", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: true),
       createdAt: Date(),
       text: trimmedText
     ))
