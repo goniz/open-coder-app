@@ -137,11 +137,11 @@ cat >> "$OUTPUT_PLIST" << EOF
 EOF
 fi
 
-# Static capabilities array
+# Static capabilities array (arm64 for modern iOS)
 cat >> "$OUTPUT_PLIST" << EOF
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 EOF
 
