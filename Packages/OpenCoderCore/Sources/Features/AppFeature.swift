@@ -89,11 +89,11 @@ public struct AppFeature: Sendable {
     case .dismissOnboarding:
       state.showOnboarding = false
       return .none
-    
+
     case let .globalErrorOccurred(error):
       state.globalError = error
       return .none
-    
+
     case .dismissGlobalError:
       state.globalError = nil
       return .none
