@@ -90,7 +90,7 @@ jobs:
         xcrun simctl list runtimes
 
     - name: Run iOS Build
-      run: just build-ios
+      run: just build
 
   test:
     name: Test
