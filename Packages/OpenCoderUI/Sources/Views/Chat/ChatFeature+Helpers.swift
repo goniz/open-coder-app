@@ -170,7 +170,7 @@ extension ChatFeature {
   private func handleSelectSession(state: inout State, sessionID: String) -> Effect<Action> {
     state.sessionID = sessionID
     clearSessionState(state: &state)
-    return .none
+    return .send(.task)
   }
 
   private func handleNewSession(state: inout State) -> Effect<Action> {

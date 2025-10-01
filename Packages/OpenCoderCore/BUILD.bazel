@@ -1,0 +1,80 @@
+load("@build_bazel_rules_swift//swift:swift_test.bzl", "swift_test")
+
+# Features tests
+swift_test(
+    name = "FeaturesTests",
+    srcs = glob(["Tests/FeaturesTests/*.swift"]),
+    deps = [
+        "@swiftpkg_opencodercore//:OpenCoderCore",
+    ],
+)
+
+# Implementations unit tests
+swift_test(
+    name = "ImplementationsTests",
+    srcs = glob(
+        ["Tests/ImplementationsTests/*.swift"],
+        exclude = ["Tests/ImplementationsTests/SSHClientIntegrationTests.swift"],
+    ),
+    deps = [
+        "@swiftpkg_opencodercore//:OpenCoderCore",
+    ],
+)
+
+# Implementations integration tests (require SSH setup)
+swift_test(
+    name = "ImplementationsIntegrationTests",
+    srcs = ["Tests/ImplementationsTests/SSHClientIntegrationTests.swift"],
+    tags = [
+        "integration",
+        "local",
+        "manual",
+    ],
+    timeout = "moderate",
+    deps = [
+        "@swiftpkg_opencodercore//:OpenCoderCore",
+    ],
+)
+
+# Models tests
+swift_test(
+    name = "ModelsTests",
+    srcs = glob(["Tests/ModelsTests/*.swift"]),
+    deps = [
+        "@swiftpkg_opencodercore//:OpenCoderCore",
+    ],
+)
+
+# Protocols tests
+swift_test(
+    name = "ProtocolsTests",
+    srcs = glob(["Tests/ProtocolsTests/*.swift"]),
+    deps = [
+        "@swiftpkg_opencodercore//:OpenCoderCore",
+    ],
+)
+
+# Test suite grouping all unit tests (excludes integration tests)
+test_suite(
+    name = "OpenCoderCoreTests",
+    tests = [
+        ":FeaturesTests",
+        ":ImplementationsTests",
+        ":ModelsTests",
+        ":ProtocolsTests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Test suite including integration tests
+test_suite(
+    name = "AllTests",
+    tests = [
+        ":FeaturesTests",
+        ":ImplementationsTests",
+        ":ImplementationsIntegrationTests",
+        ":ModelsTests",
+        ":ProtocolsTests",
+    ],
+    visibility = ["//visibility:public"],
+)

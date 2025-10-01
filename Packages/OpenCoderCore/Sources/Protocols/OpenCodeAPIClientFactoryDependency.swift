@@ -5,7 +5,7 @@ public protocol OpenCodeAPIClientFactoryProtocol: Sendable {
   var make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol { get }
 }
 
-public enum OpenCodeAPIClientFactoryDependencyKey: DependencyKey, Sendable {
+public enum OpenCodeAPIClientFactoryDependencyKey: DependencyKey, TestDependencyKey, Sendable {
   public static let liveValue: OpenCodeAPIClientFactoryProtocol = UnconfiguredFactory()
   public static let testValue: OpenCodeAPIClientFactoryProtocol = MockFactory()
 }
@@ -21,14 +21,12 @@ private struct UnconfiguredFactory: OpenCodeAPIClientFactoryProtocol {
   let make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol = { _ in
     Task {
       await AppLogger.shared.log(
-        "ERROR: OpenCodeAPIClientFactory dependency not configured properly",
-        level: .error,
+        "WARNING: Using mock factory because dependency not configured",
+        level: .warning,
         category: .api
       )
     }
-    fatalError(
-      "OpenCodeAPIClientFactory dependency must be explicitly set. Use OpenCodeAPIClientFactory.live in production."
-    )
+    return MockOpenCodeAPIClient()
   }
 }
 

@@ -35,9 +35,6 @@ struct ChatView: View {
     .task {
       await store.send(.task).finish()
     }
-    .task {
-      await store.send(.fetchSessions).finish()
-    }
   }
 
   private var sessionSelector: some View {
