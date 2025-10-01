@@ -12,6 +12,7 @@ public struct AppFeature: Sendable {
     public var onboarding = OnboardingFeature.State()
     public var liveActivity = LiveActivityFeature.State()
     public var showOnboarding = true
+    public var globalError: String?
 
     public init() {}
   }
@@ -22,6 +23,8 @@ public struct AppFeature: Sendable {
     case onboarding(OnboardingFeature.Action)
     case liveActivity(LiveActivityFeature.Action)
     case dismissOnboarding
+    case globalErrorOccurred(String)
+    case dismissGlobalError
   }
 
   public init() {}
@@ -85,6 +88,14 @@ public struct AppFeature: Sendable {
 
     case .dismissOnboarding:
       state.showOnboarding = false
+      return .none
+    
+    case let .globalErrorOccurred(error):
+      state.globalError = error
+      return .none
+    
+    case .dismissGlobalError:
+      state.globalError = nil
       return .none
     }
   }

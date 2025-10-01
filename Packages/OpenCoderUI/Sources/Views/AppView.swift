@@ -23,6 +23,18 @@ public struct AppView: View {
     .task {
       await store.send(.task).finish()
     }
+    .alert("Error", isPresented: Binding(
+      get: { store.globalError != nil },
+      set: { if !$0 { store.send(.dismissGlobalError) } }
+    )) {
+      Button("OK") {
+        store.send(.dismissGlobalError)
+      }
+    } message: {
+      if let error = store.globalError {
+        Text(error)
+      }
+    }
   }
 }
 

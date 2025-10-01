@@ -4,19 +4,29 @@ import SwiftUI
 
 struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
-  let chatStore: StoreOf<ChatFeature>
+  @State private var chatStore: StoreOf<ChatFeature>?
+  @State private var hasInitialized = false
 
   init(store: StoreOf<WorkspaceInteractionFeature>) {
     self.store = store
-    self.chatStore = withDependencies(from: store) {
-      Store(initialState: ChatFeature.State()) { ChatFeature() }
-    }
   }
 
   var body: some View {
     WithViewStore(store, observe: { $0 }, content: { viewStore in
       content
-        .onAppear { syncChat(state: viewStore.state) }
+        .onAppear {
+          if !hasInitialized {
+            chatStore = withDependencies {
+              $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+            } operation: {
+              Store(initialState: ChatFeature.State()) { ChatFeature() }
+            }
+            hasInitialized = true
+            DispatchQueue.main.async {
+              syncChat(state: viewStore.state)
+            }
+          }
+        }
         .onChange(of: viewStore.openCodeServerURL) {
           syncChat(state: viewStore.state)
         }
@@ -56,9 +66,17 @@ struct WorkspaceInteractionView: View {
             .tabItem { Label("Activity", systemImage: "chart.line.uptrend.xyaxis") }
             .tag(WorkspaceInteractionFeature.Tab.activity)
 
-          ChatView(store: chatStore)
-            .tabItem { Label("Chat", systemImage: "message") }
-            .tag(WorkspaceInteractionFeature.Tab.chat)
+          LazyView {
+            Group {
+              if let chatStore = chatStore {
+                ChatView(store: chatStore)
+              } else {
+                ProgressView("Loading chat...")
+              }
+            }
+          }
+          .tabItem { Label("Chat", systemImage: "message") }
+          .tag(WorkspaceInteractionFeature.Tab.chat)
 
           terminalView
             .tabItem { Label("Terminal", systemImage: "terminal") }
@@ -83,8 +101,12 @@ struct WorkspaceInteractionView: View {
   }
 
   private func syncChat(state: WorkspaceInteractionFeature.State) {
+    guard let chatStore = chatStore else { return }
     chatStore.send(.serverURLUpdated(state.openCodeServerURL))
     chatStore.send(.updateSession(state.openCodeSessionID))
+    if state.openCodeServerURL != nil {
+      chatStore.send(.fetchSessions)
+    }
   }
 
   private var header: some View {
