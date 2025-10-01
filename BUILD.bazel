@@ -62,6 +62,24 @@ generate_plist_from_settings(
     output_name = "Info.preview.plist",
 )
 
+# iOS Application target - Development (no provisioning profile)
+ios_application(
+    name = "OpenCoder.dev",
+    bundle_id = "com.goniz.opencoderapp.preview",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info_preview_plist"],
+    minimum_os_version = "17.0",
+    resources = [
+        "//Xcode:app_assets",
+    ],
+    deps = [
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
+    ],
+)
+
 # iOS Application target - Preview
 ios_application(
     name = "OpenCoder.preview",
@@ -100,9 +118,9 @@ ios_application(
     ],
 )
 
-# Default alias to preview variant
+# Default alias to dev variant (for CI/testing without provisioning profiles)
 alias(
     name = "OpenCoder",
-    actual = ":OpenCoder.preview",
+    actual = ":OpenCoder.dev",
     visibility = ["//visibility:public"],
 )

@@ -31,7 +31,8 @@ fmt:
     swift-format --in-place --recursive Packages/OpenCoderApp/Sources/
 
 build-ios:
-    cd Xcode && fastlane build
+    @echo "Building iOS app with Bazel (dev variant, no provisioning profile)..."
+    bazel build //:OpenCoder.dev
 
 beta:
     cd Xcode && fastlane appstore
