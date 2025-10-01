@@ -5,7 +5,7 @@ public protocol OpenCodeAPIClientFactoryProtocol: Sendable {
   var make: @Sendable (OpenCodeConfiguration) -> OpenCodeAPIClientProtocol { get }
 }
 
-public enum OpenCodeAPIClientFactoryDependencyKey: DependencyKey, Sendable {
+public enum OpenCodeAPIClientFactoryDependencyKey: DependencyKey, TestDependencyKey, Sendable {
   public static let liveValue: OpenCodeAPIClientFactoryProtocol = UnconfiguredFactory()
   public static let testValue: OpenCodeAPIClientFactoryProtocol = MockFactory()
 }

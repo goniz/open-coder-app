@@ -4,7 +4,7 @@ build:
 
 test:
     @echo "Testing OpenCoderCore..."
-    cd Packages/OpenCoderCore && swift test -Xswiftc -warnings-as-errors
+    bazel test //Packages/OpenCoderCore:OpenCoderCoreTests
 
 build-core-macos:
     cd Packages/OpenCoderCore && swift build -Xswiftc -warnings-as-errors
@@ -70,3 +70,7 @@ generate-opencode-api:
 
 watch:
     python3 scripts/watch_sources.py
+
+test-integration:
+    @echo "Running integration tests..."
+    bazel test //Packages/OpenCoderCore:ImplementationsIntegrationTests --test_output=errors --test_timeout=300
