@@ -61,11 +61,11 @@ enum ChatMessageMapper {
   private static func user(for role: MessageRole) -> User {
     switch role {
     case .user:
-      User(id: "user", name: "You", avatarURL: nil, isCurrentUser: true)
+      User(id: "user", name: "You", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: true)
     case .assistant:
-      User(id: "assistant", name: "Assistant", avatarURL: nil, isCurrentUser: false)
+      User(id: "assistant", name: "Assistant", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: false)
     case .system:
-      User(id: "system", name: "System", avatarURL: nil, type: .system)
+      User(id: "system", name: "System", avatarURL: nil, avatarCacheKey: nil, type: .system)
     }
   }
 

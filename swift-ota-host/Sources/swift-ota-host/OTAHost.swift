@@ -1,6 +1,6 @@
 import Foundation
 
-class OTAHost {
+public class OTAHost {
     private let config: ServerConfig
     private var server: HTTPServer?
     
@@ -8,7 +8,7 @@ class OTAHost {
         self.config = config
     }
     
-    func start() async throws {
+    public func start() async throws {
         Logger.debug("Starting OTA Host...")
         
         // Use custom IPA if specified, otherwise find IPA files

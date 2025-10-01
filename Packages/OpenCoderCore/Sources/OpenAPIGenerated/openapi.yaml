@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: opencode
   description: opencode api
-  version: 0.10.1
+  version: 0.13.5
 paths:
   /project:
     get:
@@ -54,6 +54,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Config'
+    patch:
+      operationId: config.update
+      parameters:
+        - in: query
+          name: directory
+          schema:
+            type: string
+      description: Update config
+      responses:
+        "200":
+          description: Successfully updated config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Config'
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Config'
   /experimental/tool/ids:
     get:
       operationId: tool.ids
@@ -1965,10 +1991,6 @@ components:
             disable_paste_summary:
               type: boolean
       additionalProperties: false
-    ToolIDs:
-      type: array
-      items:
-        type: string
     Error:
       type: object
       properties:
@@ -1979,6 +2001,10 @@ components:
           additionalProperties: {}
       required:
         - data
+    ToolIDs:
+      type: array
+      items:
+        type: string
     ToolListItem:
       type: object
       properties:
@@ -2266,6 +2292,11 @@ components:
               type: number
           required:
             - start
+        metadata:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
       required:
         - id
         - sessionID
@@ -2549,6 +2580,11 @@ components:
           type: string
         state:
           $ref: '#/components/schemas/ToolState'
+        metadata:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
       required:
         - id
         - sessionID
@@ -2733,6 +2769,11 @@ components:
               type: number
           required:
             - start
+        metadata:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
       required:
         - type
         - text
@@ -3426,18 +3467,6 @@ components:
       required:
         - type
         - properties
-    Event.server.connected:
-      type: object
-      properties:
-        type:
-          type: string
-          const: server.connected
-        properties:
-          type: object
-          properties: {}
-      required:
-        - type
-        - properties
     Event.file.watcher.updated:
       type: object
       properties:
@@ -3460,6 +3489,18 @@ components:
           required:
             - file
             - event
+      required:
+        - type
+        - properties
+    Event.server.connected:
+      type: object
+      properties:
+        type:
+          type: string
+          const: server.connected
+        properties:
+          type: object
+          properties: {}
       required:
         - type
         - properties
@@ -3495,6 +3536,6 @@ components:
         - $ref: '#/components/schemas/Event.session.updated'
         - $ref: '#/components/schemas/Event.session.deleted'
         - $ref: '#/components/schemas/Event.session.error'
-        - $ref: '#/components/schemas/Event.server.connected'
         - $ref: '#/components/schemas/Event.file.watcher.updated'
+        - $ref: '#/components/schemas/Event.server.connected'
         - $ref: '#/components/schemas/Event.ide.installed'

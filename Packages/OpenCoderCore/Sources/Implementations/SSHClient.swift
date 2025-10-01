@@ -1,4 +1,3 @@
-// swiftlint:disable file_length
 import Crypto
 import Dependencies
 import DependenciesMacros
@@ -34,7 +33,6 @@ private enum SFTPReadDirResult: Sendable {
   case eof
 }
 
-// swiftlint:disable:next type_body_length
 private final class SFTPHandler: ChannelInboundHandler, @unchecked Sendable {
   typealias InboundIn = SSHChannelData
 
@@ -632,15 +630,14 @@ public struct SSHClient: SSHClientProtocol, Sendable {
 
       return SSHStream(
         input: inputHandle,
-        output: outputHandle,
-        close: {
+        output: outputHandle
+      ) {
           Task {
             try? await cleanupTcpChannel?.close().get()
             try? await cleanupChannel?.close().get()
             try? await cleanupEventLoopGroup.shutdownGracefully()
           }
         }
-      )
     } catch {
       // Clean up resources on error
       try? await tcpChannel?.close().get()

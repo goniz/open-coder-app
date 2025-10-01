@@ -1,0 +1,20 @@
+# Bazel configuration
+
+# Increase build output for debugging
+build --announce_rc
+
+# Set macOS deployment target for host tools (like macro plugins)
+build --macos_minimum_os=14.0
+build --host_macos_minimum_os=14.0
+
+# Disable strict unavailability checking for Swift (allow obsoleted APIs to compile)
+build:allow-obsolete --features=swift.use_global_module_cache
+
+# Force IPA compression
+build --define=apple.compress_ipa=yes
+
+# Release configuration for App Store builds
+build:release -c opt
+build:release --ios_multi_cpus=arm64
+build:release --apple_generate_dsym
+build:release --define=apple.add_debugger_entitlement=no

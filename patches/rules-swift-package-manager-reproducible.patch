@@ -1,0 +1,12 @@
+diff --git a/swiftpkg/bzlmod/swift_deps.bzl b/swiftpkg/bzlmod/swift_deps.bzl
+index 0000000..1111111 100644
+--- a/swiftpkg/bzlmod/swift_deps.bzl
++++ b/swiftpkg/bzlmod/swift_deps.bzl
+@@ -375,6 +375,7 @@ def _swift_deps_impl(module_ctx):
+     return module_ctx.extension_metadata(
+         root_module_direct_deps = direct_dep_repo_names,
+         root_module_direct_dev_deps = [],
++        reproducible = True,
+     )
+ 
+ _from_package_tag = tag_class(

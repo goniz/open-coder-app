@@ -23,21 +23,13 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Build for development without publishing
 
-### ios beta
-
-```sh
-[bundle exec] fastlane ios beta
-```
-
-Push a new beta build to TestFlight
-
 ### ios preview
 
 ```sh
 [bundle exec] fastlane ios preview
 ```
 
-Build preview IPA
+Build preview IPA using Bazel
 
 ### ios screenshots
 
@@ -46,6 +38,14 @@ Build preview IPA
 ```
 
 Generate screenshots for development
+
+### ios appstore
+
+```sh
+[bundle exec] fastlane ios appstore
+```
+
+Publish to App Store using Bazel-built IPA
 
 ### ios check_builds
 

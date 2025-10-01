@@ -313,10 +313,9 @@ struct WorkspaceRowView: View {
 #Preview {
   WorkspacesView(
     store: .init(
-      initialState: .init(),
-      reducer: {
+      initialState: .init()
+    ) {
         WorkspacesFeature()
       }
-    )
   )
 }

@@ -1,5 +1,3 @@
-// swiftlint:disable file_length
-
 import ComposableArchitecture
 import Protocols
 import Implementations
@@ -437,9 +435,8 @@ extension WorkspacesFeature {
            workspace: workspace,
            workspaceID: workspaceID,
            serverConfig: serverConfig,
-           remotePort: spawnResult.port,
-           send: { action in await send(action) }
-         )
+           remotePort: spawnResult.port
+         ) { action in await send(action) }
 
          guard !Task.isCancelled else {
            throw SSHError.connectionFailed("Workspace spawn was cancelled after port forwarding")

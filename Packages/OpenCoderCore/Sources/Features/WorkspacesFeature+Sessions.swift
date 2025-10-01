@@ -63,7 +63,7 @@ extension WorkspacesFeature {
       )
     }
 
-    let sortedMetadata = metadata.sorted(by: { $0.updatedAt > $1.updatedAt })
+    let sortedMetadata = metadata.sorted { $0.updatedAt > $1.updatedAt }
     return (sortedMetadata, sessions)
   }
 

@@ -46,3 +46,11 @@ swift-ota-host/ota.log
 
 # Python cache
 scripts/__pycache__/
+
+# Bazel
+bazel-*
+
+# Generated plist files (use templates instead)
+/Info.plist
+/Info.preview.plist
+MODULE.bazel.lock

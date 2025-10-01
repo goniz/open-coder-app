@@ -19,11 +19,10 @@ struct HomeView: View {
       )
     ) {
       ServersView(
-        store: store.scope(state: \.servers, action: \.servers),
-        onStartTask: { task in
+        store: store.scope(state: \.servers, action: \.servers)
+      ) { task in
           liveActivityStore?.send(.startActivity(task))
         }
-      )
       .tabItem {
         Label("Servers", systemImage: "server.rack")
       }
@@ -49,10 +48,9 @@ struct HomeView: View {
 #Preview {
   HomeView(
     store: .init(
-      initialState: .init(),
-      reducer: {
+      initialState: .init()
+    ) {
         HomeFeature()
       }
-    )
   )
 }

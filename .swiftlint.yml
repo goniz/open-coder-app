@@ -1,0 +1,54 @@
+excluded:
+  - Packages/OpenCoderCore/Sources/OpenAPIGenerated
+  - Packages/OpenCoderCore/Sources/Implementations/SSHClient.swift  # Large file with complex SSH/SFTP implementation
+  - .build
+  - bazel-*
+  - Packages/**/Package.swift
+
+line_length:
+  warning: 120
+  error: 200
+
+file_length:
+  warning: 800
+  error: 1000
+
+type_body_length:
+  warning: 300
+  error: 350
+
+function_body_length:
+  warning: 50
+  error: 100
+
+cyclomatic_complexity:
+  warning: 10
+  error: 15
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 40
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - z
+    - a
+    - b
+    - c
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - contains_over_first_not_nil
+  - explicit_init
+
+disabled_rules:
+  - todo
+  - trailing_comma
+  - trailing_closure
+  - multiple_closures_with_trailing_closure

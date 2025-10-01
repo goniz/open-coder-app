@@ -1,0 +1,126 @@
+load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
+load("//bazel:plist.bzl", "extract_xcode_all_settings", "generate_plist_from_settings")
+
+# Root BUILD file for OpenCoder workspace
+
+filegroup(
+    name = "package_files",
+    srcs = [
+        "Package.swift",
+        "Package.resolved",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "swift_perception_patches",
+    srcs = ["patches/swift-perception-compiler-guard.patch"],
+    visibility = ["//visibility:public"],
+)
+
+# Alias to the generated OpenCoderCore from Swift Package Manager
+alias(
+    name = "OpenCoderCore",
+    actual = "@swiftpkg_opencodercore//:OpenCoderCore",
+    visibility = ["//visibility:public"],
+)
+
+# Alias to the generated OpenCoderUI from Swift Package Manager
+alias(
+    name = "OpenCoderUI",
+    actual = "@swiftpkg_opencoderui//:OpenCoderUI",
+    visibility = ["//visibility:public"],
+)
+
+# Alias to the generated OpenCoderApp from Swift Package Manager
+alias(
+    name = "OpenCoderApp",
+    actual = "@swiftpkg_opencoderapp//:OpenCoderApp",
+    visibility = ["//visibility:public"],
+)
+
+# Extract ALL settings from Xcode project (versions + INFOPLIST_KEY_* values)
+extract_xcode_all_settings(
+    name = "xcode_settings",
+    xcode_project = "//Xcode:OpenCoder.xcodeproj/project.pbxproj",
+    target_name = "OpenCoder",
+)
+
+# Generate Info.plist for AppStore variant from Xcode settings
+generate_plist_from_settings(
+    name = "Info_plist",
+    settings_file = ":xcode_settings",
+    display_name = "Open Coder",
+    output_name = "Info.plist",
+)
+
+# Generate Info.plist for Preview variant from Xcode settings
+generate_plist_from_settings(
+    name = "Info_preview_plist",
+    settings_file = ":xcode_settings",
+    display_name = "Open Coder (Preview)",
+    output_name = "Info.preview.plist",
+)
+
+# iOS Application target - Development (no provisioning profile)
+ios_application(
+    name = "OpenCoder.dev",
+    bundle_id = "com.goniz.opencoderapp.preview",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info_preview_plist"],
+    minimum_os_version = "17.0",
+    resources = [
+        "//Xcode:app_assets",
+    ],
+    deps = [
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
+    ],
+)
+
+# iOS Application target - Preview
+ios_application(
+    name = "OpenCoder.preview",
+    bundle_id = "com.goniz.opencoderapp.preview",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info_preview_plist"],
+    minimum_os_version = "17.0",
+    provisioning_profile = "//Xcode:adhoc_preview_profile",
+    resources = [
+        "//Xcode:app_assets",
+    ],
+    deps = [
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
+    ],
+)
+
+# iOS Application target - App Store
+ios_application(
+    name = "OpenCoder.appstore",
+    bundle_id = "com.goniz.opencoderapp",
+    entitlements = "//Xcode:OpenCoder/OpenCoder.entitlements",
+    families = [
+        "iphone",
+    ],
+    infoplists = [":Info_plist"],
+    minimum_os_version = "17.0",
+    provisioning_profile = "//Xcode:appstore_profile",
+    resources = [
+        "//Xcode:app_assets",
+    ],
+    deps = [
+        "@swiftpkg_opencoderapp//:OpenCoderApp",
+    ],
+)
+
+# Default alias to dev variant (for CI/testing without provisioning profiles)
+alias(
+    name = "OpenCoder",
+    actual = ":OpenCoder.dev",
+    visibility = ["//visibility:public"],
+)

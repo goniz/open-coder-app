@@ -1,6 +1,6 @@
 import Foundation
 
-struct Logger {
+public struct Logger {
     private static func timestamp() -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

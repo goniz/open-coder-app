@@ -27,56 +27,12 @@ platform :ios do
 
   desc "Build for development without publishing"
   lane :build do
-    build_app(
-      workspace: "OpenCoder.xcworkspace", 
-      scheme: "OpenCoder",
-      configuration: "Debug",
-      skip_codesigning: true,
-      skip_archive: true,
-      destination: "generic/platform=iOS Simulator",
-      skip_package_dependencies_resolution: true,
-      disable_package_automatic_updates: true,
-      buildlog_path: "/tmp/gym_logs",
-      silent: true
-    )
+    puts "🔨 Building development IPA with Bazel..."
+    sh("cd ../.. && bazel build //:OpenCoder.preview")
     puts "✅ Development build completed successfully"
   end
 
-  desc "Push a new beta build to TestFlight"
-  lane :beta do
-    api_key = app_store_connect_api_key(
-      key_id: "ZZR4FFP696",
-      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
-      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
-    )
-    get_certificates(
-      development: false,
-      api_key: api_key
-    )
-    get_provisioning_profile(
-      app_identifier: "com.goniz.opencoderapp",
-      adhoc: false,
-      api_key: api_key
-    )
-    increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
-    build_app(
-      workspace: "OpenCoder.xcworkspace", 
-      scheme: "OpenCoder",
-      export_method: "app-store",
-      export_options: {
-        signingStyle: "automatic"
-      },
-      xcargs: "CODE_SIGN_STYLE=Automatic",
-      skip_package_dependencies_resolution: true,
-      disable_package_automatic_updates: true
-    )
-    upload_to_testflight(
-      api_key: api_key,
-      skip_waiting_for_build_processing: true
-    )
-  end
-
-  desc "Build preview IPA"
+  desc "Build preview IPA using Bazel"
   lane :preview do
     api_key = app_store_connect_api_key(
       key_id: "ZZR4FFP696",
@@ -92,20 +48,21 @@ platform :ios do
       adhoc: true,
       api_key: api_key
     )
+    
+    # Increment Xcode build number (source of truth)
     increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
-    build_app(
-      workspace: "OpenCoder.xcworkspace", 
-      scheme: "OpenCoder",
-      export_method: "ad-hoc",
-      output_name: "OpenCoder-Preview",
-      export_options: {
-        signingStyle: "automatic"
-      },
-      xcargs: "CODE_SIGN_STYLE=Automatic PRODUCT_BUNDLE_IDENTIFIER=com.goniz.opencoderapp.preview",
-      skip_package_dependencies_resolution: true,
-      disable_package_automatic_updates: true
-    )
-    puts "✅ Preview IPA created: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
+    
+    puts "🔨 Building preview IPA with Bazel (auto-extracting versions)..."
+    sh("cd ../.. && bazel build --config=release //:OpenCoder.preview")
+    
+    fastlane_dir = File.dirname(__FILE__)
+    ipa_path = File.expand_path("../../bazel-bin/OpenCoder.preview.ipa", fastlane_dir)
+    
+    unless File.exist?(ipa_path)
+      UI.user_error!("Preview IPA not found at #{ipa_path} after Bazel build.")
+    end
+    
+    puts "✅ Preview IPA created: #{ipa_path}"
   end
 
   desc "Generate screenshots for development"
@@ -118,6 +75,47 @@ platform :ios do
       languages: ["en-US"],
       output_directory: "./screenshots"
     )
+  end
+
+  desc "Publish to App Store using Bazel-built IPA"
+  lane :appstore do
+    api_key = app_store_connect_api_key(
+      key_id: "ZZR4FFP696",
+      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
+      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
+    )
+    get_certificates(
+      development: false,
+      api_key: api_key
+    )
+    get_provisioning_profile(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: false,
+      api_key: api_key
+    )
+    
+    # Increment Xcode build number (source of truth)
+    increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
+    
+    puts "🔨 Building IPA with Bazel (auto-extracting versions)..."
+    sh("cd ../.. && bazel build --config=release //:OpenCoder.appstore")
+    
+    fastlane_dir = File.dirname(__FILE__)
+    ipa_path = File.expand_path("../../bazel-bin/OpenCoder.appstore.ipa", fastlane_dir)
+    
+    unless File.exist?(ipa_path)
+      UI.user_error!("IPA not found at #{ipa_path} after Bazel build.")
+    end
+    
+    puts "📦 Uploading IPA to TestFlight and waiting for processing..."
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa_path,
+      app_platform: "ios",
+      skip_waiting_for_build_processing: false
+    )
+    
+    puts "✅ IPA uploaded and processed successfully in TestFlight"
   end
 
   desc "Check TestFlight build processing status"

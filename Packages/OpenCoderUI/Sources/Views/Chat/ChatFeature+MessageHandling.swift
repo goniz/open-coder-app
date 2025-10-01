@@ -34,6 +34,7 @@ extension ChatFeature {
           id: message.role.rawValue,
           name: message.role.rawValue.capitalized,
           avatarURL: nil,
+          avatarCacheKey: nil,
           isCurrentUser: message.role == .user
         ),
         createdAt: message.timestamp,
@@ -64,6 +65,7 @@ extension ChatFeature {
         id: message.role.rawValue,
         name: message.role.rawValue.capitalized,
         avatarURL: nil,
+        avatarCacheKey: nil,
         isCurrentUser: message.role == .user
       ),
       createdAt: message.timestamp,
@@ -85,6 +87,7 @@ extension ChatFeature {
         id: "assistant",
         name: "Assistant",
         avatarURL: nil,
+        avatarCacheKey: nil,
         isCurrentUser: false
       )
     }
@@ -116,6 +119,7 @@ extension ChatFeature {
           id: message.role.rawValue,
           name: message.role.rawValue.capitalized,
           avatarURL: nil,
+          avatarCacheKey: nil,
           isCurrentUser: message.role == .user
         ),
         createdAt: message.timestamp,

@@ -1,6 +1,6 @@
 import Foundation
 
-enum OTAError: Error, LocalizedError {
+public enum OTAError: Error, LocalizedError {
     case noIPAFiles
     case invalidIPA
     case missingInfoPlist
@@ -10,7 +10,7 @@ enum OTAError: Error, LocalizedError {
     case invalidPort
     case fileNotFound(String)
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .noIPAFiles:
             return "No IPA files found in current directory"

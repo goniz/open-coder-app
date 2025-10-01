@@ -85,11 +85,10 @@ private actor PortForwardListenerManager {
         let remoteChannel = try await connectionManager.withConnection { connection -> Channel in
           try await connection.createDirectTCPIPChannel(
             targetHost: "127.0.0.1",
-            targetPort: remotePort,
-            configurePipeline: { childChannel in
+            targetPort: remotePort
+          ) { childChannel in
               childChannel.pipeline.addHandler(SSHDirectTCPIPHandler(peer: channel))
             }
-          )
         }
 
         try await channel.eventLoop.flatSubmit {

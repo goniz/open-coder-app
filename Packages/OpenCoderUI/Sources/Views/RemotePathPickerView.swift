@@ -24,9 +24,8 @@ struct RemotePathPickerView: View {
       VStack {
         BreadcrumbView(
           components: pathComponents,
-          currentPath: currentPath,
-          onSelect: { navigateToPath($0) }
-        )
+          currentPath: currentPath
+        ) { navigateToPath($0) }
 
         if isLoading {
           ProgressView("Loading directory...")

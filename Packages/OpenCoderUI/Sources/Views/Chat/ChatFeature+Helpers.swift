@@ -42,7 +42,8 @@ extension ChatFeature {
 
     state.isLoading = true
     state.errorMessage = nil
-    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL)
+    let factory = self.openCodeAPIFactory
+    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory)
   }
 
   func handleSendMessage(state: inout State) -> Effect<Action> {
@@ -79,16 +80,17 @@ extension ChatFeature {
     state.messages.append(pendingMessage)
     state.exyteMessages.append(Message(
       id: messageID,
-      user: User(id: "user", name: "You", avatarURL: nil, isCurrentUser: true),
+      user: User(id: "user", name: "You", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: true),
       createdAt: Date(),
       text: trimmedText
     ))
     state.draft = ChatDraftState()
     state.isLoading = true
 
-    return .run { [openCodeAPIFactory] send in
+    let factory = self.openCodeAPIFactory
+    return .run { send in
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         _ = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
         await send(.messageSendCompleted(messageID: messageID))
       } catch {
@@ -141,9 +143,10 @@ extension ChatFeature {
     }
 
     state.isLoadingSessions = true
-    return .run { [openCodeAPIFactory] send in
+    let factory = self.openCodeAPIFactory
+    return .run { send in
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let sessions = try await apiClient.listSessions()
         await send(.sessionsLoaded(sessions))
       } catch {
@@ -178,9 +181,10 @@ extension ChatFeature {
     }
 
     state.isLoadingSessions = true
-    return .run { [openCodeAPIFactory] send in
+    let factory = self.openCodeAPIFactory
+    return .run { send in
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let session = try await apiClient.createSession()
         await send(.sessionCreated(session))
       } catch {
@@ -220,7 +224,8 @@ extension ChatFeature {
     }
 
     state.isLoadingMoreMessages = true
-    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, isLoadMore: true)
+    let factory = self.openCodeAPIFactory
+    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory, isLoadMore: true)
   }
 
   func handleMediaPickerPresented(state: inout State, isPresented: Bool) -> Effect<Action> {
@@ -256,10 +261,15 @@ extension ChatFeature {
     }
   }
 
-  private func loadMessagesEffect(sessionID: String, serverURL: URL, isLoadMore: Bool = false) -> Effect<Action> {
-    .run { [openCodeAPIFactory] send in
+  private func loadMessagesEffect(
+    sessionID: String,
+    serverURL: URL,
+    factory: OpenCodeAPIClientFactoryProtocol,
+    isLoadMore: Bool = false
+  ) -> Effect<Action> {
+    .run { send in
       do {
-        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: openCodeAPIFactory)
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
         let messages = try await apiClient.getMessages(sessionID: sessionID)
         if isLoadMore {
           await send(.loadMoreCompleted(messages, hasMore: false))
