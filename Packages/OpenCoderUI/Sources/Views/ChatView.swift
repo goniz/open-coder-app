@@ -8,7 +8,19 @@ struct ChatView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      sessionSelector
+      if let workspaceTitle = store.workspaceDisplayTitle {
+        HStack(spacing: 8) {
+          Text(workspaceTitle)
+            .font(.title2)
+            .fontWeight(.bold)
+            .lineLimit(1)
+            .truncationMode(.tail)
+          Spacer(minLength: 8)
+          sessionSelectorButton
+            .fixedSize()
+        }
+        .padding(.horizontal, 12)
+      }
 
       if store.sessionID == nil {
         sessionPlaceholder
@@ -23,8 +35,6 @@ struct ChatView: View {
           .foregroundStyle(.secondary)
           .padding(.horizontal, 12)
       }
-
-      // Removed redundant error overlay as errors are now surfaced in chat UI
     }
     .overlay(alignment: .topTrailing) {
       if store.isLoading {
@@ -37,8 +47,12 @@ struct ChatView: View {
     }
   }
 
-  private var sessionSelector: some View {
-    HStack {
+  private var sessionSelectorButton: some View {
+    HStack(spacing: 4) {
+      if store.isLoadingSessions {
+        ProgressView()
+          .scaleEffect(0.8)
+      }
       Menu {
         Button {
           store.send(.newSession)
@@ -64,27 +78,18 @@ struct ChatView: View {
             .foregroundStyle(.secondary)
         }
       } label: {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
           Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
+            .font(.caption)
+            .foregroundColor(.secondary)
             .lineLimit(1)
-          Image(systemName: "chevron.down")
-            .font(.title2)
+          Image(systemName: "chevron.down.circle")
+            .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .frame(width: 350)
       }
       .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
-
-      Spacer()
-
-      if store.isLoadingSessions {
-        ProgressView()
-          .scaleEffect(0.8)
-      }
     }
-    .padding(.horizontal, 12)
   }
 
   private var sessionPlaceholder: some View {
@@ -128,7 +133,8 @@ struct ChatView: View {
           showContextMenuClosure: showContextMenuClosure,
           messageActionClosure: messageActionClosure,
           showAttachmentClosure: showAttachmentClosure,
-          enhancedParts: enhancedParts
+          enhancedParts: enhancedParts,
+          thinkingBlocksEnabled: store.thinkingBlocksEnabled
         )
       },
       inputViewBuilder: { textBinding, _, _, _, inputViewActionClosure, _ in
