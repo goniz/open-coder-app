@@ -26,6 +26,7 @@ struct SettingsView: View {
 
       Section(header: Text("General")) {
         Toggle("Auto Save", isOn: $store.autoSaveEnabled)
+        Toggle("Show Thinking Blocks", isOn: $store.thinkingBlocksEnabled)
         Button("Reset to Defaults") {
           store.send(.resetToDefaults)
         }
