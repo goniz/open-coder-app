@@ -14,6 +14,7 @@ struct ChatMessageView: View {
 
   // Enhanced parts support
   let enhancedParts: [EnhancedMessagePart]?
+  let thinkingBlocksEnabled: Bool
 
   public init(
     message: Message,
@@ -23,7 +24,8 @@ struct ChatMessageView: View {
     showContextMenuClosure: @escaping () -> Void,
     messageActionClosure: @escaping (Message, DefaultMessageMenuAction) -> Void,
     showAttachmentClosure: @escaping (Attachment) -> Void,
-    enhancedParts: [EnhancedMessagePart]? = nil
+    enhancedParts: [EnhancedMessagePart]? = nil,
+    thinkingBlocksEnabled: Bool = true
   ) {
     self.message = message
     self.positionInUserGroup = positionInUserGroup
@@ -33,12 +35,13 @@ struct ChatMessageView: View {
     self.messageActionClosure = messageActionClosure
     self.showAttachmentClosure = showAttachmentClosure
     self.enhancedParts = enhancedParts
+    self.thinkingBlocksEnabled = thinkingBlocksEnabled
   }
 
   var body: some View {
     let hasContent = hasVisibleContent()
     let showLabel = shouldShowLabel()
-    
+
     if hasContent {
       VStack(alignment: message.user.isCurrentUser ? .trailing : .leading, spacing: 2) {
         if showLabel {
@@ -65,7 +68,8 @@ struct ChatMessageView: View {
         if let enhancedParts = enhancedParts, !enhancedParts.isEmpty {
           ChatMessageViewContent(
             message: message,
-            enhancedParts: enhancedParts
+            enhancedParts: enhancedParts,
+            thinkingBlocksEnabled: thinkingBlocksEnabled
           )
         } else if !message.text.isEmpty {
           if message.user.isCurrentUser {
@@ -75,8 +79,13 @@ struct ChatMessageView: View {
               .foregroundColor(.white)
               .cornerRadius(18)
           } else {
-            Text(message.text)
-              .foregroundColor(.primary)
+            if let attributedString = try? AttributedString(markdown: message.text) {
+              Text(attributedString)
+                .foregroundColor(.primary)
+            } else {
+              Text(message.text)
+                .foregroundColor(.primary)
+            }
           }
         }
 
@@ -133,24 +142,32 @@ struct ChatMessageView: View {
       }
     }
   }
-  
+
   private func hasVisibleContent() -> Bool {
     if !message.text.isEmpty {
       return true
     }
-    if let enhancedParts = enhancedParts, !enhancedParts.isEmpty {
-      return true
+    if let enhancedParts = enhancedParts {
+      let visibleParts = enhancedParts.filter { part in
+        if case .reasoning = part, !thinkingBlocksEnabled {
+          return false
+        }
+        return true
+      }
+      if !visibleParts.isEmpty {
+        return true
+      }
     }
     if !message.attachments.isEmpty {
       return true
     }
     return false
   }
-  
+
   private func shouldShowLabel() -> Bool {
     return positionInUserGroup == .first || positionInUserGroup == .single
   }
-  
+
   private func shouldShowTimestamp() -> Bool {
     return positionInUserGroup == .last || positionInUserGroup == .single
   }
@@ -159,9 +176,10 @@ struct ChatMessageView: View {
 struct ChatMessageViewContent: View {
   let message: Message
   let enhancedParts: [EnhancedMessagePart]
+  let thinkingBlocksEnabled: Bool
 
   var body: some View {
-    let renderer = CompositeMessageRenderer()
+    let renderer = CompositeMessageRenderer(thinkingBlocksEnabled: thinkingBlocksEnabled)
     if message.user.isCurrentUser {
       renderer.render(parts: enhancedParts, message: message)
         .padding(12)

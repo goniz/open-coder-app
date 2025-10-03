@@ -6,9 +6,11 @@ import ExyteChat
 
 public struct CompositeMessageRenderer {
   private let renderers: [AnyMessagePartRenderer]
+  private let thinkingBlocksEnabled: Bool
 
-  public init(renderers: [AnyMessagePartRenderer] = Self.defaultRenderers) {
+  public init(renderers: [AnyMessagePartRenderer] = Self.defaultRenderers, thinkingBlocksEnabled: Bool = true) {
     self.renderers = renderers
+    self.thinkingBlocksEnabled = thinkingBlocksEnabled
   }
 
   public static var defaultRenderers: [AnyMessagePartRenderer] {
@@ -24,8 +26,15 @@ public struct CompositeMessageRenderer {
   }
 
   public func render(parts: [EnhancedMessagePart], message: Message) -> some View {
-    VStack(alignment: message.user.isCurrentUser ? .trailing : .leading, spacing: 8) {
-      ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+    let visibleParts = parts.filter { part in
+      if case .reasoning = part, !thinkingBlocksEnabled {
+        return false
+      }
+      return true
+    }
+
+    return VStack(alignment: message.user.isCurrentUser ? .trailing : .leading, spacing: 8) {
+      ForEach(Array(visibleParts.enumerated()), id: \.offset) { _, part in
         renderPart(part, message: message)
           .frame(maxWidth: .infinity, alignment: message.user.isCurrentUser ? .trailing : .leading)
       }

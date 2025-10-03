@@ -89,9 +89,21 @@ public struct TextPartRenderer: MessagePartRenderer {
   public func render(_ part: EnhancedMessagePart, message: Message) -> some View {
     Group {
       if case let .text(content) = part {
-        Text(content)
-          .font(.body)
-          .foregroundColor(message.user.isCurrentUser ? .white : .primary)
+        if message.user.isCurrentUser {
+          Text(content)
+            .font(.body)
+            .foregroundColor(.white)
+        } else {
+          if let attributedString = try? AttributedString(markdown: content) {
+            Text(attributedString)
+              .font(.body)
+              .foregroundColor(.primary)
+          } else {
+            Text(content)
+              .font(.body)
+              .foregroundColor(.primary)
+          }
+        }
       } else {
         EmptyView()
       }
