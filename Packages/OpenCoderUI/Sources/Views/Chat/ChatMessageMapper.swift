@@ -3,18 +3,37 @@ import ExyteChat
 import Foundation
 
 enum ChatMessageMapper {
+  struct BuildResult {
+    var messages: [Message]
+    var enhancedParts: [String: [EnhancedMessagePart]]
+    var unsupportedParts: Set<ChatUnsupportedMessagePartKind>
+  }
+
+  struct MessageResult {
+    let message: Message
+    let enhancedParts: [EnhancedMessagePart]
+    let unsupportedParts: Set<ChatUnsupportedMessagePartKind>
+  }
+
+  struct ContentResult {
+    let text: String
+    let enhancedParts: [EnhancedMessagePart]
+    let unsupportedParts: Set<ChatUnsupportedMessagePartKind>
+  }
   static func buildMessages(
     from messages: [OpenCodeMessage],
     pendingMessageIDs: Set<String>
-  ) -> (messages: [Message], unsupportedParts: Set<ChatUnsupportedMessagePartKind>) {
-    messages.reduce(
-      into: (
-        messages: [Message](),
-        unsupportedParts: Set<ChatUnsupportedMessagePartKind>()
-      )
-    ) { result, message in
+  ) -> BuildResult {
+    messages.reduce(into: BuildResult(
+      messages: [],
+      enhancedParts: [:],
+      unsupportedParts: []
+    )) { result, message in
       let mapped = map(message: message, isPending: pendingMessageIDs.contains(message.id))
       result.messages.append(mapped.message)
+      if !mapped.enhancedParts.isEmpty {
+        result.enhancedParts[message.id] = mapped.enhancedParts
+      }
       result.unsupportedParts.formUnion(mapped.unsupportedParts)
     }
   }
@@ -22,48 +41,97 @@ enum ChatMessageMapper {
   private static func map(
     message: OpenCodeMessage,
     isPending: Bool
-  ) -> (message: Message, unsupportedParts: Set<ChatUnsupportedMessagePartKind>) {
-    let content = textAndUnsupportedParts(from: message.parts)
-    let user = user(for: message.role)
+  ) -> MessageResult {
+    let content = textAndEnhancedParts(from: message.parts)
+    let user = user(for: message.role, message: message)
     let status = status(for: message.role, isPending: isPending)
+
+    // Use fallback text if no text content but have enhanced parts
+    let displayText = content.text.isEmpty && !content.enhancedParts.isEmpty
+      ? generateFallbackText(from: content.enhancedParts)
+      : content.text
+
     let exyteMessage = Message(
       id: message.id,
       user: user,
       status: status,
       createdAt: message.timestamp,
-      text: content.text
+      text: displayText
     )
-    return (exyteMessage, content.unsupportedParts)
+    return MessageResult(
+      message: exyteMessage,
+      enhancedParts: content.enhancedParts,
+      unsupportedParts: content.unsupportedParts
+    )
   }
 
-  private static func textAndUnsupportedParts(
+  private static func textAndEnhancedParts(
     from parts: [MessagePart]
-  ) -> (text: String, unsupportedParts: Set<ChatUnsupportedMessagePartKind>) {
+  ) -> ContentResult {
     var textSegments: [String] = []
-    var unsupported: Set<ChatUnsupportedMessagePartKind> = []
+    var enhancedParts: [EnhancedMessagePart] = []
 
     for part in parts {
       switch part {
       case let .text(content):
         textSegments.append(content)
-      case .file:
-        unsupported.insert(.file)
-      case .agent:
-        unsupported.insert(.agent)
-      case .tool:
-        unsupported.insert(.tool)
+        enhancedParts.append(.text(content))
+      case let .file(path, content):
+        enhancedParts.append(.file(path: path, content: content, operation: .read))
+      case let .agent(content, agentType):
+        enhancedParts.append(.agent(content, agentType: agentType))
+      case let .tool(name, input, output):
+        let toolInfo = EnhancedMessagePart.ToolCallInfo(
+          id: UUID().uuidString,
+          name: name,
+          state: output.isEmpty ? .running : .completed,
+          input: input,
+          output: output,
+          error: nil
+        )
+        enhancedParts.append(.tool(toolInfo))
       }
     }
 
-    return (textSegments.joined(separator: "\n"), unsupported)
+    return ContentResult(
+      text: textSegments.joined(separator: "\n"),
+      enhancedParts: enhancedParts,
+      unsupportedParts: []
+    )
+  }
+  private static func generateFallbackText(from enhancedParts: [EnhancedMessagePart]) -> String {
+    let descriptions = enhancedParts.compactMap { part in
+      switch part {
+      case .text(let content):
+        return content.isEmpty ? nil : content
+      case .file(let path, _, _):
+        return "📄 \(path)"
+      case .tool(let toolInfo):
+        return "🔧 \(toolInfo.name)"
+      case .agent(_, let agentType):
+        return "🤖 \(agentType) agent"
+      case .stepStart(let text, _):
+        return "▶️ \(text)"
+      case .stepFinish(let text, _, _):
+        return "✅ \(text)"
+      case .snapshot(let text, _):
+        return "📸 \(text)"
+      case .patch(let text, _, _):
+        return "🔧 \(text)"
+      case .reasoning:
+        return "💭 Reasoning"
+      }
+    }
+
+    return descriptions.isEmpty ? "Message content" : descriptions.joined(separator: "\n")
   }
 
-  private static func user(for role: MessageRole) -> User {
+  private static func user(for role: MessageRole, message: OpenCodeMessage) -> User {
     switch role {
     case .user:
       User(id: "user", name: "You", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: true)
     case .assistant:
-      User(id: "assistant", name: "Assistant", avatarURL: nil, avatarCacheKey: nil, isCurrentUser: false)
+      User(id: "assistant", name: message.displayModelName, avatarURL: nil, avatarCacheKey: nil, isCurrentUser: false)
     case .system:
       User(id: "system", name: "System", avatarURL: nil, avatarCacheKey: nil, type: .system)
     }
@@ -88,6 +156,7 @@ extension ChatFeature.State {
       pendingMessageIDs: pendingMessageIDs
     )
     exyteMessages = result.messages
+    enhancedMessageParts = result.enhancedParts
     unsupportedPartKinds = result.unsupportedParts
   }
 }

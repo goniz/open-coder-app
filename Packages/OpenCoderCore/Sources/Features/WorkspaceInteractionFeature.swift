@@ -62,6 +62,7 @@ public struct WorkspaceInteractionFeature: Sendable {
     case clearActivityEvents
     case onlineStateChanged(WorkspaceOnlineState)
     case retryConnection
+    case dismiss
   }
 
   public init() {}
@@ -98,6 +99,9 @@ public struct WorkspaceInteractionFeature: Sendable {
 
     case .retryConnection:
       return handleRetryConnection(state: &state)
+
+    case .dismiss:
+      return .none // This action will be handled by the parent feature
     }
   }
 

@@ -95,6 +95,15 @@ struct WorkspaceInteractionView: View {
       #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
       #endif
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button {
+            store.send(.dismiss)
+          } label: {
+            Image(systemName: "xmark")
+          }
+        }
+      }
       .task { await store.send(.task).finish() }
       .task(id: store.onlineState) { await store.send(.task).finish() }
     }

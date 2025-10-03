@@ -300,7 +300,7 @@ struct ServerSelectionView: View {
       isLoading = false
     } catch {
       Task {
-        await AppLogger.shared.log(
+        AppLogger.shared.log(
           "Failed to load servers: \(error)",
           level: .error,
           category: .ssh

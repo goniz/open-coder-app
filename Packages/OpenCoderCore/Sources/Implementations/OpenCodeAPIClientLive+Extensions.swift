@@ -39,7 +39,9 @@ extension LiveOpenCodeAPIClient {
             sessionID: sessionID,
             parts: [.text("Command executed: \(command)")],
             timestamp: Date(),
-            role: .assistant
+            role: .assistant,
+            modelID: nil,
+            providerID: nil
           )
           log("✅ OpenCode API: Successfully executed command '\(command)' in session: \(sessionID)")
           return message
@@ -78,7 +80,9 @@ extension LiveOpenCodeAPIClient {
             sessionID: sessionID,
             parts: [.text("Shell command executed: \(command)")],
             timestamp: Date(),
-            role: .assistant
+            role: .assistant,
+            modelID: nil,
+            providerID: nil
           )
           log("✅ OpenCode API: Successfully executed shell command '\(command)' in session: \(sessionID)")
           return message

@@ -105,22 +105,24 @@ extension LiveOpenCodeAPIClient {
      let parts = messageData.parts
 
      // Extract message ID, role, and timestamp from the message info
-     let messageInfoResult = extractMessageInfoAndTimestamp(messageInfo)
-     let messageId = messageInfoResult.id
-     let role = messageInfoResult.role
-     let timestamp = messageInfoResult.timestamp
+      let messageInfoResult = extractMessageInfoAndTimestamp(messageInfo)
+      let messageId = messageInfoResult.id
+      let role = messageInfoResult.role
+      let timestamp = messageInfoResult.timestamp
 
-      // Convert parts to MessagePart array
-      let messageParts = parseMessageParts(parts)
+       // Convert parts to MessagePart array
+       let messageParts = parseMessageParts(parts)
 
-      return OpenCodeMessage(
-        id: messageId,
-        sessionID: sessionID,
-        parts: messageParts,
-        timestamp: timestamp,
-        role: role
-      )
-    }
+       return OpenCodeMessage(
+         id: messageId,
+         sessionID: sessionID,
+         parts: messageParts,
+         timestamp: timestamp,
+         role: role,
+         modelID: messageInfoResult.modelID,
+         providerID: messageInfoResult.providerID
+       )
+     }
 
    private func parseMessageData(
      _ messageData: Operations.session_period_prompt.Output.Ok.Body.jsonPayload,
@@ -137,13 +139,15 @@ extension LiveOpenCodeAPIClient {
      // Convert parts to MessagePart array
      let messageParts = parseMessageParts(parts)
 
-     return OpenCodeMessage(
-       id: messageId,
-       sessionID: sessionID,
-       parts: messageParts,
-       timestamp: timestamp,
-       role: role
-     )
+      return OpenCodeMessage(
+        id: messageId,
+        sessionID: sessionID,
+        parts: messageParts,
+        timestamp: timestamp,
+        role: role,
+        modelID: assistantMessage.modelID,
+        providerID: assistantMessage.providerID
+      )
    }
 
     private func parseMessageData(
@@ -167,7 +171,9 @@ extension LiveOpenCodeAPIClient {
         sessionID: sessionID,
         parts: messageParts,
         timestamp: timestamp,
-        role: role
+        role: role,
+        modelID: messageInfoResult.modelID,
+        providerID: messageInfoResult.providerID
       )
     }
 
@@ -175,17 +181,31 @@ extension LiveOpenCodeAPIClient {
      let id: String
      let role: MessageRole
      let timestamp: Date
+     let modelID: String?
+     let providerID: String?
    }
 
    private func extractMessageInfoAndTimestamp(_ messageInfo: Components.Schemas.Message) -> MessageInfo {
      if let userMessage = messageInfo.value1 {
        let timestamp = Date(timeIntervalSince1970: Double(userMessage.time.created) / 1000)
-       return MessageInfo(id: userMessage.id, role: .user, timestamp: timestamp)
+       return MessageInfo(id: userMessage.id, role: .user, timestamp: timestamp, modelID: nil, providerID: nil)
      } else if let assistantMessage = messageInfo.value2 {
        let timestamp = Date(timeIntervalSince1970: Double(assistantMessage.time.created) / 1000)
-       return MessageInfo(id: assistantMessage.id, role: .assistant, timestamp: timestamp)
+       return MessageInfo(
+         id: assistantMessage.id,
+         role: .assistant,
+         timestamp: timestamp,
+         modelID: assistantMessage.modelID,
+         providerID: assistantMessage.providerID
+       )
      } else {
-       return MessageInfo(id: UUID().uuidString, role: .assistant, timestamp: Date()) // Fallback
+        return MessageInfo(
+          id: UUID().uuidString,
+          role: .assistant,
+          timestamp: Date(),
+          modelID: nil,
+          providerID: nil
+        ) // Fallback
      }
    }
 

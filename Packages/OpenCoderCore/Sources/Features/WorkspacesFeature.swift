@@ -142,6 +142,9 @@ public struct WorkspacesFeature: Sendable {
     case .hideWorkspaceInteraction:
       return handleHideWorkspaceInteraction(state: &state)
 
+    case let .workspaceInteraction(.dismiss):
+      return .send(.hideWorkspaceInteraction)
+
     case .workspaceInteraction:
       return .none
     }

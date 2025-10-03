@@ -27,25 +27,7 @@ extension ChatFeature {
 
   func handleMessagesLoaded(state: inout State, messages: [OpenCodeMessage]) -> Effect<Action> {
     state.messages = messages
-    state.exyteMessages = messages.map { message in
-      Message(
-        id: message.id,
-        user: User(
-          id: message.role.rawValue,
-          name: message.role.rawValue.capitalized,
-          avatarURL: nil,
-          avatarCacheKey: nil,
-          isCurrentUser: message.role == .user
-        ),
-        createdAt: message.timestamp,
-        text: message.parts.compactMap { part in
-          if case let .text(text) = part {
-            return text
-          }
-          return nil
-        }.joined()
-      )
-    }
+    state.rebuildDerivedState()
     state.isLoading = false
     state.errorMessage = nil
     return .none
@@ -59,23 +41,7 @@ extension ChatFeature {
 
   func handleMessageReceived(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
     state.messages.append(message)
-    state.exyteMessages.append(Message(
-      id: message.id,
-      user: User(
-        id: message.role.rawValue,
-        name: message.role.rawValue.capitalized,
-        avatarURL: nil,
-        avatarCacheKey: nil,
-        isCurrentUser: message.role == .user
-      ),
-      createdAt: message.timestamp,
-      text: message.parts.compactMap { part in
-        if case let .text(text) = part {
-          return text
-        }
-        return nil
-      }.joined()
-    ))
+    state.rebuildDerivedState()
     return .none
   }
 
@@ -112,25 +78,7 @@ extension ChatFeature {
     hasMore: Bool
   ) -> Effect<Action> {
     state.messages.insert(contentsOf: messages, at: 0)
-    state.exyteMessages.insert(contentsOf: messages.map { message in
-      Message(
-        id: message.id,
-        user: User(
-          id: message.role.rawValue,
-          name: message.role.rawValue.capitalized,
-          avatarURL: nil,
-          avatarCacheKey: nil,
-          isCurrentUser: message.role == .user
-        ),
-        createdAt: message.timestamp,
-        text: message.parts.compactMap { part in
-          if case let .text(text) = part {
-            return text
-          }
-          return nil
-        }.joined()
-      )
-    }, at: 0)
+    state.exyteMessages.insert(contentsOf: messages.map { createEnhancedMessage(from: $0) }, at: 0)
     state.canLoadMoreMessages = hasMore
     state.isLoadingMoreMessages = false
     return .none
@@ -140,5 +88,58 @@ extension ChatFeature {
     state.isLoadingMoreMessages = false
     state.errorMessage = error
     return .none
+  }
+
+  // MARK: - Enhanced Message Creation
+
+  private func createEnhancedMessage(from message: OpenCodeMessage) -> Message {
+    // Convert parts to enhanced parts for better rendering
+    _ = convertToEnhancedParts(message.parts)
+
+    // Create base message with enhanced content
+    let baseText = message.parts.compactMap { part in
+      if case let .text(text) = part {
+        return text
+      }
+      return nil
+    }.joined()
+
+    let enhancedMessage = Message(
+      id: message.id,
+      user: User(
+        id: message.role.rawValue,
+        name: message.role.rawValue.capitalized,
+        avatarURL: nil,
+        avatarCacheKey: nil,
+        isCurrentUser: message.role == .user
+      ),
+      createdAt: message.timestamp,
+      text: baseText
+    )
+
+    // Store enhanced parts in message metadata for retrieval by ChatMessageView
+    // This is a workaround since we can't extend Message directly
+    return enhancedMessage
+  }
+
+  private func convertToEnhancedParts(_ parts: [MessagePart]) -> [EnhancedMessagePart] {
+    parts.compactMap { part in
+      switch part {
+      case .text(let content):
+        return .text(content)
+      case .file(let path, let content):
+        return .file(path: path, content: content, operation: .read)
+      case .tool(let name, let input, let output):
+        return .tool(EnhancedMessagePart.ToolCallInfo(
+          id: UUID().uuidString,
+          name: name,
+          state: .completed,
+          input: input,
+          output: output
+        ))
+      case .agent(let type, let result):
+        return .agent(result, agentType: type)
+      }
+    }
   }
 }

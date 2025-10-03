@@ -49,6 +49,7 @@ public struct ChatFeature: Sendable {
   public struct State: Equatable, Sendable {
     public var messages: [OpenCodeMessage] = []
     public var exyteMessages: [Message] = []
+    public var enhancedMessageParts: [String: [EnhancedMessagePart]] = [:] // messageID -> enhanced parts
     public var unsupportedPartKinds: Set<ChatUnsupportedMessagePartKind> = []
     public var currentMessage = ""
     public var isLoading = false

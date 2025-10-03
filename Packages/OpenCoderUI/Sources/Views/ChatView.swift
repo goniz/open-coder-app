@@ -103,7 +103,7 @@ struct ChatView: View {
   }
 }
 
-private extension ChatView {
+  private extension ChatView {
   var chatSurface: some View {
     ExyteChat.ChatView(
       messages: store.exyteMessages,
@@ -117,14 +117,18 @@ private extension ChatView {
       reactionDelegate: nil,
       // swiftlint:disable:next line_length
       messageBuilder: { message, positionInUserGroup, positionInMessagesSection, positionInCommentsGroup, showContextMenuClosure, messageActionClosure, showAttachmentClosure in
-        ChatMessageView(
+        // Get enhanced parts for this message if available
+        let enhancedParts = getEnhancedParts(for: message.id)
+
+        return ChatMessageView(
           message: message,
           positionInUserGroup: positionInUserGroup,
           positionInMessagesSection: positionInMessagesSection,
           positionInCommentsGroup: positionInCommentsGroup,
           showContextMenuClosure: showContextMenuClosure,
           messageActionClosure: messageActionClosure,
-          showAttachmentClosure: showAttachmentClosure
+          showAttachmentClosure: showAttachmentClosure,
+          enhancedParts: enhancedParts
         )
       },
       inputViewBuilder: { textBinding, _, _, _, inputViewActionClosure, _ in
@@ -238,5 +242,9 @@ private extension ChatView {
       return .secondary
     }
     return AppColorType.green.color
+  }
+
+  private func getEnhancedParts(for messageID: String) -> [EnhancedMessagePart]? {
+    return store.enhancedMessageParts[messageID]
   }
 }
