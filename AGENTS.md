@@ -1,6 +1,7 @@
 # AGENTS.md - SwiftUI + TCA iOS App
 
 ## Commands
+- **Preview app in Xcode: `just preview`** - Opens the app in Xcode Previews for interactive UI development and validation
 - **Build all packages: `just build`** - Builds OpenCoderCore (macOS+iOS), OpenCoderUI (iOS), and OpenCoderApp (iOS)
 - **Build core package on macOS: `just build-core-macos`** - Faster testing of business logic without iOS simulator
 - Build iOS app: `just build-ios` (development build without publishing)
@@ -14,6 +15,9 @@
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
 
 ## Development Workflow
+
+**Interactive Validation**: Use `just preview` as much as possible to validate UI changes interactively in Xcode Previews. This provides immediate visual feedback and is faster than full builds for UI development.
+
 **IMPORTANT**: Always run `just devcycle` between development cycles to catch all errors before proceeding. This comprehensive command runs:
 1. SwiftLint checks with strict mode (warnings as errors)
 2. Swift package build with warnings as errors

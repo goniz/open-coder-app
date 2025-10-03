@@ -45,8 +45,7 @@ check_builds:
 
 devcycle:
     just lint && \
-    just build && \
-    just build-ios && \
+    just preview && \
     just test
 
 ota-host *args:
