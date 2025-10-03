@@ -50,7 +50,7 @@ struct WorkspacesView: View {
           state: \.workspaceInteraction,
           action: \.workspaceInteraction
         ) {
-          WorkspaceInteractionView(store: interactionStore)
+          WorkspaceInteractionView(store: interactionStore, settings: store.settings)
             .interactiveDismissDisabled(true)
         }
       }

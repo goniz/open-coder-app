@@ -26,6 +26,16 @@ public struct WorkspaceInteractionFeature: Sendable {
     public var activityEvents: [ActivityEvent] = []
     public var previousOnlineState: WorkspaceOnlineState?
 
+    public var displayTitle: String {
+      let serverName: String
+      if let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) {
+        serverName = serverConfig.name
+      } else {
+        serverName = workspace.host
+      }
+      return "\(workspace.name) (\(serverName))"
+    }
+
     public init(
       workspace: Workspace,
       onlineState: WorkspaceOnlineState,

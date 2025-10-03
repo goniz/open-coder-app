@@ -6,9 +6,11 @@ struct WorkspaceInteractionView: View {
   @Bindable var store: StoreOf<WorkspaceInteractionFeature>
   @State private var chatStore: StoreOf<ChatFeature>?
   @State private var hasInitialized = false
+  let settings: SettingsFeature.State
 
-  init(store: StoreOf<WorkspaceInteractionFeature>) {
+  init(store: StoreOf<WorkspaceInteractionFeature>, settings: SettingsFeature.State) {
     self.store = store
+    self.settings = settings
   }
 
   var body: some View {
@@ -16,11 +18,13 @@ struct WorkspaceInteractionView: View {
       content
         .onAppear {
           if !hasInitialized {
-            chatStore = withDependencies {
-              $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
-            } operation: {
-              Store(initialState: ChatFeature.State()) { ChatFeature() }
-            }
+             chatStore = withDependencies {
+               $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+             } operation: {
+               Store(
+                 initialState: ChatFeature.State(thinkingBlocksEnabled: settings.thinkingBlocksEnabled)
+               ) { ChatFeature() }
+             }
             hasInitialized = true
             DispatchQueue.main.async {
               syncChat(state: viewStore.state)
@@ -39,8 +43,6 @@ struct WorkspaceInteractionView: View {
   private var content: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        header
-
         if case .spawning = store.onlineState {
           VStack(alignment: .leading, spacing: 4) {
             Text("Startup Status")
@@ -91,7 +93,7 @@ struct WorkspaceInteractionView: View {
             .tag(WorkspaceInteractionFeature.Tab.liveOutput)
         }
       }
-      .navigationTitle(store.workspace.name)
+      .navigationTitle(store.displayTitle)
       #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
       #endif
@@ -113,17 +115,10 @@ struct WorkspaceInteractionView: View {
     guard let chatStore = chatStore else { return }
     chatStore.send(.serverURLUpdated(state.openCodeServerURL))
     chatStore.send(.updateSession(state.openCodeSessionID))
+    chatStore.send(.workspaceDisplayTitleUpdated(state.displayTitle))
     if state.openCodeServerURL != nil {
       chatStore.send(.fetchSessions)
     }
-  }
-
-  private var header: some View {
-    HeaderView(
-      workspace: store.workspace,
-      serverConnection: store.serverConnection,
-      onlineState: store.onlineState
-    )
   }
 
   private var activityView: some View {
@@ -136,92 +131,6 @@ struct WorkspaceInteractionView: View {
 
   private var filesView: some View {
     PlaceholderView(title: "Files", subtitle: "File browser coming soon", icon: "folder")
-  }
-}
-
-struct HeaderView: View {
-  let workspace: Workspace
-  let serverConnection: ConnectionState
-  let onlineState: WorkspaceOnlineState
-
-  var body: some View {
-    HStack(alignment: .center, spacing: 8) {
-      VStack(alignment: .leading, spacing: 1) {
-        Text("\(workspace.user)@\(workspace.host)")
-          .font(.caption)
-          .foregroundColor(.secondary)
-        Text(workspace.remotePath)
-          .font(.caption2)
-          .foregroundColor(.secondary)
-      }
-      Spacer()
-      HStack(spacing: 4) {
-        ServerBadgeView(state: serverConnection)
-        StatusPillView(state: onlineState)
-      }
-    }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
-    .background(.quaternary)
-  }
-}
-
-struct ServerBadgeView: View {
-  let state: ConnectionState
-
-  var body: some View {
-    let color: Color = {
-      switch state {
-      case .connected:
-        return .green
-      case .connecting:
-        return .orange
-      case .error:
-        return .red
-      case .disconnected:
-        return .gray
-      }
-    }()
-
-    let text = "SSH"
-
-    return HStack(spacing: 3) {
-      Circle().fill(color).frame(width: 5, height: 5)
-      Text(text).font(.caption2)
-    }
-    .padding(.horizontal, 4)
-    .padding(.vertical, 1)
-    .background(color.opacity(0.15))
-    .cornerRadius(6)
-  }
-}
-
-struct StatusPillView: View {
-  let state: WorkspaceOnlineState
-
-  var body: some View {
-    let (color, text): (Color, String) = {
-      switch state {
-      case .idle:
-        return (.gray, "Idle")
-      case let .spawning(phase):
-        return (.orange, phase.rawValue)
-      case let .online(port):
-        return (.green, "Online :\(port)")
-      case let .error(message):
-        let displayText = message.isEmpty ? "Error" : String(message.prefix(20)) + (message.count > 20 ? "..." : "")
-        return (.red, displayText)
-      }
-    }()
-
-    return HStack(spacing: 3) {
-      Circle().fill(color).frame(width: 5, height: 5)
-      Text(text).font(.caption2)
-    }
-    .padding(.horizontal, 4)
-    .padding(.vertical, 1)
-    .background(color.opacity(0.15))
-    .cornerRadius(6)
   }
 }
 
@@ -412,6 +321,7 @@ struct ActivityEventRow: View {
           )
         ]
       )
-    ) { WorkspaceInteractionFeature() }
+    ) { WorkspaceInteractionFeature() },
+    settings: .init()
   )
 }
