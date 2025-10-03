@@ -127,6 +127,8 @@ extension ChatFeature {
       switch part {
       case .text(let content):
         return .text(content)
+      case .reasoning(let content):
+        return .reasoning(content)
       case .file(let path, let content):
         return .file(path: path, content: content, operation: .read)
       case .tool(let name, let input, let output):

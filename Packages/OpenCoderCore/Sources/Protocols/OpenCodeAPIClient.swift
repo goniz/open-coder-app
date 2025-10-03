@@ -129,6 +129,7 @@ public enum MessageRole: String, Equatable, Sendable, CaseIterable {
 
 public enum MessagePart: Equatable, Sendable {
   case text(String)
+  case reasoning(String)
   case file(path: String, content: String)
   case agent(type: String, result: String)
   case tool(name: String, input: String, output: String)

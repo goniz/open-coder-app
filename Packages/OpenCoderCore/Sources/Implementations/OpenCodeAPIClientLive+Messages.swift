@@ -30,6 +30,8 @@ extension LiveOpenCodeAPIClient {
       switch part {
       case let .text(content):
         return content
+      case .reasoning:
+        return nil
       case let .file(path, content):
         return "File: \(path)\n\(content)"
       case let .agent(type, result):
@@ -209,19 +211,19 @@ extension LiveOpenCodeAPIClient {
      }
    }
 
-   private func parseMessageParts(_ parts: [Components.Schemas.Part]) -> [MessagePart] {
-     parts.compactMap { part in
-       if let textPart = part.value1 {
-         return .text(textPart.text)
-       } else if let reasoningPart = part.value2 {
-         return .text(reasoningPart.text)
-       } else if let filePart = part.value3 {
-         return .file(path: filePart.filename ?? "unknown", content: filePart.url)
-       } else {
-         return nil
-       }
-     }
-   }
+    private func parseMessageParts(_ parts: [Components.Schemas.Part]) -> [MessagePart] {
+      parts.compactMap { part in
+        if let textPart = part.value1 {
+          return .text(textPart.text)
+        } else if let reasoningPart = part.value2 {
+          return .reasoning(reasoningPart.text)
+        } else if let filePart = part.value3 {
+          return .file(path: filePart.filename ?? "unknown", content: filePart.url)
+        } else {
+          return nil
+        }
+      }
+    }
 
   public func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
     let input = Operations.session_period_message.Input(

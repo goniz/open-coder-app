@@ -76,6 +76,8 @@ enum ChatMessageMapper {
       case let .text(content):
         textSegments.append(content)
         enhancedParts.append(.text(content))
+      case let .reasoning(content):
+        enhancedParts.append(.reasoning(content))
       case let .file(path, content):
         enhancedParts.append(.file(path: path, content: content, operation: .read))
       case let .agent(content, agentType):
