@@ -8,16 +8,15 @@ struct ChatView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      if let workspaceTitle = store.workspaceDisplayTitle {
+      if store.workspaceDisplayTitle != nil {
         HStack(spacing: 8) {
-          Text(workspaceTitle)
+          Text(store.currentSessionTitle)
             .font(.title2)
             .fontWeight(.bold)
             .lineLimit(1)
             .truncationMode(.tail)
-          Spacer(minLength: 8)
+          Spacer(minLength: 0)
           sessionSelectorButton
-            .fixedSize()
         }
         .padding(.horizontal, 12)
       }
@@ -78,15 +77,9 @@ struct ChatView: View {
             .foregroundStyle(.secondary)
         }
       } label: {
-        HStack(spacing: 4) {
-          Text(store.currentSessionTitle)
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .lineLimit(1)
-          Image(systemName: "chevron.down.circle")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
+        Image(systemName: "chevron.down.circle")
+          .font(.title3)
+          .foregroundStyle(.secondary)
       }
       .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
     }
