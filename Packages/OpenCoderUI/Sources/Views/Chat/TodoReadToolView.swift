@@ -101,23 +101,19 @@ struct TodoReadToolView: View {
   private func parseTodoReadOutput(_ output: String?) -> TodoReadOutputInfo? {
     guard let output = output, !output.isEmpty else { return nil }
 
-    var cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    let cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if cleanedOutput.hasPrefix("{") && cleanedOutput.hasSuffix("}") {
-      cleanedOutput = String(cleanedOutput)
-    } else if let jsonStart = cleanedOutput.range(of: "{"),
-              let jsonEnd = cleanedOutput.range(of: "}", options: .backwards) {
-      cleanedOutput = String(cleanedOutput[jsonStart.lowerBound..<jsonEnd.upperBound])
+    guard let data = cleanedOutput.data(using: .utf8) else {
+      return nil
+    }
+
+    let todosArray: [[String: Any]]
+    if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+      todosArray = jsonArray
+    } else if let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let todosFromObject = jsonObject["todos"] as? [[String: Any]] {
+      todosArray = todosFromObject
     } else {
-      return nil
-    }
-
-    guard let data = cleanedOutput.data(using: .utf8),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      return nil
-    }
-
-    guard let todosArray = json["todos"] as? [[String: Any]] else {
       return nil
     }
 
