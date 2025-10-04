@@ -94,7 +94,16 @@ struct TodoReadToolView: View {
   private func parseTodoReadOutput(_ output: String?) -> TodoReadOutputInfo? {
     guard let output = output, !output.isEmpty else { return nil }
 
-    let cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    var cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if cleanedOutput.hasPrefix("{") && cleanedOutput.hasSuffix("}") {
+      cleanedOutput = String(cleanedOutput)
+    } else if let jsonStart = cleanedOutput.range(of: "{"),
+              let jsonEnd = cleanedOutput.range(of: "}", options: .backwards) {
+      cleanedOutput = String(cleanedOutput[jsonStart.lowerBound..<jsonEnd.upperBound])
+    } else {
+      return nil
+    }
 
     guard let data = cleanedOutput.data(using: .utf8),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
