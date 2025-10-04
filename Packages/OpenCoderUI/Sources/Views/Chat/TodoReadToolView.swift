@@ -69,6 +69,13 @@ struct TodoReadToolView: View {
               }
               .frame(maxHeight: 300)
             }
+          } else if let output = toolInfo.output, !output.isEmpty {
+            CopyableTextSection(
+              title: "Output",
+              content: output,
+              backgroundColor: Color.blue.opacity(0.1),
+              titleColor: .primary
+            )
           }
 
           if let error = toolInfo.error, !error.isEmpty {
