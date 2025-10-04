@@ -13,7 +13,7 @@ struct TodoReadToolView: View {
 
         if let planningInfo = parseTodoReadOutput(toolInfo.output) {
           VStack(alignment: .leading, spacing: 2) {
-            Text("Read Tasks")
+            Text("Planning")
               .font(.caption)
               .fontWeight(.medium)
 
@@ -92,9 +92,11 @@ struct TodoReadToolView: View {
   }
 
   private func parseTodoReadOutput(_ output: String?) -> TodoReadOutputInfo? {
-    guard let output = output else { return nil }
+    guard let output = output, !output.isEmpty else { return nil }
 
-    guard let data = output.data(using: .utf8),
+    let cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard let data = cleanedOutput.data(using: .utf8),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
       return nil
     }
@@ -112,6 +114,8 @@ struct TodoReadToolView: View {
       }
       return TodoItem(id: id, content: content, status: status, priority: priority)
     }
+
+    guard !todos.isEmpty else { return nil }
 
     return TodoReadOutputInfo(todos: todos)
   }
