@@ -14,7 +14,7 @@ struct ReadToolView: View {
 
         if let readInfo = parseReadToolInput(toolInfo.input) {
           VStack(alignment: .leading, spacing: 2) {
-            Text("read")
+            Text("Read")
               .font(.caption)
               .fontWeight(.medium)
 
