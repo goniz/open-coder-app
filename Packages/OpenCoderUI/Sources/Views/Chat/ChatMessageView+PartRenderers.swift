@@ -93,21 +93,43 @@ public struct TextPartRenderer: MessagePartRenderer {
           Text(content)
             .font(.body)
             .foregroundColor(.white)
+            .fixedSize(horizontal: false, vertical: true)
         } else {
-          if let attributedString = try? AttributedString(markdown: content) {
+          let markdownContent = preprocessMarkdown(content)
+          if let attributedString = try? AttributedString(markdown: markdownContent) {
             Text(attributedString)
               .font(.body)
               .foregroundColor(.primary)
+              .lineSpacing(3)
+              .fixedSize(horizontal: false, vertical: true)
           } else {
             Text(content)
               .font(.body)
               .foregroundColor(.primary)
+              .lineSpacing(3)
+              .fixedSize(horizontal: false, vertical: true)
           }
         }
       } else {
         EmptyView()
       }
     }
+  }
+
+  private func preprocessMarkdown(_ text: String) -> String {
+    // Normalize newlines
+    var normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
+                         .replacingOccurrences(of: "\r", with: "\n")
+    // Collapse 3+ newlines into 2
+    while normalized.contains("\n\n\n") {
+      normalized = normalized.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+    }
+    // Split into paragraphs by double newline
+    let paragraphs = normalized.components(separatedBy: "\n\n")
+    // Replace single newlines inside paragraphs with spaces
+    let cleaned = paragraphs.map { $0.replacingOccurrences(of: "\n", with: " ") }
+    // Re-join paragraphs with a single blank line
+    return cleaned.joined(separator: "\n\n")
   }
 }
 
@@ -315,6 +337,23 @@ struct ToolCallView: View {
   @State private var isExpanded = false
 
   var body: some View {
+    if toolInfo.name == "read" {
+      ReadToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    } else if toolInfo.name == "bash" {
+      BashToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    } else if toolInfo.name == "edit" {
+      EditToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    } else {
+      GenericToolCallView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    }
+  }
+}
+
+struct GenericToolCallView: View {
+  let toolInfo: EnhancedMessagePart.ToolCallInfo
+  @Binding var isExpanded: Bool
+
+  var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
         Image(systemName: toolStateIcon(toolInfo.state))
@@ -346,43 +385,30 @@ struct ToolCallView: View {
       if isExpanded {
         VStack(alignment: .leading, spacing: 8) {
           if let input = toolInfo.input, !input.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-              Text("Input:")
-                .font(.caption)
-                .fontWeight(.medium)
-              Text(input)
-                .font(.caption)
-                .padding(8)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(6)
-            }
+            CopyableTextSection(
+              title: "Input",
+              content: input,
+              backgroundColor: Color.gray.opacity(0.1),
+              titleColor: .primary
+            )
           }
 
           if let output = toolInfo.output, !output.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-              Text("Output:")
-                .font(.caption)
-                .fontWeight(.medium)
-              Text(output)
-                .font(.caption)
-                .padding(8)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(6)
-            }
+            CopyableTextSection(
+              title: "Output",
+              content: output,
+              backgroundColor: Color.green.opacity(0.1),
+              titleColor: .primary
+            )
           }
 
           if let error = toolInfo.error, !error.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-              Text("Error:")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.red)
-              Text(error)
-                .font(.caption)
-                .padding(8)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(6)
-            }
+            CopyableTextSection(
+              title: "Error",
+              content: error,
+              backgroundColor: Color.red.opacity(0.1),
+              titleColor: .red
+            )
           }
         }
       }
@@ -527,5 +553,64 @@ struct AgentView: View {
     .padding(8)
     .background(Color.purple.opacity(0.1))
     .cornerRadius(8)
+  }
+}
+
+struct CopyableTextSection: View {
+  let title: String
+  let content: String
+  let backgroundColor: Color
+  let titleColor: Color
+
+  @State private var showCopiedFeedback = false
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Text("\(title):")
+          .font(.caption)
+          .fontWeight(.medium)
+          .foregroundColor(titleColor)
+
+        Spacer()
+
+        Button(action: copyToClipboard) {
+          HStack(spacing: 4) {
+            Image(systemName: showCopiedFeedback ? "checkmark" : "doc.on.doc")
+              .font(.caption)
+            if showCopiedFeedback {
+              Text("Copied")
+                .font(.caption2)
+            }
+          }
+          .foregroundColor(showCopiedFeedback ? .green : .secondary)
+        }
+      }
+
+      ScrollView {
+        Text(content)
+          .font(.system(.caption, design: .monospaced))
+          .textSelection(.enabled)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(8)
+          .background(backgroundColor)
+          .cornerRadius(6)
+      }
+      .frame(maxHeight: 200)
+    }
+  }
+
+  private func copyToClipboard() {
+    #if os(iOS)
+    UIPasteboard.general.string = content
+    #elseif os(macOS)
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(content, forType: .string)
+    #endif
+
+    showCopiedFeedback = true
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+      showCopiedFeedback = false
+    }
   }
 }

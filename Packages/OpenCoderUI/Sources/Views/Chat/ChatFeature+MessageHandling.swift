@@ -141,6 +141,10 @@ extension ChatFeature {
         ))
       case .agent(let type, let result):
         return .agent(result, agentType: type)
+      case .patch(let hash, let files):
+        let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
+        let filesText = files.joined(separator: "\n")
+        return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
       }
     }
   }

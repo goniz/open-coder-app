@@ -45,6 +45,13 @@ public struct CompositeMessageRenderer {
     for renderer in renderers where renderer.canRender(part) {
       return renderer.render(part, message: message)
     }
-    return AnyView(EmptyView())
+    return AnyView(
+      Text("Unsupported message part")
+        .font(.caption)
+        .foregroundColor(.orange)
+        .padding(8)
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(8)
+    )
   }
 }

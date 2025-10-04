@@ -74,17 +74,23 @@ struct ChatMessageView: View {
         } else if !message.text.isEmpty {
           if message.user.isCurrentUser {
             Text(message.text)
+              .fixedSize(horizontal: false, vertical: true)
               .padding(12)
               .background(AppColorType.green.color.opacity(0.8))
               .foregroundColor(.white)
               .cornerRadius(18)
           } else {
-            if let attributedString = try? AttributedString(markdown: message.text) {
+            let markdownContent = preprocessMarkdown(message.text)
+            if let attributedString = try? AttributedString(markdown: markdownContent) {
               Text(attributedString)
                 .foregroundColor(.primary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
             } else {
               Text(message.text)
                 .foregroundColor(.primary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
             }
           }
         }
@@ -114,8 +120,9 @@ struct ChatMessageView: View {
                     .animation(
                       .easeInOut(duration: 0.6).repeatForever(autoreverses: true).delay(Double(index) * 0.2),
                       value: status
-                    )
-                }
+                     )
+}
+
               }
             case .sent, .read:
               Image(systemName: "checkmark")
@@ -141,6 +148,18 @@ struct ChatMessageView: View {
         Button("Copy") { UIPasteboard.general.string = message.text }
       }
     }
+  }
+
+  private func preprocessMarkdown(_ text: String) -> String {
+    var normalized = text
+      .replacingOccurrences(of: "\r\n", with: "\n")
+      .replacingOccurrences(of: "\r", with: "\n")
+    while normalized.contains("\n\n\n") {
+      normalized = normalized.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+    }
+    let paragraphs = normalized.components(separatedBy: "\n\n")
+    let cleaned = paragraphs.map { $0.replacingOccurrences(of: "\n", with: " ") }
+    return cleaned.joined(separator: "\n\n")
   }
 
   private func hasVisibleContent() -> Bool {

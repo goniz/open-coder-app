@@ -93,6 +93,7 @@ struct WorkspaceInteractionView: View {
             .tag(WorkspaceInteractionFeature.Tab.liveOutput)
         }
       }
+      .environment(\.workspaceRemotePath, store.workspace.remotePath)
       .navigationTitle(store.displayTitle)
       #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)

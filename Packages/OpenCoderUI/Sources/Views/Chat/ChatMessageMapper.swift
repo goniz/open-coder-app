@@ -92,6 +92,10 @@ enum ChatMessageMapper {
           error: nil
         )
         enhancedParts.append(.tool(toolInfo))
+      case let .patch(hash, files):
+        let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
+        let filesText = files.joined(separator: "\n")
+        enhancedParts.append(.patch(title, filePath: "Hash: \(hash)", diff: filesText))
       }
     }
 
