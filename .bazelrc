@@ -18,3 +18,8 @@ build:release -c opt
 build:release --ios_multi_cpus=arm64
 build:release --apple_generate_dsym
 build:release --define=apple.add_debugger_entitlement=no
+
+# Enable disk cache for faster builds
+build --disk_cache=~/.cache/bazel
+build --experimental_disk_cache_gc_max_size=30G
+build --experimental_disk_cache_gc_max_age=7d

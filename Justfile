@@ -1,7 +1,3 @@
-build:
-    @echo "Building OpenCoderUI with Bazel..."
-    bazel build //:OpenCoderUI
-
 test:
     @echo "Testing OpenCoderCore..."
     bazel test //Packages/OpenCoderCore:OpenCoderCoreTests
@@ -44,9 +40,9 @@ check_builds:
     cd Xcode && fastlane check_builds
 
 devcycle:
+    just fix && \
     just lint && \
-    just preview && \
-    just test
+    just preview
 
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}

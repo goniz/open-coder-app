@@ -38,6 +38,8 @@ extension LiveOpenCodeAPIClient {
         return "Agent: \(type)\n\(result)"
       case let .tool(name, input, output):
         return "Tool: \(name), Input: \(input), Output: \(output)"
+      case let .patch(hash, files):
+        return "Patch: \(hash), Files: \(files.joined(separator: ", "))"
       }
     }.joined(separator: "\n")
 
@@ -219,9 +221,67 @@ extension LiveOpenCodeAPIClient {
           return .reasoning(reasoningPart.text)
         } else if let filePart = part.value3 {
           return .file(path: filePart.filename ?? "unknown", content: filePart.url)
+        } else if let toolPart = part.value4 {
+          return parseToolPart(toolPart)
+        } else if part.value5 != nil {
+          return nil
+        } else if part.value6 != nil {
+          return nil
+        } else if part.value7 != nil {
+          return nil
+        } else if let patchPart = part.value8 {
+          return .patch(hash: patchPart.hash, files: patchPart.files)
+        } else if let agentPart = part.value9 {
+          let agentName = agentPart.name
+          let content = agentPart.source?.value ?? ""
+          return .agent(type: agentName, result: content)
         } else {
+          log("⚠️ Unhandled part type - part may be missing from UI", level: .warning)
           return nil
         }
+      }
+    }
+
+    private func parseToolPart(_ toolPart: Components.Schemas.ToolPart) -> MessagePart {
+      let toolName = toolPart.tool
+      var inputString = ""
+      var outputString = ""
+
+      if let completed = toolPart.state.value3 {
+        inputString = formatToolInput(completed.input.additionalProperties)
+        outputString = completed.output
+      } else if let running = toolPart.state.value2 {
+        inputString = formatToolInputContainer(running.input)
+        outputString = ""
+      } else if let error = toolPart.state.value4 {
+        inputString = formatToolInput(error.input.additionalProperties)
+        outputString = "Error: \(error.error)"
+      }
+
+      return .tool(name: toolName, input: inputString, output: outputString)
+    }
+
+    private func formatToolInput(_ input: [String: OpenAPIRuntime.OpenAPIValueContainer]) -> String {
+      guard !input.isEmpty else { return "" }
+
+      do {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(input)
+        return String(data: data, encoding: .utf8) ?? ""
+      } catch {
+        return input.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+      }
+    }
+
+    private func formatToolInputContainer(_ input: OpenAPIRuntime.OpenAPIValueContainer) -> String {
+      do {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(input)
+        return String(data: data, encoding: .utf8) ?? ""
+      } catch {
+        return "\(input)"
       }
     }
 
