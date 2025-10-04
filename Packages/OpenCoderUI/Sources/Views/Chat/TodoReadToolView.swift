@@ -87,13 +87,6 @@ struct TodoReadToolView: View {
     .cornerRadius(8)
   }
 
-  struct TodoItem: Decodable {
-    let id: String
-    let content: String
-    let status: String
-    let priority: String
-  }
-
   struct TodoReadOutputInfo {
     let todos: [TodoItem]
   }

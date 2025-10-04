@@ -1,6 +1,13 @@
 import SwiftUI
 import OpenCoderCore
 
+struct TodoItem: Decodable {
+  let id: String
+  let content: String
+  let status: String
+  let priority: String
+}
+
 struct PlanningToolView: View {
   let toolInfo: EnhancedMessagePart.ToolCallInfo
   @Binding var isExpanded: Bool
@@ -85,13 +92,6 @@ struct PlanningToolView: View {
     .padding(8)
     .background(toolStateBackgroundColor(toolInfo.state))
     .cornerRadius(8)
-  }
-
-  struct TodoItem: Decodable {
-    let id: String
-    let content: String
-    let status: String
-    let priority: String
   }
 
   struct PlanningToolInputInfo {
@@ -183,7 +183,7 @@ struct PlanningToolView: View {
 }
 
 struct TodoItemView: View {
-  let todo: PlanningToolView.TodoItem
+  let todo: TodoItem
 
   var body: some View {
     HStack(alignment: .top, spacing: 8) {
