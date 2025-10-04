@@ -20,7 +20,7 @@ struct PlanningToolView: View {
 
         if let planningInfo = parsePlanningToolInput(toolInfo.input) {
           VStack(alignment: .leading, spacing: 2) {
-            Text("Planning")
+            Text("Updating Plan")
               .font(.caption)
               .fontWeight(.medium)
 
