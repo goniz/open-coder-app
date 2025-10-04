@@ -103,17 +103,8 @@ struct TodoReadToolView: View {
 
     let cleanedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    guard let data = cleanedOutput.data(using: .utf8) else {
-      return nil
-    }
-
-    let todosArray: [[String: Any]]
-    if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-      todosArray = jsonArray
-    } else if let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let todosFromObject = jsonObject["todos"] as? [[String: Any]] {
-      todosArray = todosFromObject
-    } else {
+    guard let data = cleanedOutput.data(using: .utf8),
+          let todosArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
       return nil
     }
 
