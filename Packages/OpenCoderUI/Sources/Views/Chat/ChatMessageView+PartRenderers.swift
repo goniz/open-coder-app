@@ -345,6 +345,8 @@ struct ToolCallView: View {
       EditToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
     } else if toolInfo.name == "todowrite" {
       PlanningToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    } else if toolInfo.name == "todoread" {
+      TodoReadToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
     } else {
       GenericToolCallView(toolInfo: toolInfo, isExpanded: $isExpanded)
     }

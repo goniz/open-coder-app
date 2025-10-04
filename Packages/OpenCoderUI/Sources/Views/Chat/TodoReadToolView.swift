@@ -1,7 +1,7 @@
 import SwiftUI
 import OpenCoderCore
 
-struct PlanningToolView: View {
+struct TodoReadToolView: View {
   let toolInfo: EnhancedMessagePart.ToolCallInfo
   @Binding var isExpanded: Bool
 
@@ -11,9 +11,9 @@ struct PlanningToolView: View {
         Image(systemName: toolStateIcon(toolInfo.state))
           .foregroundColor(toolStateColor(toolInfo.state))
 
-        if let planningInfo = parsePlanningToolInput(toolInfo.input) {
+        if let planningInfo = parseTodoReadOutput(toolInfo.output) {
           VStack(alignment: .leading, spacing: 2) {
-            Text("Planning")
+            Text("Read Tasks")
               .font(.caption)
               .fontWeight(.medium)
 
@@ -50,7 +50,7 @@ struct PlanningToolView: View {
 
       if isExpanded {
         VStack(alignment: .leading, spacing: 8) {
-          if let planningInfo = parsePlanningToolInput(toolInfo.input) {
+          if let planningInfo = parseTodoReadOutput(toolInfo.output) {
             VStack(alignment: .leading, spacing: 4) {
               Text("Tasks:")
                 .font(.caption)
@@ -94,14 +94,14 @@ struct PlanningToolView: View {
     let priority: String
   }
 
-  struct PlanningToolInputInfo {
+  struct TodoReadOutputInfo {
     let todos: [TodoItem]
   }
 
-  private func parsePlanningToolInput(_ input: String?) -> PlanningToolInputInfo? {
-    guard let input = input else { return nil }
+  private func parseTodoReadOutput(_ output: String?) -> TodoReadOutputInfo? {
+    guard let output = output else { return nil }
 
-    guard let data = input.data(using: .utf8),
+    guard let data = output.data(using: .utf8),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
       return nil
     }
@@ -120,7 +120,7 @@ struct PlanningToolView: View {
       return TodoItem(id: id, content: content, status: status, priority: priority)
     }
 
-    return PlanningToolInputInfo(todos: todos)
+    return TodoReadOutputInfo(todos: todos)
   }
 
   private func generateTaskSummary(_ todos: [TodoItem]) -> String {
@@ -178,87 +178,6 @@ struct PlanningToolView: View {
     case .running: return Color.blue.opacity(0.1)
     case .completed: return Color.green.opacity(0.1)
     case .error: return Color.red.opacity(0.1)
-    }
-  }
-}
-
-struct TodoItemView: View {
-  let todo: PlanningToolView.TodoItem
-
-  var body: some View {
-    HStack(alignment: .top, spacing: 8) {
-      Image(systemName: statusIcon(todo.status))
-        .foregroundColor(statusColor(todo.status))
-        .font(.caption)
-        .frame(width: 16)
-
-      HStack(spacing: 6) {
-        Text(todo.content)
-          .font(.caption)
-          .foregroundColor(.primary)
-          .strikethrough(todo.status == "completed")
-
-        Spacer()
-
-        PriorityBadge(priority: todo.priority)
-      }
-    }
-    .padding(8)
-    .background(statusBackgroundColor(todo.status))
-    .cornerRadius(6)
-  }
-
-  private func statusIcon(_ status: String) -> String {
-    switch status {
-    case "completed": return "checkmark.circle.fill"
-    case "in_progress": return "arrow.right.circle.fill"
-    case "pending": return "circle"
-    case "cancelled": return "xmark.circle"
-    default: return "circle"
-    }
-  }
-
-  private func statusColor(_ status: String) -> Color {
-    switch status {
-    case "completed": return .green
-    case "in_progress": return .blue
-    case "pending": return .secondary
-    case "cancelled": return .red
-    default: return .secondary
-    }
-  }
-
-  private func statusBackgroundColor(_ status: String) -> Color {
-    switch status {
-    case "completed": return Color.green.opacity(0.1)
-    case "in_progress": return Color.blue.opacity(0.1)
-    case "pending": return Color.gray.opacity(0.05)
-    case "cancelled": return Color.red.opacity(0.1)
-    default: return Color.clear
-    }
-  }
-}
-
-struct PriorityBadge: View {
-  let priority: String
-
-  var body: some View {
-    Text(priority.uppercased())
-      .font(.caption2)
-      .fontWeight(.semibold)
-      .foregroundColor(priorityColor(priority))
-      .padding(.horizontal, 6)
-      .padding(.vertical, 2)
-      .background(priorityColor(priority).opacity(0.15))
-      .cornerRadius(4)
-  }
-
-  private func priorityColor(_ priority: String) -> Color {
-    switch priority.lowercased() {
-    case "high": return .red
-    case "medium": return .orange
-    case "low": return .blue
-    default: return .secondary
     }
   }
 }
