@@ -343,6 +343,8 @@ struct ToolCallView: View {
       BashToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
     } else if toolInfo.name == "edit" {
       EditToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
+    } else if toolInfo.name == "todowrite" {
+      PlanningToolView(toolInfo: toolInfo, isExpanded: $isExpanded)
     } else {
       GenericToolCallView(toolInfo: toolInfo, isExpanded: $isExpanded)
     }
