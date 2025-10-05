@@ -148,6 +148,9 @@ public enum MessagePart: Equatable, Sendable {
   case agent(type: String, result: String, id: String?)
   case tool(name: String, input: String, output: String, error: String?, id: String?)
   case patch(hash: String, files: [String], id: String?)
+  case stepStart(id: String?)
+  case stepFinish(cost: Double, inputTokens: Double, outputTokens: Double, id: String?)
+  case snapshot(content: String, id: String?)
 }
 
 public struct OpenCodeConfig: Equatable, Sendable {

@@ -72,38 +72,12 @@ enum ChatMessageMapper {
     var enhancedParts: [EnhancedMessagePart] = []
 
     for part in parts {
-      switch part {
-      case let .text(content, _):
-        textSegments.append(content)
-        enhancedParts.append(.text(content))
-      case let .reasoning(content, _):
-        enhancedParts.append(.reasoning(content))
-      case let .file(path, content, _):
-        enhancedParts.append(.file(path: path, content: content, operation: .read))
-      case let .agent(agentType, content, _):
-        enhancedParts.append(.agent(content, agentType: agentType))
-      case let .tool(name, input, output, error, _):
-        let state: EnhancedMessagePart.ToolState
-        if let error = error, !error.isEmpty {
-          state = .error
-        } else if output.isEmpty {
-          state = .running
-        } else {
-          state = .completed
-        }
-        let toolInfo = EnhancedMessagePart.ToolCallInfo(
-          id: UUID().uuidString,
-          name: name,
-          state: state,
-          input: input,
-          output: output,
-          error: error
-        )
-        enhancedParts.append(.tool(toolInfo))
-      case let .patch(hash, files, _):
-        let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
-        let filesText = files.joined(separator: "\n")
-        enhancedParts.append(.patch(title, filePath: "Hash: \(hash)", diff: filesText))
+      let result = processMessagePart(part)
+      if let text = result.text {
+        textSegments.append(text)
+      }
+      if let enhanced = result.enhancedPart {
+        enhancedParts.append(enhanced)
       }
     }
 
@@ -112,6 +86,76 @@ enum ChatMessageMapper {
       enhancedParts: enhancedParts,
       unsupportedParts: []
     )
+  }
+
+  private static func processMessagePart(_ part: MessagePart) -> (text: String?, enhancedPart: EnhancedMessagePart?) {
+    switch part {
+    case let .text(content, _):
+      return (content, .text(content))
+    case let .reasoning(content, _):
+      return (nil, .reasoning(content))
+    case let .file(path, content, _):
+      return (nil, .file(path: path, content: content, operation: .read))
+    case let .agent(agentType, content, _):
+      return (nil, .agent(content, agentType: agentType))
+    case let .tool(name, input, output, error, _):
+      return (nil, createToolEnhancedPart(name: name, input: input, output: output, error: error))
+    case let .patch(hash, files, _):
+      return (nil, createPatchEnhancedPart(hash: hash, files: files))
+    case let .stepStart(id):
+      return (nil, .stepStart("Processing step", stepID: id ?? ""))
+    case let .stepFinish(cost, inputTokens, outputTokens, id):
+      let part = createStepFinishEnhancedPart(
+        cost: cost,
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        id: id
+      )
+      return (nil, part)
+    case let .snapshot(content, id):
+      return (nil, .snapshot(content, snapshotID: id ?? ""))
+    }
+  }
+
+  private static func createToolEnhancedPart(
+    name: String,
+    input: String,
+    output: String,
+    error: String?
+  ) -> EnhancedMessagePart {
+    let state: EnhancedMessagePart.ToolState
+    if let error = error, !error.isEmpty {
+      state = .error
+    } else if output.isEmpty {
+      state = .running
+    } else {
+      state = .completed
+    }
+    let toolInfo = EnhancedMessagePart.ToolCallInfo(
+      id: UUID().uuidString,
+      name: name,
+      state: state,
+      input: input,
+      output: output,
+      error: error
+    )
+    return .tool(toolInfo)
+  }
+
+  private static func createPatchEnhancedPart(hash: String, files: [String]) -> EnhancedMessagePart {
+    let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
+    let filesText = files.joined(separator: "\n")
+    return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
+  }
+
+  private static func createStepFinishEnhancedPart(
+    cost: Double,
+    inputTokens: Double,
+    outputTokens: Double,
+    id: String?
+  ) -> EnhancedMessagePart {
+    let text = "Cost: $\(String(format: "%.4f", cost)), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out"
+    return .stepFinish(text, stepID: id ?? "", success: true)
   }
   private static func generateFallbackText(from enhancedParts: [EnhancedMessagePart]) -> String {
     let descriptions = enhancedParts.compactMap { part in

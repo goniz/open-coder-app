@@ -41,6 +41,12 @@ extension LiveOpenCodeAPIClient {
         return "Tool: \(name), Input: \(input), Output: \(output)\(errorText)"
       case let .patch(hash, files, _):
         return "Patch: \(hash), Files: \(files.joined(separator: ", "))"
+      case .stepStart:
+        return nil
+      case let .stepFinish(cost, inputTokens, outputTokens, _):
+        return "Step finished - Cost: \(cost), Input tokens: \(inputTokens), Output tokens: \(outputTokens)"
+      case let .snapshot(content, _):
+        return "Snapshot: \(content)"
       }
     }.joined(separator: "\n")
 
@@ -216,6 +222,17 @@ extension LiveOpenCodeAPIClient {
           return .file(path: filePart.filename ?? "unknown", content: filePart.url, id: nil)
         } else if let toolPart = part.value4 {
           return parseToolPart(toolPart)
+        } else if let stepStartPart = part.value5 {
+          return .stepStart(id: stepStartPart.id)
+        } else if let stepFinishPart = part.value6 {
+          return .stepFinish(
+            cost: stepFinishPart.cost,
+            inputTokens: stepFinishPart.tokens.input,
+            outputTokens: stepFinishPart.tokens.output,
+            id: stepFinishPart.id
+          )
+        } else if let snapshotPart = part.value7 {
+          return .snapshot(content: snapshotPart.snapshot, id: snapshotPart.id)
         } else if let patchPart = part.value8 {
           return .patch(hash: patchPart.hash, files: patchPart.files, id: nil)
         } else if let agentPart = part.value9 {

@@ -123,38 +123,64 @@ extension ChatFeature {
   }
 
   private func convertToEnhancedParts(_ parts: [MessagePart]) -> [EnhancedMessagePart] {
-    parts.compactMap { part in
-      switch part {
-      case .text(let content, _):
-        return .text(content)
-      case .reasoning(let content, _):
-        return .reasoning(content)
-      case .file(let path, let content, _):
-        return .file(path: path, content: content, operation: .read)
-      case .tool(let name, let input, let output, let error, _):
-        let state: EnhancedMessagePart.ToolState
-        if let error = error, !error.isEmpty {
-          state = .error
-        } else if output.isEmpty {
-          state = .running
-        } else {
-          state = .completed
-        }
-        return .tool(EnhancedMessagePart.ToolCallInfo(
-          id: UUID().uuidString,
-          name: name,
-          state: state,
-          input: input,
-          output: output,
-          error: error
-        ))
-      case .agent(let type, let result, _):
-        return .agent(result, agentType: type)
-      case .patch(let hash, let files, _):
-        let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
-        let filesText = files.joined(separator: "\n")
-        return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
-      }
+    parts.compactMap { convertToEnhancedPart($0) }
+  }
+
+  private func convertToEnhancedPart(_ part: MessagePart) -> EnhancedMessagePart? {
+    switch part {
+    case .text(let content, _):
+      return .text(content)
+    case .reasoning(let content, _):
+      return .reasoning(content)
+    case .file(let path, let content, _):
+      return .file(path: path, content: content, operation: .read)
+    case .tool(let name, let input, let output, let error, _):
+      return convertToolPart(name: name, input: input, output: output, error: error)
+    case .agent(let type, let result, _):
+      return .agent(result, agentType: type)
+    case .patch(let hash, let files, _):
+      return convertPatchPart(hash: hash, files: files)
+    case .stepStart:
+      return nil
+    case .stepFinish(let cost, let inputTokens, let outputTokens, _):
+      return convertStepFinishPart(cost: cost, inputTokens: inputTokens, outputTokens: outputTokens)
+    case .snapshot(let content, _):
+      return .text("Snapshot: \(content)")
     }
+  }
+
+  private func convertToolPart(
+    name: String,
+    input: String,
+    output: String,
+    error: String?
+  ) -> EnhancedMessagePart {
+    let state: EnhancedMessagePart.ToolState
+    if let error = error, !error.isEmpty {
+      state = .error
+    } else if output.isEmpty {
+      state = .running
+    } else {
+      state = .completed
+    }
+    return .tool(EnhancedMessagePart.ToolCallInfo(
+      id: UUID().uuidString,
+      name: name,
+      state: state,
+      input: input,
+      output: output,
+      error: error
+    ))
+  }
+
+  private func convertPatchPart(hash: String, files: [String]) -> EnhancedMessagePart {
+    let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
+    let filesText = files.joined(separator: "\n")
+    return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
+  }
+
+  private func convertStepFinishPart(cost: Double, inputTokens: Double, outputTokens: Double) -> EnhancedMessagePart {
+    let costText = String(format: "%.4f", cost)
+    return .text("Step completed - Cost: $\(costText), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out")
   }
 }
