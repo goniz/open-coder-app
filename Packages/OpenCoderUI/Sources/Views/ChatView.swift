@@ -2,6 +2,7 @@ import ComposableArchitecture
 import OpenCoderCore
 import ExyteChat
 import SwiftUI
+import UIKit
 
 struct ChatView: View {
   @Bindable var store: StoreOf<ChatFeature>
@@ -16,6 +17,7 @@ struct ChatView: View {
             .lineLimit(1)
             .truncationMode(.tail)
           Spacer(minLength: 0)
+          connectionStatusIndicators
           sessionSelectorButton
         }
         .padding(.horizontal, 12)
@@ -43,6 +45,24 @@ struct ChatView: View {
     }
     .task(id: store.sessionID) {
       await store.send(.task).finish()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+      store.send(.appDidBecomeActive)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+      store.send(.appWillResignActive)
+    }
+  }
+
+  private var connectionStatusIndicators: some View {
+    HStack(spacing: 6) {
+      Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
+        .foregroundStyle(store.serverURL != nil ? .green : .red)
+        .font(.caption)
+
+      Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
+        .foregroundStyle(store.isEventsConnected ? .green : .red)
+        .font(.caption)
     }
   }
 

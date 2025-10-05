@@ -142,6 +142,107 @@ extension LiveOpenCodeAPIClient {
 
 }
 
+// MARK: - Event Streaming
+
+extension LiveOpenCodeAPIClient {
+  public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error> {
+    log("OpenCode API: Subscribing to events stream")
+
+    let input = Operations.event_period_subscribe.Input()
+
+    do {
+      let response = try await client.event_period_subscribe(input)
+
+      switch response {
+      case let .ok(okResponse):
+        switch okResponse.body {
+        case let .text_event_hyphen_stream(httpBody):
+          return createEventStream(from: httpBody)
+        }
+      case let .undocumented(statusCode, _):
+        log(
+          "OpenCode API: Subscribe to events failed with status code: \(statusCode)",
+          level: .error
+        )
+        throw OpenCodeAPIError.serverError("Failed to subscribe to events: \(statusCode)")
+      }
+    } catch {
+      log("OpenCode API: Subscribe to events failed: \(error.localizedDescription)", level: .error)
+      throw error
+    }
+  }
+
+  private func createEventStream(
+    from httpBody: HTTPBody
+  ) -> AsyncThrowingStream<OpenCodeEvent, Error> {
+    return AsyncThrowingStream { continuation in
+      Task {
+        do {
+          for try await chunk in httpBody {
+            guard let chunkString = String(bytes: chunk, encoding: .utf8) else {
+              continue
+            }
+
+            for line in chunkString.split(separator: "\n") {
+              let lineStr = String(line)
+
+              if lineStr.hasPrefix("data: ") {
+                let jsonString = String(lineStr.dropFirst(6))
+
+                if let event = parseEvent(from: jsonString) {
+                  continuation.yield(event)
+                }
+              }
+            }
+          }
+          log("OpenCode API: Event stream ended")
+          continuation.finish()
+        } catch {
+          log(
+            "OpenCode API: Event stream error: \(error.localizedDescription)",
+            level: .error
+          )
+          continuation.finish(throwing: error)
+        }
+      }
+    }
+  }
+
+  private func parseEvent(from jsonString: String) -> OpenCodeEvent? {
+    guard let jsonData = jsonString.data(using: .utf8) else {
+      return nil
+    }
+
+    let decoder = JSONDecoder()
+
+    if let sessionUpdated = try? decoder.decode(
+      Components.Schemas.Event_period_session_period_updated.self,
+      from: jsonData
+    ) {
+      let sessionData = sessionUpdated.properties.info
+      let session = OpenCodeSession(
+        id: sessionData.id,
+        createdAt: Date(timeIntervalSince1970: sessionData.time.created),
+        updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+        isActive: true,
+        title: sessionData.title
+      )
+      log("OpenCode API: Received session.updated event for session: \(session.id)")
+      return .sessionUpdated(session)
+    } else if let sessionDeleted = try? decoder.decode(
+      Components.Schemas.Event_period_session_period_deleted.self,
+      from: jsonData
+    ) {
+      let sessionID = sessionDeleted.properties.info.id
+      log("OpenCode API: Received session.deleted event for session: \(sessionID)")
+      return .sessionDeleted(sessionID)
+    } else {
+      log("OpenCode API: Received unknown event: \(jsonString)", level: .warning)
+      return .unknown(jsonString)
+    }
+  }
+}
+
 // MARK: - Project Operations
 
 extension LiveOpenCodeAPIClient {

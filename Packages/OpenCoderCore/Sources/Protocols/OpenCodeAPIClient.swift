@@ -30,6 +30,18 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
   // Configuration
   func getConfig() async throws -> OpenCodeConfig
   func listProviders() async throws -> OpenCodeProviders
+
+  // Event Streaming
+  func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error>
+}
+
+// MARK: - Event Models
+
+public enum OpenCodeEvent: Equatable, Sendable {
+  case sessionUpdated(OpenCodeSession)
+  case sessionDeleted(String)
+  case messageReceived(OpenCodeMessage)
+  case unknown(String)
 }
 
 // MARK: - Domain Models
@@ -334,6 +346,12 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
       providers: ["openai": ["gpt-4": "GPT-4"]],
       defaultProvider: "openai"
     )
+  }
+
+  public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error> {
+    return AsyncThrowingStream { continuation in
+      continuation.finish()
+    }
   }
 }
 

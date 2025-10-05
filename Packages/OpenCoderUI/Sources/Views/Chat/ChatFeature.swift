@@ -66,6 +66,8 @@ public struct ChatFeature: Sendable {
     public var mediaPicker = ChatMediaPickerState()
     public var thinkingBlocksEnabled = true
     public var workspaceDisplayTitle: String?
+    public var isEventsConnected = false
+    public var shouldReconnectEvents = false
 
     public init(thinkingBlocksEnabled: Bool = true, workspaceDisplayTitle: String? = nil) {
       self.thinkingBlocksEnabled = thinkingBlocksEnabled
@@ -113,6 +115,12 @@ public struct ChatFeature: Sendable {
     case mediaPickerPresented(Bool)
     case mediaPickerAttachmentsUpdated(Int)
     case messageMenuAction(DefaultMessageMenuAction, messageID: String)
+    case eventReceived(OpenCodeEvent)
+    case eventsConnected
+    case eventsDisconnected
+    case reconnectEvents
+    case appDidBecomeActive
+    case appWillResignActive
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
@@ -149,6 +157,61 @@ public struct ChatFeature: Sendable {
       return handleLoadMore(state: &state)
     case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
+    case .eventsConnected, .eventsDisconnected, .eventReceived, .reconnectEvents,
+         .appDidBecomeActive, .appWillResignActive:
+      return handleEventActions(state: &state, action: action)
+    }
+  }
+
+  private func handleEventActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .eventsConnected:
+      state.isEventsConnected = true
+      state.shouldReconnectEvents = true
+      return .none
+    case .eventsDisconnected:
+      state.isEventsConnected = false
+      if state.shouldReconnectEvents && state.serverURL != nil {
+        return .send(.reconnectEvents)
+      }
+      return .none
+    case let .eventReceived(event):
+      return handleEventReceived(state: &state, event: event)
+    case .reconnectEvents:
+      guard let serverURL = state.serverURL else {
+        return .none
+      }
+      let factory = self.openCodeAPIFactory
+      return subscribeToEventsEffect(serverURL: serverURL, factory: factory)
+    case .appDidBecomeActive:
+      if !state.isEventsConnected && state.shouldReconnectEvents && state.serverURL != nil {
+        return .send(.reconnectEvents)
+      }
+      return .none
+    case .appWillResignActive:
+      return .none
+    default:
+      return .none
+    }
+  }
+
+  private func handleEventReceived(state: inout State, event: OpenCodeEvent) -> Effect<Action> {
+    switch event {
+    case let .sessionUpdated(session):
+      if let index = state.sessions.firstIndex(where: { $0.id == session.id }) {
+        state.sessions[index] = session
+      }
+      return .none
+    case let .sessionDeleted(sessionID):
+      state.sessions.removeAll { $0.id == sessionID }
+      if state.sessionID == sessionID {
+        state.sessionID = nil
+      }
+      return .none
+    case let .messageReceived(message):
+      return .send(.messageReceived(message))
+    case .unknown:
+      return .none
     }
   }
 }

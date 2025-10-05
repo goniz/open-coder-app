@@ -43,7 +43,29 @@ extension ChatFeature {
     state.isLoading = true
     state.errorMessage = nil
     let factory = self.openCodeAPIFactory
-    return loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory)
+    return .merge(
+      loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory),
+      subscribeToEventsEffect(serverURL: serverURL, factory: factory)
+    )
+  }
+
+  func subscribeToEventsEffect(serverURL: URL, factory: OpenCodeAPIClientFactoryProtocol) -> Effect<Action> {
+    return .run { send in
+      let client = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
+
+      do {
+        let stream = try await client.subscribeToEvents()
+        await send(.eventsConnected)
+
+        for try await event in stream {
+          await send(.eventReceived(event))
+        }
+
+        await send(.eventsDisconnected)
+      } catch {
+        await send(.eventsDisconnected)
+      }
+    }
   }
 
   func handleSendMessage(state: inout State) -> Effect<Action> {
