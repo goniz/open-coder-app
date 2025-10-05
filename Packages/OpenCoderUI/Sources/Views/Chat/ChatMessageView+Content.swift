@@ -5,6 +5,21 @@ import OpenCoderCore
 // MARK: - Message Part Extension for Enhanced Parts
 
 extension MessagePart {
+  var id: String? {
+    switch self {
+    case .text(_, let id),
+         .reasoning(_, let id),
+         .file(_, _, let id),
+         .agent(_, _, let id),
+         .tool(_, _, _, _, let id),
+         .patch(_, _, let id),
+         .stepStart(let id),
+         .stepFinish(_, _, _, let id),
+         .snapshot(_, let id):
+      return id
+    }
+  }
+
   init(from enhancedPart: EnhancedMessagePart) {
     switch enhancedPart {
     case .text(let content):

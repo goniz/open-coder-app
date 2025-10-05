@@ -12,6 +12,12 @@ extension ChatFeature {
       return handleMessagesFailed(state: &state, error: error)
     case let .messageReceived(message):
       return handleMessageReceived(state: &state, message: message)
+    case let .messageUpdated(message):
+      return handleMessageUpdated(state: &state, message: message)
+    case let .messagePartUpdated(sessionID, messageID, partID, part):
+      return handleMessagePartUpdated(
+        state: &state, sessionID: sessionID, messageID: messageID, partID: partID, part: part
+      )
     case let .messageSendCompleted(messageID):
       return handleMessageSendCompleted(state: &state, messageID: messageID)
     case let .messageSendFailed(messageID, error):
@@ -41,6 +47,49 @@ extension ChatFeature {
 
   func handleMessageReceived(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
     state.messages.append(message)
+    state.rebuildDerivedState()
+    return .none
+  }
+
+  func handleMessageUpdated(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
+    if let index = state.messages.firstIndex(where: { $0.id == message.id }) {
+      state.messages[index] = message
+      state.rebuildDerivedState()
+    }
+    return .none
+  }
+
+  func handleMessagePartUpdated(
+    state: inout State,
+    sessionID: String,
+    messageID: String,
+    partID: String,
+    part: MessagePart
+  ) -> Effect<Action> {
+    guard let messageIndex = state.messages.firstIndex(where: { $0.id == messageID }) else {
+      return .none
+    }
+
+    let message = state.messages[messageIndex]
+    var updatedParts = message.parts
+
+    if let partIndex = updatedParts.firstIndex(where: { $0.id == partID }) {
+      updatedParts[partIndex] = part
+    } else {
+      updatedParts.append(part)
+    }
+
+    let updatedMessage = OpenCodeMessage(
+      id: message.id,
+      sessionID: message.sessionID,
+      parts: updatedParts,
+      timestamp: message.timestamp,
+      role: message.role,
+      modelID: message.modelID,
+      providerID: message.providerID
+    )
+
+    state.messages[messageIndex] = updatedMessage
     state.rebuildDerivedState()
     return .none
   }
