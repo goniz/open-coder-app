@@ -8,7 +8,18 @@ struct ChatView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      sessionSelector
+      if store.workspaceDisplayTitle != nil {
+        HStack(spacing: 8) {
+          Text(store.currentSessionTitle)
+            .font(.title2)
+            .fontWeight(.bold)
+            .lineLimit(1)
+            .truncationMode(.tail)
+          Spacer(minLength: 0)
+          sessionSelectorButton
+        }
+        .padding(.horizontal, 12)
+      }
 
       if store.sessionID == nil {
         sessionPlaceholder
@@ -23,8 +34,6 @@ struct ChatView: View {
           .foregroundStyle(.secondary)
           .padding(.horizontal, 12)
       }
-
-      // Removed redundant error overlay as errors are now surfaced in chat UI
     }
     .overlay(alignment: .topTrailing) {
       if store.isLoading {
@@ -37,8 +46,12 @@ struct ChatView: View {
     }
   }
 
-  private var sessionSelector: some View {
-    HStack {
+  private var sessionSelectorButton: some View {
+    HStack(spacing: 4) {
+      if store.isLoadingSessions {
+        ProgressView()
+          .scaleEffect(0.8)
+      }
       Menu {
         Button {
           store.send(.newSession)
@@ -64,27 +77,12 @@ struct ChatView: View {
             .foregroundStyle(.secondary)
         }
       } label: {
-        HStack(spacing: 8) {
-          Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
-            .lineLimit(1)
-          Image(systemName: "chevron.down")
-            .font(.title2)
-            .foregroundStyle(.secondary)
-        }
-        .frame(width: 350)
+        Image(systemName: "chevron.down.circle")
+          .font(.title3)
+          .foregroundStyle(.secondary)
       }
       .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
-
-      Spacer()
-
-      if store.isLoadingSessions {
-        ProgressView()
-          .scaleEffect(0.8)
-      }
     }
-    .padding(.horizontal, 12)
   }
 
   private var sessionPlaceholder: some View {
@@ -103,7 +101,7 @@ struct ChatView: View {
   }
 }
 
-private extension ChatView {
+  private extension ChatView {
   var chatSurface: some View {
     ExyteChat.ChatView(
       messages: store.exyteMessages,
@@ -117,14 +115,19 @@ private extension ChatView {
       reactionDelegate: nil,
       // swiftlint:disable:next line_length
       messageBuilder: { message, positionInUserGroup, positionInMessagesSection, positionInCommentsGroup, showContextMenuClosure, messageActionClosure, showAttachmentClosure in
-        ChatMessageView(
+        // Get enhanced parts for this message if available
+        let enhancedParts = getEnhancedParts(for: message.id)
+
+        return ChatMessageView(
           message: message,
           positionInUserGroup: positionInUserGroup,
           positionInMessagesSection: positionInMessagesSection,
           positionInCommentsGroup: positionInCommentsGroup,
           showContextMenuClosure: showContextMenuClosure,
           messageActionClosure: messageActionClosure,
-          showAttachmentClosure: showAttachmentClosure
+          showAttachmentClosure: showAttachmentClosure,
+          enhancedParts: enhancedParts,
+          thinkingBlocksEnabled: store.thinkingBlocksEnabled
         )
       },
       inputViewBuilder: { textBinding, _, _, _, inputViewActionClosure, _ in
@@ -238,5 +241,9 @@ private extension ChatView {
       return .secondary
     }
     return AppColorType.green.color
+  }
+
+  private func getEnhancedParts(for messageID: String) -> [EnhancedMessagePart]? {
+    return store.enhancedMessageParts[messageID]
   }
 }

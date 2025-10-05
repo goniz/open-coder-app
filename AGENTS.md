@@ -1,7 +1,8 @@
 # AGENTS.md - SwiftUI + TCA iOS App
 
 ## Commands
-- **Build all packages: `just build`** - Builds OpenCoderCore (macOS+iOS), OpenCoderUI (iOS), and OpenCoderApp (iOS)
+- **Preview app in Xcode: `just preview`** - Opens the app in Xcode Previews for interactive UI development and validation
+
 - **Build core package on macOS: `just build-core-macos`** - Faster testing of business logic without iOS simulator
 - Build iOS app: `just build-ios` (development build without publishing)
 - Test core package: `just test` - Runs tests for OpenCoderCore package only
@@ -10,19 +11,21 @@
 - **Fix lint issues: `just fix`** - Auto-fixes SwiftLint violations across all packages
 - Format all packages: `just fmt` - Formats code across all packages
 - Update packages: `just update` - Updates dependencies for root workspace
-- **Development cycle: `just devcycle`** - Runs lint, build, build-ios, and test in sequence with early exit on failure
+- **Development cycle: `just devcycle`** - Runs fix, lint, and preview in sequence with early exit on failure
 - Beta deployment: `just beta` (runs fastlane from Xcode/)
 
 ## Development Workflow
-**IMPORTANT**: Always run `just devcycle` between development cycles to catch all errors before proceeding. This comprehensive command runs:
-1. SwiftLint checks with strict mode (warnings as errors)
-2. Swift package build with warnings as errors
-3. iOS app build for simulator 
-4. Core package unit tests
 
-This ensures code quality and prevents issues from propagating through the codebase. The command uses `&&` chaining to exit immediately on any failure.
+**Testing Changes**: After making code changes, use `just preview` to validate UI changes interactively in Xcode Previews, or run `just devcycle` for comprehensive validation. Choose based on the nature of your changes:
+- For UI-only changes: `just preview` provides immediate visual feedback
+- For any code changes: `just devcycle` runs fix → lint → preview with early exit on failure
 
-**Code Quality**: When `just devcycle` shows lint warnings/errors, run `just fix` first to automatically resolve fixable issues, then re-run the development cycle. Always fix all issues raised by `just devcycle` before proceeding with development.
+**IMPORTANT**: Always run `just devcycle` after completing work to ensure code quality. This command automatically:
+1. Auto-fixes SwiftLint violations with `just fix`
+2. Validates with strict SwiftLint checks (warnings as errors)
+3. Opens Xcode Previews for interactive validation
+
+The command uses `&&` chaining to exit immediately on any failure, ensuring issues are caught early.
 
 **Feature Completion**: When finishing up with a feature request or major bug fix, run `just beta` after a successful `just devcycle` to deploy to TestFlight for testing.
 

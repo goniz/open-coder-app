@@ -20,6 +20,9 @@ jobs:
       with:
         bazelisk-cache: true
     
+    - name: Configure BuildBuddy
+      run: echo "build --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > .bazelrc-user
+    
     - name: Install just
       run: brew install just
     
@@ -50,6 +53,9 @@ jobs:
       uses: bazel-contrib/setup-bazel@0.15.0
       with:
         bazelisk-cache: true
+
+    - name: Configure BuildBuddy
+      run: echo "build --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > .bazelrc-user
 
     - name: Install just
       run: brew install just
@@ -82,6 +88,9 @@ jobs:
       uses: bazel-contrib/setup-bazel@0.15.0
       with:
         bazelisk-cache: true
+
+    - name: Configure BuildBuddy
+      run: echo "build --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > .bazelrc-user
 
     - name: Install just
       run: brew install just
@@ -118,6 +127,9 @@ jobs:
       uses: bazel-contrib/setup-bazel@0.15.0
       with:
         bazelisk-cache: true
+
+    - name: Configure BuildBuddy
+      run: echo "build --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > .bazelrc-user
 
     - name: Install just
       run: brew install just

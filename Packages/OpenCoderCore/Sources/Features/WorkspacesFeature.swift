@@ -16,6 +16,7 @@ public struct WorkspacesFeature: Sendable {
     public var showingWorkspaceInteraction = false
     public var interactionInitialTab: WorkspaceInteractionFeature.Tab = .activity
     public var workspaceInteraction: WorkspaceInteractionFeature.State?
+    public var settings: SettingsFeature.State = .init()
     @ObservationStateIgnored public var portForwardTokens: [WorkspaceState.ID: PortForwardToken] = [:]
 
     public init() {}
@@ -55,6 +56,7 @@ public struct WorkspacesFeature: Sendable {
     case hideWorkspaceInteraction
     case workspacePortForwardEstablished(WorkspaceState.ID, PortForwardToken)
     case workspaceInteraction(WorkspaceInteractionFeature.Action)
+    case settings(SettingsFeature.Action)
   }
 
   public init() {}
@@ -71,6 +73,9 @@ public struct WorkspacesFeature: Sendable {
       ) {
         WorkspaceInteractionFeature()
       }
+    Scope(state: \.settings, action: \.settings) {
+      SettingsFeature()
+    }
   }
 
   // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -142,7 +147,13 @@ public struct WorkspacesFeature: Sendable {
     case .hideWorkspaceInteraction:
       return handleHideWorkspaceInteraction(state: &state)
 
+    case .workspaceInteraction(.dismiss):
+      return .send(.hideWorkspaceInteraction)
+
     case .workspaceInteraction:
+      return .none
+
+    case .settings:
       return .none
     }
   }

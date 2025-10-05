@@ -11,7 +11,7 @@ import Models
 
 extension LiveOpenCodeAPIClient {
   public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
-    log("🔗 OpenCode API: Sending message to session: \(sessionID)")
+    log("OpenCode API: Sending message to session: \(sessionID)")
 
     let requestBody = createSendMessageRequestBody(from: parts)
     let input = Operations.session_period_prompt.Input(path: .init(id: sessionID), body: requestBody)
@@ -20,7 +20,7 @@ extension LiveOpenCodeAPIClient {
       let response = try await client.session_period_prompt(input)
       return try handleSendMessageResponse(response, sessionID: sessionID)
     } catch {
-      log("❌ OpenCode API: Send message failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: Send message failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }
@@ -30,12 +30,17 @@ extension LiveOpenCodeAPIClient {
       switch part {
       case let .text(content):
         return content
+      case .reasoning:
+        return nil
       case let .file(path, content):
         return "File: \(path)\n\(content)"
       case let .agent(type, result):
         return "Agent: \(type)\n\(result)"
-      case let .tool(name, input, output):
-        return "Tool: \(name), Input: \(input), Output: \(output)"
+      case let .tool(name, input, output, error):
+        let errorText = error.map { ", Error: \($0)" } ?? ""
+        return "Tool: \(name), Input: \(input), Output: \(output)\(errorText)"
+      case let .patch(hash, files):
+        return "Patch: \(hash), Files: \(files.joined(separator: ", "))"
       }
     }.joined(separator: "\n")
 
@@ -50,7 +55,7 @@ extension LiveOpenCodeAPIClient {
     return Operations.session_period_prompt.Input.Body.json(.init(parts: [partPayload]))
   }
 
-   private func handleSendMessageResponse(
+  private func handleSendMessageResponse(
      _ response: Operations.session_period_prompt.Output,
      sessionID: String
    ) throws -> OpenCodeMessage {
@@ -59,17 +64,17 @@ extension LiveOpenCodeAPIClient {
        switch okResponse.body {
        case let .json(messageData):
          let message = parseMessageData(messageData, sessionID: sessionID)
-         log("✅ OpenCode API: Successfully sent message to session: \(sessionID)")
+         log("OpenCode API: Successfully sent message to session: \(sessionID)")
          return message
        }
      case let .undocumented(statusCode, _):
-       log("❌ OpenCode API: Send message failed with status code: \(statusCode)", level: .error)
+       log("OpenCode API: Send message failed with status code: \(statusCode)", level: .error)
        throw OpenCodeAPIError.serverError("Failed to send message: \(statusCode)")
      }
    }
 
-   public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
-     log("🔗 OpenCode API: Getting messages from session: \(sessionID)")
+  public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
+     log("OpenCode API: Getting messages from session: \(sessionID)")
 
      let input = Operations.session_period_messages.Input(path: .init(id: sessionID))
 
@@ -84,124 +89,182 @@ extension LiveOpenCodeAPIClient {
              parseMessageData(messageData, sessionID: sessionID)
            }
 
-           log("✅ OpenCode API: Successfully retrieved \(messages.count) messages from session: \(sessionID)")
+           log("OpenCode API: Successfully retrieved \(messages.count) messages from session: \(sessionID)")
            return messages
          }
        case let .undocumented(statusCode, _):
-         log("❌ OpenCode API: Get messages failed with status code: \(statusCode)", level: .error)
+         log("OpenCode API: Get messages failed with status code: \(statusCode)", level: .error)
          throw OpenCodeAPIError.serverError("Failed to get messages: \(statusCode)")
        }
      } catch {
-       log("❌ OpenCode API: Get messages failed: \(error.localizedDescription)", level: .error)
+       log("OpenCode API: Get messages failed: \(error.localizedDescription)", level: .error)
        throw error
      }
    }
 
-   private func parseMessageData(
-     _ messageData: Operations.session_period_messages.Output.Ok.Body.jsonPayloadPayload,
-     sessionID: String
-   ) -> OpenCodeMessage? {
-     let messageInfo = messageData.info
-     let parts = messageData.parts
+   private enum MessageDataSource {
+     case messagesList(Operations.session_period_messages.Output.Ok.Body.jsonPayloadPayload)
+     case promptResponse(Operations.session_period_prompt.Output.Ok.Body.jsonPayload)
+     case singleMessage(Operations.session_period_message.Output.Ok.Body.jsonPayload)
+   }
 
-     // Extract message ID, role, and timestamp from the message info
-     let messageInfoResult = extractMessageInfoAndTimestamp(messageInfo)
-     let messageId = messageInfoResult.id
-     let role = messageInfoResult.role
-     let timestamp = messageInfoResult.timestamp
+  private func parseMessageData(from source: MessageDataSource, sessionID: String) -> OpenCodeMessage? {
+     let (messageInfo, parts): (Components.Schemas.Message?, [Components.Schemas.Part])
 
-      // Convert parts to MessagePart array
-      let messageParts = parseMessageParts(parts)
+     switch source {
+     case .messagesList(let data):
+       messageInfo = data.info
+       parts = data.parts
+     case .promptResponse(let data):
+        messageInfo = Components.Schemas.Message(value1: nil, value2: data.info)
+       parts = data.parts
+     case .singleMessage(let data):
+       messageInfo = data.info
+       parts = data.parts
+     }
 
-      return OpenCodeMessage(
-        id: messageId,
-        sessionID: sessionID,
-        parts: messageParts,
-        timestamp: timestamp,
-        role: role
-      )
-    }
+     guard let info = messageInfo else { return nil }
 
-   private func parseMessageData(
-     _ messageData: Operations.session_period_prompt.Output.Ok.Body.jsonPayload,
-     sessionID: String
-   ) -> OpenCodeMessage {
-     let assistantMessage = messageData.info
-     let parts = messageData.parts
-
-     // Extract message ID, role, and timestamp from the assistant message
-     let messageId = assistantMessage.id
-     let role: MessageRole = .assistant
-     let timestamp = Date(timeIntervalSince1970: Double(assistantMessage.time.created) / 1000)
-
-     // Convert parts to MessagePart array
+     let messageInfoResult = extractMessageInfoAndTimestamp(info)
      let messageParts = parseMessageParts(parts)
 
      return OpenCodeMessage(
-       id: messageId,
+       id: messageInfoResult.id,
        sessionID: sessionID,
        parts: messageParts,
-       timestamp: timestamp,
-       role: role
+       timestamp: messageInfoResult.timestamp,
+       role: messageInfoResult.role,
+       modelID: messageInfoResult.modelID,
+       providerID: messageInfoResult.providerID
      )
    }
 
-    private func parseMessageData(
-      _ messageData: Operations.session_period_message.Output.Ok.Body.jsonPayload,
-      sessionID: String
-    ) -> OpenCodeMessage {
-      let messageInfo = messageData.info
-      let parts = messageData.parts
+  private func parseMessageData(
+     _ messageData: Operations.session_period_messages.Output.Ok.Body.jsonPayloadPayload,
+     sessionID: String
+   ) -> OpenCodeMessage? {
+     return parseMessageData(from: .messagesList(messageData), sessionID: sessionID)
+   }
 
-     // Extract message ID, role, and timestamp from the message info
-     let messageInfoResult = extractMessageInfoAndTimestamp(messageInfo)
-     let messageId = messageInfoResult.id
-     let role = messageInfoResult.role
-     let timestamp = messageInfoResult.timestamp
+  private func parseMessageData(
+     _ messageData: Operations.session_period_prompt.Output.Ok.Body.jsonPayload,
+     sessionID: String
+   ) -> OpenCodeMessage {
+     return parseMessageData(from: .promptResponse(messageData), sessionID: sessionID)!
+   }
 
-      // Convert parts to MessagePart array
-      let messageParts = parseMessageParts(parts)
-
-      return OpenCodeMessage(
-        id: messageId,
-        sessionID: sessionID,
-        parts: messageParts,
-        timestamp: timestamp,
-        role: role
-      )
-    }
+  private func parseMessageData(
+     _ messageData: Operations.session_period_message.Output.Ok.Body.jsonPayload,
+     sessionID: String
+   ) -> OpenCodeMessage {
+     return parseMessageData(from: .singleMessage(messageData), sessionID: sessionID)!
+   }
 
    private struct MessageInfo {
      let id: String
      let role: MessageRole
      let timestamp: Date
+     let modelID: String?
+     let providerID: String?
    }
 
-   private func extractMessageInfoAndTimestamp(_ messageInfo: Components.Schemas.Message) -> MessageInfo {
+  private func extractMessageInfoAndTimestamp(_ messageInfo: Components.Schemas.Message) -> MessageInfo {
      if let userMessage = messageInfo.value1 {
        let timestamp = Date(timeIntervalSince1970: Double(userMessage.time.created) / 1000)
-       return MessageInfo(id: userMessage.id, role: .user, timestamp: timestamp)
+       return MessageInfo(id: userMessage.id, role: .user, timestamp: timestamp, modelID: nil, providerID: nil)
      } else if let assistantMessage = messageInfo.value2 {
        let timestamp = Date(timeIntervalSince1970: Double(assistantMessage.time.created) / 1000)
-       return MessageInfo(id: assistantMessage.id, role: .assistant, timestamp: timestamp)
+       return MessageInfo(
+         id: assistantMessage.id,
+         role: .assistant,
+         timestamp: timestamp,
+         modelID: assistantMessage.modelID,
+         providerID: assistantMessage.providerID
+       )
      } else {
-       return MessageInfo(id: UUID().uuidString, role: .assistant, timestamp: Date()) // Fallback
+        return MessageInfo(
+          id: UUID().uuidString,
+          role: .assistant,
+          timestamp: Date(),
+          modelID: nil,
+          providerID: nil
+        ) // Fallback
      }
    }
 
-   private func parseMessageParts(_ parts: [Components.Schemas.Part]) -> [MessagePart] {
-     parts.compactMap { part in
-       if let textPart = part.value1 {
-         return .text(textPart.text)
-       } else if let reasoningPart = part.value2 {
-         return .text(reasoningPart.text)
-       } else if let filePart = part.value3 {
-         return .file(path: filePart.filename ?? "unknown", content: filePart.url)
-       } else {
-         return nil
-       }
-     }
-   }
+  private func parseMessageParts(_ parts: [Components.Schemas.Part]) -> [MessagePart] {
+      parts.compactMap { part in
+        if let textPart = part.value1 {
+          return .text(textPart.text)
+        } else if let reasoningPart = part.value2 {
+          return .reasoning(reasoningPart.text)
+        } else if let filePart = part.value3 {
+          return .file(path: filePart.filename ?? "unknown", content: filePart.url)
+        } else if let toolPart = part.value4 {
+          return parseToolPart(toolPart)
+        } else if part.value5 != nil {
+          return nil
+        } else if part.value6 != nil {
+          return nil
+        } else if part.value7 != nil {
+          return nil
+        } else if let patchPart = part.value8 {
+          return .patch(hash: patchPart.hash, files: patchPart.files)
+        } else if let agentPart = part.value9 {
+          let agentName = agentPart.name
+          let content = agentPart.source?.value ?? ""
+          return .agent(type: agentName, result: content)
+        } else {
+          log("WARN: Unhandled part type - part may be missing from UI", level: .warning)
+          return nil
+        }
+      }
+    }
+
+  private func parseToolPart(_ toolPart: Components.Schemas.ToolPart) -> MessagePart {
+      let toolName = toolPart.tool
+      var inputString = ""
+      var outputString = ""
+      var errorString: String?
+
+      if let completed = toolPart.state.value3 {
+        inputString = formatToolInput(completed.input.additionalProperties)
+        outputString = completed.output
+      } else if let running = toolPart.state.value2 {
+        inputString = formatToolInputContainer(running.input)
+        outputString = ""
+      } else if let error = toolPart.state.value4 {
+        inputString = formatToolInput(error.input.additionalProperties)
+        outputString = ""
+        errorString = error.error
+      }
+
+      return .tool(name: toolName, input: inputString, output: outputString, error: errorString)
+    }
+
+  private func formatToolInput(_ input: [String: OpenAPIRuntime.OpenAPIValueContainer]) -> String {
+      guard !input.isEmpty else { return "" }
+
+      do {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(input)
+        return String(data: data, encoding: .utf8) ?? ""
+      } catch {
+        return input.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+      }
+    }
+
+  private func formatToolInputContainer(_ input: OpenAPIRuntime.OpenAPIValueContainer) -> String {
+      do {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(input)
+        return String(data: data, encoding: .utf8) ?? ""
+      } catch {
+        return "\(input)"
+      }
+    }
 
   public func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage {
     let input = Operations.session_period_message.Input(

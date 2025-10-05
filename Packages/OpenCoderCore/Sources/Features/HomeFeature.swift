@@ -74,7 +74,12 @@ public struct HomeFeature: Sendable {
         return .none
       }
 
-    case .workspaces, .servers, .settings:
+    case .workspaces, .servers:
+      return .none
+
+    case .settings:
+      // Sync settings to workspaces
+      state.workspaces.settings = state.settings
       return .none
     }
   }

@@ -40,7 +40,7 @@ struct WorkspacesView: View {
             store.send(.dismissAddWorkspace)
           })
       }
-      .sheet(
+      .fullScreenCover(
         isPresented: Binding(
           get: { store.showingWorkspaceInteraction },
           set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
@@ -50,7 +50,8 @@ struct WorkspacesView: View {
           state: \.workspaceInteraction,
           action: \.workspaceInteraction
         ) {
-          WorkspaceInteractionView(store: interactionStore)
+          WorkspaceInteractionView(store: interactionStore, settings: store.settings)
+            .interactiveDismissDisabled(true)
         }
       }
     }

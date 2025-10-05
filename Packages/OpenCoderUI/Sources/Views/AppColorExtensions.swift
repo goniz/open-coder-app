@@ -17,3 +17,14 @@ public extension AppColorType {
          return self.colorType.color
      }
  }
+
+ struct WorkspaceRemotePathKey: EnvironmentKey {
+     static let defaultValue: String? = nil
+ }
+
+ extension EnvironmentValues {
+     var workspaceRemotePath: String? {
+         get { self[WorkspaceRemotePathKey.self] }
+         set { self[WorkspaceRemotePathKey.self] = newValue }
+     }
+ }

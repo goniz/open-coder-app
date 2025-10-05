@@ -83,13 +83,41 @@ public struct OpenCodeMessage: Equatable, Identifiable, Sendable {
   public let parts: [MessagePart]
   public let timestamp: Date
   public let role: MessageRole
+  public let modelID: String?
+  public let providerID: String?
 
-  public init(id: String, sessionID: String, parts: [MessagePart], timestamp: Date, role: MessageRole) {
+  public init(
+    id: String,
+    sessionID: String,
+    parts: [MessagePart],
+    timestamp: Date,
+    role: MessageRole,
+    modelID: String? = nil,
+    providerID: String? = nil
+  ) {
     self.id = id
     self.sessionID = sessionID
     self.parts = parts
     self.timestamp = timestamp
     self.role = role
+    self.modelID = modelID
+    self.providerID = providerID
+  }
+
+  public var displayModelName: String {
+    guard let modelID = modelID else { return "Assistant" }
+
+    // Extract short model name from common patterns
+    let shortModelName = modelID
+      .replacingOccurrences(of: "gpt-", with: "")
+      .replacingOccurrences(of: "claude-", with: "")
+      .replacingOccurrences(of: "anthropic.", with: "")
+      .replacingOccurrences(of: "openai/", with: "")
+      .replacingOccurrences(of: "google/", with: "")
+      .replacingOccurrences(of: "-preview", with: "")
+      .replacingOccurrences(of: "-latest", with: "")
+
+    return shortModelName.isEmpty ? "Assistant" : shortModelName.uppercased()
   }
 }
 
@@ -101,9 +129,11 @@ public enum MessageRole: String, Equatable, Sendable, CaseIterable {
 
 public enum MessagePart: Equatable, Sendable {
   case text(String)
+  case reasoning(String)
   case file(path: String, content: String)
   case agent(type: String, result: String)
-  case tool(name: String, input: String, output: String)
+  case tool(name: String, input: String, output: String, error: String?)
+  case patch(hash: String, files: [String])
 }
 
 public struct OpenCodeConfig: Equatable, Sendable {
@@ -246,7 +276,9 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
       sessionID: sessionID,
       parts: parts,
       timestamp: Date(),
-      role: .user
+      role: .user,
+      modelID: nil,
+      providerID: nil
     )
     return message
   }
@@ -269,7 +301,9 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
       sessionID: sessionID,
       parts: [.text("\(command) \(arguments.joined(separator: " "))")],
       timestamp: Date(),
-      role: .user
+      role: .user,
+      modelID: nil,
+      providerID: nil
     )
     return message
   }
@@ -280,7 +314,9 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
       sessionID: sessionID,
       parts: [.text("$ \(command)")],
       timestamp: Date(),
-      role: .user
+      role: .user,
+      modelID: nil,
+      providerID: nil
     )
     return message
   }

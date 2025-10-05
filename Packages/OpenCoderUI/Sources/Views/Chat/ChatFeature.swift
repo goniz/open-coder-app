@@ -49,6 +49,7 @@ public struct ChatFeature: Sendable {
   public struct State: Equatable, Sendable {
     public var messages: [OpenCodeMessage] = []
     public var exyteMessages: [Message] = []
+    public var enhancedMessageParts: [String: [EnhancedMessagePart]] = [:] // messageID -> enhanced parts
     public var unsupportedPartKinds: Set<ChatUnsupportedMessagePartKind> = []
     public var currentMessage = ""
     public var isLoading = false
@@ -63,6 +64,13 @@ public struct ChatFeature: Sendable {
     public var pendingMessageIDs: Set<String> = []
     public var draft = ChatDraftState()
     public var mediaPicker = ChatMediaPickerState()
+    public var thinkingBlocksEnabled = true
+    public var workspaceDisplayTitle: String?
+
+    public init(thinkingBlocksEnabled: Bool = true, workspaceDisplayTitle: String? = nil) {
+      self.thinkingBlocksEnabled = thinkingBlocksEnabled
+      self.workspaceDisplayTitle = workspaceDisplayTitle
+    }
     public var currentSessionTitle: String {
       guard let sessionID = sessionID,
             let session = sessions.first(where: { $0.id == sessionID }) else {
@@ -71,9 +79,10 @@ public struct ChatFeature: Sendable {
       return session.displayTitle
     }
 
-    public init(sessionID: String? = nil, serverURL: URL? = nil) {
+    public init(sessionID: String? = nil, serverURL: URL? = nil, workspaceDisplayTitle: String? = nil) {
       self.sessionID = sessionID
       self.serverURL = serverURL
+      self.workspaceDisplayTitle = workspaceDisplayTitle
     }
   }
 
@@ -84,6 +93,7 @@ public struct ChatFeature: Sendable {
     case sendDraft(ChatDraftState)
     case draftUpdated(ChatDraftState)
     case serverURLUpdated(URL?)
+    case workspaceDisplayTitleUpdated(String?)
     case messagesLoaded([OpenCodeMessage])
     case messagesFailed(String)
     case messageReceived(OpenCodeMessage)
@@ -122,23 +132,22 @@ public struct ChatFeature: Sendable {
       return .none
     case let .serverURLUpdated(url):
       return handleServerURLUpdated(state: &state, url: url)
+    case let .workspaceDisplayTitleUpdated(title):
+      state.workspaceDisplayTitle = title
+      return .none
     case .task:
       return handleTask(state: &state)
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
     case .messagesLoaded, .messagesFailed, .messageReceived,
-         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
-      return handleCoreMessageActions(state: &state, action: action)
-    case .updateSession:
+         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
          .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
     case .loadMore:
       return handleLoadMore(state: &state)
-    case .mediaPickerPresented:
-      return handleMediaPickerActions(state: &state, action: action)
-    case .mediaPickerAttachmentsUpdated:
+    case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
     }
   }

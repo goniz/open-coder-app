@@ -8,6 +8,7 @@ public struct SettingsFeature: Sendable {
     public var theme: Theme = .system
     public var notificationsEnabled = true
     public var autoSaveEnabled = true
+    public var thinkingBlocksEnabled = true
     public var showingLogs = false
     public var showingPreviousLogs = false
 

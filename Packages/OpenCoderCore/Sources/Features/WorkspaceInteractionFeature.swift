@@ -26,6 +26,16 @@ public struct WorkspaceInteractionFeature: Sendable {
     public var activityEvents: [ActivityEvent] = []
     public var previousOnlineState: WorkspaceOnlineState?
 
+    public var displayTitle: String {
+      let serverName: String
+      if let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) {
+        serverName = serverConfig.name
+      } else {
+        serverName = workspace.host
+      }
+      return "\(workspace.name) (\(serverName))"
+    }
+
     public init(
       workspace: Workspace,
       onlineState: WorkspaceOnlineState,
@@ -62,6 +72,7 @@ public struct WorkspaceInteractionFeature: Sendable {
     case clearActivityEvents
     case onlineStateChanged(WorkspaceOnlineState)
     case retryConnection
+    case dismiss
   }
 
   public init() {}
@@ -98,6 +109,9 @@ public struct WorkspaceInteractionFeature: Sendable {
 
     case .retryConnection:
       return handleRetryConnection(state: &state)
+
+    case .dismiss:
+      return .none // This action will be handled by the parent feature
     }
   }
 
