@@ -157,7 +157,8 @@ enum ChatMessageMapper {
     inputTokens: Double,
     outputTokens: Double,
     id: String?
-  ) -> EnhancedMessagePart {
+  ) -> EnhancedMessagePart? {
+    guard cost != 0 else { return nil }
     let text = "Cost: $\(String(format: "%.4f", cost)), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out"
     return .stepFinish(text, stepID: id ?? "", success: true)
   }

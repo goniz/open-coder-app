@@ -469,19 +469,16 @@ struct StepView: View {
     HStack {
       Image(systemName: isStart ? "play.circle" : (success ? "checkmark.circle.fill" : "xmark.circle.fill"))
         .foregroundColor(isStart ? .blue : (success ? .green : .red))
+        .font(.caption2)
 
       Text(text)
-        .font(.caption)
-        .foregroundColor(.secondary)
+        .font(.caption2)
+        .foregroundColor(.secondary.opacity(0.8))
 
       Spacer()
-
-      Text(stepID)
-        .font(.caption2)
-        .foregroundColor(.secondary)
     }
-    .padding(8)
-    .background(Color.gray.opacity(0.05))
+    .padding(6)
+    .background(Color.gray.opacity(0.03))
     .cornerRadius(6)
   }
 }
