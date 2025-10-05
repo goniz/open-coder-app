@@ -97,15 +97,6 @@ extension ChatFeature {
   func handleMessageSendCompleted(state: inout State, messageID: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = nil
-    if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
-      state.exyteMessages[exyteIndex].user = User(
-        id: "assistant",
-        name: "Assistant",
-        avatarURL: nil,
-        avatarCacheKey: nil,
-        isCurrentUser: false
-      )
-    }
     return .none
   }
 
