@@ -49,6 +49,7 @@ scripts/__pycache__/
 
 # Bazel
 bazel-*
+.bazelrc-user
 
 # Generated plist files (use templates instead)
 /Info.plist
