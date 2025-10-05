@@ -99,6 +99,8 @@ public struct ChatFeature: Sendable {
     case messagesLoaded([OpenCodeMessage])
     case messagesFailed(String)
     case messageReceived(OpenCodeMessage)
+case messageUpdated(OpenCodeMessage)
+case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
     case messageSendCompleted(messageID: String)
     case messageSendFailed(messageID: String, error: String)
     case updateSession(String?)
@@ -210,6 +212,10 @@ public struct ChatFeature: Sendable {
       return .none
     case let .messageReceived(message):
       return .send(.messageReceived(message))
+    case let .messageUpdated(message):
+      return .send(.messageUpdated(message))
+    case let .messagePartUpdated(sessionID, messageID, partID, part):
+      return .send(.messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: partID, part: part))
     case .unknown:
       return .none
     }

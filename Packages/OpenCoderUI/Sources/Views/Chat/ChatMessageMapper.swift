@@ -73,16 +73,16 @@ enum ChatMessageMapper {
 
     for part in parts {
       switch part {
-      case let .text(content):
+      case let .text(content, _):
         textSegments.append(content)
         enhancedParts.append(.text(content))
-      case let .reasoning(content):
+      case let .reasoning(content, _):
         enhancedParts.append(.reasoning(content))
-      case let .file(path, content):
+      case let .file(path, content, _):
         enhancedParts.append(.file(path: path, content: content, operation: .read))
-      case let .agent(content, agentType):
+      case let .agent(agentType, content, _):
         enhancedParts.append(.agent(content, agentType: agentType))
-      case let .tool(name, input, output, error):
+      case let .tool(name, input, output, error, _):
         let state: EnhancedMessagePart.ToolState
         if let error = error, !error.isEmpty {
           state = .error
@@ -100,7 +100,7 @@ enum ChatMessageMapper {
           error: error
         )
         enhancedParts.append(.tool(toolInfo))
-      case let .patch(hash, files):
+      case let .patch(hash, files, _):
         let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
         let filesText = files.joined(separator: "\n")
         enhancedParts.append(.patch(title, filePath: "Hash: \(hash)", diff: filesText))
@@ -116,7 +116,7 @@ enum ChatMessageMapper {
   private static func generateFallbackText(from enhancedParts: [EnhancedMessagePart]) -> String {
     let descriptions = enhancedParts.compactMap { part in
       switch part {
-      case .text(let content):
+      case .text(let content, _):
         return content.isEmpty ? nil : content
       case .file(let path, _, _):
         return "📄 \(path)"

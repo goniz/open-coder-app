@@ -98,7 +98,7 @@ extension ChatFeature {
 
     // Create base message with enhanced content
     let baseText = message.parts.compactMap { part in
-      if case let .text(text) = part {
+      if case let .text(text, _) = part {
         return text
       }
       return nil
@@ -125,11 +125,11 @@ extension ChatFeature {
   private func convertToEnhancedParts(_ parts: [MessagePart]) -> [EnhancedMessagePart] {
     parts.compactMap { part in
       switch part {
-      case .text(let content):
+      case .text(let content, _):
         return .text(content)
-      case .reasoning(let content):
+      case .reasoning(let content, _):
         return .reasoning(content)
-      case .file(let path, let content):
+      case .file(let path, let content, _):
         return .file(path: path, content: content, operation: .read)
       case .tool(let name, let input, let output, let error):
         let state: EnhancedMessagePart.ToolState

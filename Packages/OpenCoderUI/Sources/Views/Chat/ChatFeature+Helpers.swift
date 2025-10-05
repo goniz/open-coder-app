@@ -90,7 +90,7 @@ extension ChatFeature {
     }
 
     let messageID = draft.id ?? UUID().uuidString
-    let parts: [MessagePart] = [.text(trimmedText)]
+    let parts: [MessagePart] = [.text(trimmedText, id: nil)]
     let pendingMessage = OpenCodeMessage(
       id: messageID,
       sessionID: sessionID,

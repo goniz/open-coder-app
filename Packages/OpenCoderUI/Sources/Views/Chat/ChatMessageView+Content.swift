@@ -7,9 +7,9 @@ import OpenCoderCore
 extension MessagePart {
   init(from enhancedPart: EnhancedMessagePart) {
     switch enhancedPart {
-    case .text(let content):
+    case .text(let content, _):
       self = .text(content)
-    case .reasoning(let content):
+    case .reasoning(let content, _):
       self = .text(content)
     case .file(let path, let content, _):
       self = .file(path: path, content: content)
@@ -21,15 +21,15 @@ extension MessagePart {
         error: toolInfo.error
       )
     case .stepStart(let text, _):
-      self = .text(text)
+      self = .text(text, id: nil)
     case .stepFinish(let text, _, _):
-      self = .text(text)
+      self = .text(text, id: nil)
     case .snapshot(let text, _):
-      self = .text(text)
+      self = .text(text, id: nil)
     case .patch(let text, _, _):
-      self = .text(text)
+      self = .text(text, id: nil)
     case .agent(let content, _):
-      self = .text(content)
+      self = .text(content, id: nil)
     }
   }
 }
