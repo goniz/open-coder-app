@@ -149,7 +149,7 @@ case messagePartUpdated(sessionID: String, messageID: String, partID: String, pa
       return handleTask(state: &state)
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
-    case .messagesLoaded, .messagesFailed, .messageReceived,
+    case .messagesLoaded, .messagesFailed, .messageReceived, .messageUpdated, .messagePartUpdated,
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,

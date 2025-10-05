@@ -7,18 +7,19 @@ import OpenCoderCore
 extension MessagePart {
   init(from enhancedPart: EnhancedMessagePart) {
     switch enhancedPart {
-    case .text(let content, _):
-      self = .text(content)
-    case .reasoning(let content, _):
-      self = .text(content)
+    case .text(let content):
+      self = .text(content, id: nil)
+    case .reasoning(let content):
+      self = .text(content, id: nil)
     case .file(let path, let content, _):
-      self = .file(path: path, content: content)
+      self = .file(path: path, content: content, id: nil)
     case .tool(let toolInfo):
       self = .tool(
         name: toolInfo.name,
         input: toolInfo.input ?? "",
         output: toolInfo.output ?? "",
-        error: toolInfo.error
+        error: toolInfo.error,
+        id: nil
       )
     case .stepStart(let text, _):
       self = .text(text, id: nil)

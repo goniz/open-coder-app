@@ -131,7 +131,7 @@ extension ChatFeature {
         return .reasoning(content)
       case .file(let path, let content, _):
         return .file(path: path, content: content, operation: .read)
-      case .tool(let name, let input, let output, let error):
+      case .tool(let name, let input, let output, let error, _):
         let state: EnhancedMessagePart.ToolState
         if let error = error, !error.isEmpty {
           state = .error
@@ -148,9 +148,9 @@ extension ChatFeature {
           output: output,
           error: error
         ))
-      case .agent(let type, let result):
+      case .agent(let type, let result, _):
         return .agent(result, agentType: type)
-      case .patch(let hash, let files):
+      case .patch(let hash, let files, _):
         let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
         let filesText = files.joined(separator: "\n")
         return .patch(title, filePath: "Hash: \(hash)", diff: filesText)

@@ -116,7 +116,7 @@ enum ChatMessageMapper {
   private static func generateFallbackText(from enhancedParts: [EnhancedMessagePart]) -> String {
     let descriptions = enhancedParts.compactMap { part in
       switch part {
-      case .text(let content, _):
+      case .text(let content):
         return content.isEmpty ? nil : content
       case .file(let path, _, _):
         return "📄 \(path)"
