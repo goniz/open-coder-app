@@ -132,7 +132,7 @@ public enum MessagePart: Equatable, Sendable {
   case reasoning(String)
   case file(path: String, content: String)
   case agent(type: String, result: String)
-  case tool(name: String, input: String, output: String)
+  case tool(name: String, input: String, output: String, error: String?)
   case patch(hash: String, files: [String])
 }
 

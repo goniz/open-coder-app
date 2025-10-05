@@ -131,13 +131,22 @@ extension ChatFeature {
         return .reasoning(content)
       case .file(let path, let content):
         return .file(path: path, content: content, operation: .read)
-      case .tool(let name, let input, let output):
+      case .tool(let name, let input, let output, let error):
+        let state: EnhancedMessagePart.ToolState
+        if let error = error, !error.isEmpty {
+          state = .error
+        } else if output.isEmpty {
+          state = .running
+        } else {
+          state = .completed
+        }
         return .tool(EnhancedMessagePart.ToolCallInfo(
           id: UUID().uuidString,
           name: name,
-          state: .completed,
+          state: state,
           input: input,
-          output: output
+          output: output,
+          error: error
         ))
       case .agent(let type, let result):
         return .agent(result, agentType: type)

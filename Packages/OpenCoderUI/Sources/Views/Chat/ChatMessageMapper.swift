@@ -82,14 +82,22 @@ enum ChatMessageMapper {
         enhancedParts.append(.file(path: path, content: content, operation: .read))
       case let .agent(content, agentType):
         enhancedParts.append(.agent(content, agentType: agentType))
-      case let .tool(name, input, output):
+      case let .tool(name, input, output, error):
+        let state: EnhancedMessagePart.ToolState
+        if let error = error, !error.isEmpty {
+          state = .error
+        } else if output.isEmpty {
+          state = .running
+        } else {
+          state = .completed
+        }
         let toolInfo = EnhancedMessagePart.ToolCallInfo(
           id: UUID().uuidString,
           name: name,
-          state: output.isEmpty ? .running : .completed,
+          state: state,
           input: input,
           output: output,
-          error: nil
+          error: error
         )
         enhancedParts.append(.tool(toolInfo))
       case let .patch(hash, files):

@@ -14,7 +14,12 @@ extension MessagePart {
     case .file(let path, let content, _):
       self = .file(path: path, content: content)
     case .tool(let toolInfo):
-      self = .tool(name: toolInfo.name, input: toolInfo.input ?? "", output: toolInfo.output ?? "")
+      self = .tool(
+        name: toolInfo.name,
+        input: toolInfo.input ?? "",
+        output: toolInfo.output ?? "",
+        error: toolInfo.error
+      )
     case .stepStart(let text, _):
       self = .text(text)
     case .stepFinish(let text, _, _):

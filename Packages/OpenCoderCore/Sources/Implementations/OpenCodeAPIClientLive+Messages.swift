@@ -36,8 +36,9 @@ extension LiveOpenCodeAPIClient {
         return "File: \(path)\n\(content)"
       case let .agent(type, result):
         return "Agent: \(type)\n\(result)"
-      case let .tool(name, input, output):
-        return "Tool: \(name), Input: \(input), Output: \(output)"
+      case let .tool(name, input, output, error):
+        let errorText = error.map { ", Error: \($0)" } ?? ""
+        return "Tool: \(name), Input: \(input), Output: \(output)\(errorText)"
       case let .patch(hash, files):
         return "Patch: \(hash), Files: \(files.joined(separator: ", "))"
       }
@@ -246,6 +247,7 @@ extension LiveOpenCodeAPIClient {
       let toolName = toolPart.tool
       var inputString = ""
       var outputString = ""
+      var errorString: String?
 
       if let completed = toolPart.state.value3 {
         inputString = formatToolInput(completed.input.additionalProperties)
@@ -255,10 +257,11 @@ extension LiveOpenCodeAPIClient {
         outputString = ""
       } else if let error = toolPart.state.value4 {
         inputString = formatToolInput(error.input.additionalProperties)
-        outputString = "Error: \(error.error)"
+        outputString = ""
+        errorString = error.error
       }
 
-      return .tool(name: toolName, input: inputString, output: outputString)
+      return .tool(name: toolName, input: inputString, output: outputString, error: errorString)
     }
 
     private func formatToolInput(_ input: [String: OpenAPIRuntime.OpenAPIValueContainer]) -> String {
