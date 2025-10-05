@@ -28,7 +28,7 @@ public struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 
 extension LiveOpenCodeAPIClient {
   public func listSessions() async throws -> [OpenCodeSession] {
-    log("🔗 OpenCode API: Listing sessions from \(configuration.serverURL)")
+    log("OpenCode API: Listing sessions from \(configuration.serverURL)")
 
     let input = Operations.session_period_list.Input()
 
@@ -49,21 +49,21 @@ extension LiveOpenCodeAPIClient {
               title: sessionData.title
             )
           }
-          log("✅ OpenCode API: Successfully retrieved \(sessions.count) sessions")
+          log("OpenCode API: Successfully retrieved \(sessions.count) sessions")
           return sessions
         }
       case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: List sessions failed with undocumented status code: \(statusCode)", level: .error)
+        log("OpenCode API: List sessions failed with undocumented status code: \(statusCode)", level: .error)
         throw OpenCodeAPIError.serverError("Unexpected status code: \(statusCode)")
       }
     } catch {
-      log("❌ OpenCode API: List sessions failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: List sessions failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }
 
   public func createSession() async throws -> OpenCodeSession {
-    log("🔗 OpenCode API: Creating new session")
+    log("OpenCode API: Creating new session")
 
     let input = Operations.session_period_create.Input()
 
@@ -81,24 +81,24 @@ extension LiveOpenCodeAPIClient {
             isActive: true,
             title: sessionData.title
           )
-          log("✅ OpenCode API: Successfully created session with ID: \(session.id)")
+          log("OpenCode API: Successfully created session with ID: \(session.id)")
           return session
         }
       case .badRequest:
-        log("❌ OpenCode API: Create session failed - bad request", level: .error)
+        log("OpenCode API: Create session failed - bad request", level: .error)
         throw OpenCodeAPIError.badRequest("Failed to create session")
       case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: Create session failed with status code: \(statusCode)", level: .error)
+        log("OpenCode API: Create session failed with status code: \(statusCode)", level: .error)
         throw OpenCodeAPIError.serverError("Failed to create session: \(statusCode)")
       }
     } catch {
-      log("❌ OpenCode API: Create session failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: Create session failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }
 
   public func deleteSession(id: String) async throws {
-    log("🔗 OpenCode API: Deleting session: \(id)")
+    log("OpenCode API: Deleting session: \(id)")
 
     let input = Operations.session_period_delete.Input(path: .init(id: id))
 
@@ -107,14 +107,14 @@ extension LiveOpenCodeAPIClient {
 
       switch response {
       case .ok:
-        log("✅ OpenCode API: Successfully deleted session: \(id)")
+        log("OpenCode API: Successfully deleted session: \(id)")
         return
       case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: Delete session failed with status code: \(statusCode)", level: .error)
+        log("OpenCode API: Delete session failed with status code: \(statusCode)", level: .error)
         throw OpenCodeAPIError.serverError("Failed to delete session: \(statusCode)")
       }
     } catch {
-      log("❌ OpenCode API: Delete session failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: Delete session failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }
@@ -146,7 +146,7 @@ extension LiveOpenCodeAPIClient {
 
 extension LiveOpenCodeAPIClient {
   public func listProjects() async throws -> [OpenCodeProject] {
-    log("🔗 OpenCode API: Listing projects")
+    log("OpenCode API: Listing projects")
 
     let input = Operations.project_period_list.Input()
 
@@ -165,21 +165,21 @@ extension LiveOpenCodeAPIClient {
               type: projectData.vcs?.rawValue
             )
           }
-          log("✅ OpenCode API: Successfully retrieved \(projects.count) projects")
+          log("OpenCode API: Successfully retrieved \(projects.count) projects")
           return projects
         }
       case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: List projects failed with status code: \(statusCode)", level: .error)
+        log("OpenCode API: List projects failed with status code: \(statusCode)", level: .error)
         throw OpenCodeAPIError.serverError("Failed to list projects: \(statusCode)")
       }
     } catch {
-      log("❌ OpenCode API: List projects failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: List projects failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }
 
   public func getCurrentProject() async throws -> OpenCodeProject? {
-    log("🔗 OpenCode API: Getting current project")
+    log("OpenCode API: Getting current project")
 
     let input = Operations.project_period_current.Input()
 
@@ -196,15 +196,15 @@ extension LiveOpenCodeAPIClient {
             path: projectData.worktree,
             type: projectData.vcs?.rawValue
           )
-          log("✅ OpenCode API: Successfully retrieved current project: \(project.id)")
+          log("OpenCode API: Successfully retrieved current project: \(project.id)")
           return project
         }
       case .undocumented:
-        log("ℹ️ OpenCode API: No current project found")
+        log("OpenCode API: No current project found")
         return nil // Current project might not exist
       }
     } catch {
-      log("❌ OpenCode API: Get current project failed: \(error.localizedDescription)", level: .error)
+      log("OpenCode API: Get current project failed: \(error.localizedDescription)", level: .error)
       throw error
     }
   }

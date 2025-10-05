@@ -10,168 +10,242 @@ extension LiveOpenCodeAPIClient {
       AppLogger.shared.log(message, level: level, category: .api)
     }
   }
+
+  private func handleAPIError<T>(_ operation: String, error: Error) throws -> T {
+    log("OpenCode API: \(operation) failed: \(error.localizedDescription)", level: .error)
+    throw error
+  }
+
+  private func handleUndocumentedResponse<T>(_ operation: String, statusCode: Int) throws -> T {
+    log("OpenCode API: \(operation) failed with status code: \(statusCode)", level: .error)
+    throw OpenCodeAPIError.serverError("Failed to \(operation.lowercased()): \(statusCode)")
+  }
+
+  private func performAPICall<Input, Output, Result>(
+    _ operation: String,
+    input: Input,
+    apiCall: (Input) async throws -> Output,
+    responseHandler: (Output) throws -> Result
+  ) async throws -> Result {
+    log("OpenCode API: \(operation)")
+
+    do {
+      let response = try await apiCall(input)
+      let result = try responseHandler(response)
+      log("OpenCode API: Successfully completed \(operation.lowercased())")
+      return result
+    } catch {
+      return try handleAPIError(operation, error: error)
+    }
+  }
 }
 
 // MARK: - Command Operations Extension
 
 extension LiveOpenCodeAPIClient {
   public func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
-    log("🔗 OpenCode API: Sending command '\(command)' to session: \(sessionID)")
+     let requestBody = Operations.session_period_command.Input.Body.json(
+       .init(arguments: arguments.joined(separator: " "), command: command)
+     )
 
-    let requestBody = Operations.session_period_command.Input.Body.json(
-      .init(arguments: arguments.joined(separator: " "), command: command)
-    )
+     let input = Operations.session_period_command.Input(
+       path: .init(id: sessionID),
+       body: requestBody
+     )
 
-    let input = Operations.session_period_command.Input(
-      path: .init(id: sessionID),
-      body: requestBody
-    )
-
-    do {
-      let response = try await client.session_period_command(input)
-
-      switch response {
-      case let .ok(okResponse):
-        switch okResponse.body {
-        case .json:
-          let message = OpenCodeMessage(
-            id: UUID().uuidString,
-            sessionID: sessionID,
-            parts: [.text("Command executed: \(command)")],
-            timestamp: Date(),
-            role: .assistant,
-            modelID: nil,
-            providerID: nil
-          )
-          log("✅ OpenCode API: Successfully executed command '\(command)' in session: \(sessionID)")
-          return message
-        }
-      case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: Send command failed with status code: \(statusCode)", level: .error)
-        throw OpenCodeAPIError.serverError("Failed to send command: \(statusCode)")
-      }
-    } catch {
-      log("❌ OpenCode API: Send command failed: \(error.localizedDescription)", level: .error)
-      throw error
-    }
-  }
+     return try await performAPICall(
+       "Sending command '\(command)' to session: \(sessionID)",
+       input: input,
+       apiCall: client.session_period_command
+     ) { response in
+       switch response {
+       case let .ok(okResponse):
+         switch okResponse.body {
+         case .json:
+           return OpenCodeMessage(
+             id: UUID().uuidString,
+             sessionID: sessionID,
+             parts: [.text("Command executed: \(command)")],
+             timestamp: Date(),
+             role: .assistant,
+             modelID: nil,
+             providerID: nil
+           )
+         }
+       case let .undocumented(statusCode, _):
+         return try handleUndocumentedResponse("send command", statusCode: statusCode)
+       }
+     }
+   }
 
   public func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
-    log("🔗 OpenCode API: Running shell command '\(command)' in session: \(sessionID)")
+     let requestBody = Operations.session_period_shell.Input.Body.json(
+       .init(agent: "shell", command: command)
+     )
 
-    let requestBody = Operations.session_period_shell.Input.Body.json(
-      .init(agent: "shell", command: command)
-    )
+     let input = Operations.session_period_shell.Input(
+       path: .init(id: sessionID),
+       body: requestBody
+     )
 
-    let input = Operations.session_period_shell.Input(
-      path: .init(id: sessionID),
-      body: requestBody
-    )
-
-    do {
-      let response = try await client.session_period_shell(input)
-
-      switch response {
-      case let .ok(okResponse):
-        switch okResponse.body {
-        case .json:
-          let message = OpenCodeMessage(
-            id: UUID().uuidString,
-            sessionID: sessionID,
-            parts: [.text("Shell command executed: \(command)")],
-            timestamp: Date(),
-            role: .assistant,
-            modelID: nil,
-            providerID: nil
-          )
-          log("✅ OpenCode API: Successfully executed shell command '\(command)' in session: \(sessionID)")
-          return message
-        }
-      case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: Run shell command failed with status code: \(statusCode)", level: .error)
-        throw OpenCodeAPIError.serverError("Failed to run shell command: \(statusCode)")
-      }
-    } catch {
-      log("❌ OpenCode API: Run shell command failed: \(error.localizedDescription)", level: .error)
-      throw error
-    }
-  }
+     return try await performAPICall(
+       "Running shell command '\(command)' in session: \(sessionID)",
+       input: input,
+       apiCall: client.session_period_shell
+     ) { response in
+       switch response {
+       case let .ok(okResponse):
+         switch okResponse.body {
+         case .json:
+           return OpenCodeMessage(
+             id: UUID().uuidString,
+             sessionID: sessionID,
+             parts: [.text("Shell command executed: \(command)")],
+             timestamp: Date(),
+             role: .assistant,
+             modelID: nil,
+             providerID: nil
+           )
+         }
+       case let .undocumented(statusCode, _):
+         return try handleUndocumentedResponse("run shell command", statusCode: statusCode)
+       }
+     }
+   }
 }
 
 // MARK: - Configuration Operations Extension
 
 extension LiveOpenCodeAPIClient {
-   public func getConfig() async throws -> OpenCodeConfig {
-     log("🔗 OpenCode API: Getting configuration")
-
+  public func getConfig() async throws -> OpenCodeConfig {
      let input = Operations.config_period_get.Input()
 
-     do {
-       let response = try await client.config_period_get(input)
-
+     return try await performAPICall(
+       "Getting configuration",
+       input: input,
+       apiCall: client.config_period_get
+     ) { response in
        switch response {
        case let .ok(okResponse):
          switch okResponse.body {
          case let .json(configData):
-           // Parse the actual JSON response
-           let version = configData._dollar_schema?
-             .split(separator: "/").last?
-             .split(separator: "#").first
-             .map(String.init) ?? "0.10.1"
-           let environment = "development" // Default environment
-           let features = ["sessions", "projects", "chat"] // Default features
+           let version = extractVersionFromSchema(configData._dollar_schema)
+           let environment = determineEnvironment(from: configData)
+           let features = extractFeatures(from: configData)
 
-           let config = OpenCodeConfig(
+           return OpenCodeConfig(
              version: version,
              environment: environment,
              features: features
            )
-           log("✅ OpenCode API: Successfully retrieved configuration (version: \(version))")
-           return config
          }
        case let .undocumented(statusCode, _):
-         log("❌ OpenCode API: Get config failed with status code: \(statusCode)", level: .error)
-         throw OpenCodeAPIError.serverError("Failed to get config: \(statusCode)")
+         return try handleUndocumentedResponse("get config", statusCode: statusCode)
        }
-     } catch {
-       log("❌ OpenCode API: Get config failed: \(error.localizedDescription)", level: .error)
-       throw error
      }
    }
 
+  private func extractVersionFromSchema(_ schema: String?) -> String {
+     guard let schema = schema else { return "unknown" }
+
+     return schema
+       .split(separator: "/").last?
+       .split(separator: "#").first
+       .map(String.init) ?? "unknown"
+   }
+
+  private func determineEnvironment(from configData: Components.Schemas.Config) -> String {
+     if configData.theme?.contains("debug") == true {
+       return "debug"
+     } else if configData.theme?.contains("dev") == true {
+       return "development"
+     } else {
+       return "production"
+     }
+   }
+
+  private func extractFeatures(from configData: Components.Schemas.Config) -> [String] {
+     var features: [String] = []
+
+     if configData.keybinds?.session_new != nil {
+       features.append("sessions")
+     }
+
+     if configData.command?.additionalProperties.isEmpty == false {
+       features.append("commands")
+     }
+
+     if configData.theme != nil {
+       features.append("theming")
+     }
+
+     if configData.tui != nil {
+       features.append("tui")
+     }
+
+     if features.isEmpty {
+       features = ["basic"]
+     }
+
+     return features
+   }
+
   public func listProviders() async throws -> OpenCodeProviders {
-    log("🔗 OpenCode API: Listing providers")
+     let input = Operations.config_period_providers.Input()
 
-    let input = Operations.config_period_providers.Input()
+     return try await performAPICall(
+       "Listing providers",
+       input: input,
+       apiCall: client.config_period_providers
+     ) { response in
+       switch response {
+       case let .ok(okResponse):
+         switch okResponse.body {
+         case let .json(providersData):
+           let providerDict = buildProviderDictionary(from: providersData.providers)
+           let defaultProvider = extractDefaultProvider(
+             from: providersData._default,
+             fallback: providersData.providers.first?.id
+           )
 
-    do {
-      let response = try await client.config_period_providers(input)
+           return OpenCodeProviders(
+             providers: providerDict,
+             defaultProvider: defaultProvider
+           )
+         }
+       case let .undocumented(statusCode, _):
+         return try handleUndocumentedResponse("list providers", statusCode: statusCode)
+       }
+     }
+   }
 
-      switch response {
-      case let .ok(okResponse):
-        switch okResponse.body {
-        case let .json(providersData):
-          // Convert providers array to dictionary format expected by domain model
-          var providerDict: [String: [String: String]] = [:]
-          for provider in providersData.providers {
-            // For now, create a simple mapping
-            providerDict[provider.id] = [provider.id: provider.id]
-          }
+  private func buildProviderDictionary(from providers: [Components.Schemas.Provider]) -> [String: [String: String]] {
+     var providerDict: [String: [String: String]] = [:]
 
-          let providers = OpenCodeProviders(
-            providers: providerDict,
-            defaultProvider: providersData.providers.first?.id ?? "openai"
-          )
-          log("✅ OpenCode API: Successfully retrieved \(providersData.providers.count) providers")
-          return providers
+      for provider in providers {
+        var models: [String: String] = [:]
+
+        for (modelId, model) in provider.models.additionalProperties {
+          models[modelId] = model.name
         }
-      case let .undocumented(statusCode, _):
-        log("❌ OpenCode API: List providers failed with status code: \(statusCode)", level: .error)
-        throw OpenCodeAPIError.serverError("Failed to list providers: \(statusCode)")
+
+        if models.isEmpty {
+          models[provider.id] = provider.name
+        }
+
+        providerDict[provider.id] = models
       }
-    } catch {
-      log("❌ OpenCode API: List providers failed: \(error.localizedDescription)", level: .error)
-      throw error
-    }
-  }
+
+     return providerDict
+   }
+
+   private func extractDefaultProvider(
+    from defaultData: Operations.config_period_providers.Output.Ok.Body.jsonPayload._defaultPayload,
+    fallback: String?
+  ) -> String {
+     if let provider = defaultData.additionalProperties.keys.first {
+       return provider
+     }
+     return fallback ?? "openai"
+   }
 }
