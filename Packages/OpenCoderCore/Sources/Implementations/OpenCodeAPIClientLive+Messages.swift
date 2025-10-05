@@ -56,22 +56,22 @@ extension LiveOpenCodeAPIClient {
   }
 
   private func handleSendMessageResponse(
-     _ response: Operations.session_period_prompt.Output,
-     sessionID: String
-   ) throws -> OpenCodeMessage {
-     switch response {
-     case let .ok(okResponse):
-       switch okResponse.body {
-       case let .json(messageData):
-         let message = parseMessageData(messageData, sessionID: sessionID)
-         log("OpenCode API: Successfully sent message to session: \(sessionID)")
-         return message
-       }
-     case let .undocumented(statusCode, _):
-       log("OpenCode API: Send message failed with status code: \(statusCode)", level: .error)
-       throw OpenCodeAPIError.serverError("Failed to send message: \(statusCode)")
-     }
-   }
+      _ response: Operations.session_period_prompt.Output,
+      sessionID: String
+    ) throws -> OpenCodeMessage {
+      switch response {
+      case let .ok(okResponse):
+        switch okResponse.body {
+        case let .json(messageData):
+          let message = try parseMessageData(messageData, sessionID: sessionID)
+          log("OpenCode API: Successfully sent message to session: \(sessionID)")
+          return message
+        }
+      case let .undocumented(statusCode, _):
+        log("OpenCode API: Send message failed with status code: \(statusCode)", level: .error)
+        throw OpenCodeAPIError.serverError("Failed to send message: \(statusCode)")
+      }
+    }
 
   public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
      log("OpenCode API: Getting messages from session: \(sessionID)")
@@ -102,26 +102,34 @@ extension LiveOpenCodeAPIClient {
      }
    }
 
-   private enum MessageDataSource {
-     case messagesList(Operations.session_period_messages.Output.Ok.Body.jsonPayloadPayload)
-     case promptResponse(Operations.session_period_prompt.Output.Ok.Body.jsonPayload)
-     case singleMessage(Operations.session_period_message.Output.Ok.Body.jsonPayload)
-   }
+   package enum MessageDataSource {
+      case messagesList(Operations.session_period_messages.Output.Ok.Body.jsonPayloadPayload)
+      case promptResponse(Operations.session_period_prompt.Output.Ok.Body.jsonPayload)
+      case singleMessage(Operations.session_period_message.Output.Ok.Body.jsonPayload)
+      case commandResponse(Operations.session_period_command.Output.Ok.Body.jsonPayload)
+      case shellResponse(Components.Schemas.AssistantMessage)
+    }
 
-  private func parseMessageData(from source: MessageDataSource, sessionID: String) -> OpenCodeMessage? {
-     let (messageInfo, parts): (Components.Schemas.Message?, [Components.Schemas.Part])
+   package func parseMessageData(from source: MessageDataSource, sessionID: String) -> OpenCodeMessage? {
+      let (messageInfo, parts): (Components.Schemas.Message?, [Components.Schemas.Part])
 
-     switch source {
-     case .messagesList(let data):
-       messageInfo = data.info
-       parts = data.parts
-     case .promptResponse(let data):
+      switch source {
+      case .messagesList(let data):
+        messageInfo = data.info
+        parts = data.parts
+      case .promptResponse(let data):
+         messageInfo = Components.Schemas.Message(value1: nil, value2: data.info)
+        parts = data.parts
+      case .singleMessage(let data):
+        messageInfo = data.info
+        parts = data.parts
+      case .commandResponse(let data):
         messageInfo = Components.Schemas.Message(value1: nil, value2: data.info)
-       parts = data.parts
-     case .singleMessage(let data):
-       messageInfo = data.info
-       parts = data.parts
-     }
+        parts = data.parts
+      case .shellResponse(let assistantMessage):
+        messageInfo = Components.Schemas.Message(value1: nil, value2: assistantMessage)
+        parts = [] // Shell responses might not have parts, or they might be in the message
+      }
 
      guard let info = messageInfo else { return nil }
 
@@ -146,19 +154,25 @@ extension LiveOpenCodeAPIClient {
      return parseMessageData(from: .messagesList(messageData), sessionID: sessionID)
    }
 
-  private func parseMessageData(
-     _ messageData: Operations.session_period_prompt.Output.Ok.Body.jsonPayload,
-     sessionID: String
-   ) -> OpenCodeMessage {
-     return parseMessageData(from: .promptResponse(messageData), sessionID: sessionID)!
-   }
+   private func parseMessageData(
+      _ messageData: Operations.session_period_prompt.Output.Ok.Body.jsonPayload,
+      sessionID: String
+    ) throws -> OpenCodeMessage {
+      guard let message = parseMessageData(from: .promptResponse(messageData), sessionID: sessionID) else {
+        throw OpenCodeAPIError.decodingError("Missing message info in prompt response")
+      }
+      return message
+    }
 
-  private func parseMessageData(
-     _ messageData: Operations.session_period_message.Output.Ok.Body.jsonPayload,
-     sessionID: String
-   ) -> OpenCodeMessage {
-     return parseMessageData(from: .singleMessage(messageData), sessionID: sessionID)!
-   }
+   private func parseMessageData(
+      _ messageData: Operations.session_period_message.Output.Ok.Body.jsonPayload,
+      sessionID: String
+    ) throws -> OpenCodeMessage {
+      guard let message = parseMessageData(from: .singleMessage(messageData), sessionID: sessionID) else {
+        throw OpenCodeAPIError.decodingError("Missing message info in single message response")
+      }
+      return message
+    }
 
    private struct MessageInfo {
      let id: String
@@ -276,7 +290,7 @@ extension LiveOpenCodeAPIClient {
     case let .ok(okResponse):
       switch okResponse.body {
       case let .json(messageData):
-        return parseMessageData(messageData, sessionID: sessionID)
+        return try parseMessageData(messageData, sessionID: sessionID)
       }
     case .undocumented:
       throw OpenCodeAPIError.messageNotFound(messageID)

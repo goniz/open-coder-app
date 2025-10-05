@@ -7,11 +7,9 @@ import Protocols
 public struct WorkspaceService: Sendable {
   private let config: Models.SSHServerConfiguration
   private let tmuxService: TmuxService
-  private let sshClient: SSHClient
 
   public init(config: Models.SSHServerConfiguration) {
     self.config = config
-    self.sshClient = SSHClient()
     self.tmuxService = TmuxService(config: config)
   }
 
@@ -37,7 +35,6 @@ public struct WorkspaceService: Sendable {
     _ = try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
   }
 
-  // swiftlint:disable:next function_body_length
   public func attachOrSpawn(workspace: Models.Workspace) async throws -> SpawnResult {
     do {
       await AppLogger.shared.log(
@@ -48,100 +45,11 @@ public struct WorkspaceService: Sendable {
 
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       return try await connectionManager.withConnection { connection in
-        try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
-
-        if let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
-          let port = daemonData["port"],
-          await healthCheck(port: port, workspace: workspace) {
-          await AppLogger.shared.log(
-            "Workspace already online on port \(port) - reusing session",
-            level: .info,
-            category: .workspace
-          )
-          return SpawnResult(port: port, online: true, error: nil)
+        try await ensureSession(workspace: workspace)
+        if let existingResult = try await checkExistingServer(workspace: workspace, connection: connection) {
+          return existingResult
         }
-
-        let opencodeCommand = "opencode serve --hostname 127.0.0.1 --port 0 --print-logs"
-        let runDir = workspace.remotePath
-        let stateDirectory = workspaceStateDirectory(for: workspace)
-        let logPath = workspaceLogPath(for: workspace)
-        let daemonPath = workspaceDaemonPath(for: workspace)
-        let spawnScript = """
-          set -euo pipefail
-          state_dir=\(stateDirectory.escapingDoubleQuotes())
-          lock_dir="$state_dir/lock.d"
-          log_file=\(logPath.escapingDoubleQuotes())
-          run_dir=\(runDir.escapingDoubleQuotes())
-
-          mkdir -p "$state_dir"
-
-          cleanup_lock() {
-            if [ -d "$lock_dir" ]; then
-              rmdir "$lock_dir" 2>/dev/null || true
-            fi
-          }
-
-          if mkdir "$lock_dir" 2>/dev/null; then
-            trap cleanup_lock EXIT INT TERM HUP
-            cd "$run_dir"
-            \(opencodeCommand) | tee -a "$log_file"
-          else
-            printf '[Live Output] Another opencode launch is already in progress.\\n'
-            exit 0
-          fi
-          """
-
-        let spawnCommand = "bash -lc \(escapeShellArgument(spawnScript))"
-
-        await AppLogger.shared.log(
-          "Spawning opencode server with script:\n\(spawnScript)",
-          level: .info,
-          category: .workspace
-        )
-
-        try await tmuxService.ensureWindow(
-          session: workspace.tmuxSession,
-          window: "opencode",
-          path: workspace.remotePath
-        )
-
-        try await tmuxService.respawnPane(
-          session: workspace.tmuxSession,
-          window: "opencode",
-          path: workspace.remotePath,
-          command: spawnCommand
-        )
-
-        let maxRetries = 30
-        for _ in 0..<maxRetries {
-          if let assignedPort = try await parsePortFromLogs(
-            workspace: workspace, connection: connection) {
-            let daemonData = try JSONEncoder().encode(["port": assignedPort])
-            if let daemonJson = String(data: daemonData, encoding: .utf8) {
-              let writeCommand =
-                "mkdir -p \(stateDirectory) && echo '\(daemonJson)' > \(daemonPath)"
-              _ = try await connection.exec(writeCommand)
-            }
-
-            if await healthCheck(port: assignedPort, workspace: workspace) {
-              await AppLogger.shared.log(
-                "OpenCode server started successfully on port \(assignedPort)",
-                level: .info,
-                category: .workspace
-              )
-              return SpawnResult(port: assignedPort, online: true, error: nil)
-            }
-          }
-          try await Task.sleep(for: .seconds(1))
-        }
-
-        await AppLogger.shared.log(
-          "Failed to start opencode server within timeout for workspace: \(workspace.name)",
-          level: .error,
-          category: .workspace
-        )
-        let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
-        return SpawnResult(port: 0, online: false, error: timeoutError)
+        return try await spawnNewServer(workspace: workspace, connection: connection)
       }
     } catch {
       if error is CancellationError {
@@ -262,6 +170,123 @@ public struct WorkspaceService: Sendable {
 }
 
 extension WorkspaceService {
+  fileprivate func ensureSession(workspace: Models.Workspace) async throws {
+    try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
+  }
+
+  fileprivate func checkExistingServer(workspace: Models.Workspace, connection: SSHConnection) async throws -> SpawnResult? {
+    if let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
+      let port = daemonData["port"],
+      await healthCheck(port: port, workspace: workspace) {
+      await AppLogger.shared.log(
+        "Workspace already online on port \(port) - reusing session",
+        level: .info,
+        category: .workspace
+      )
+      return SpawnResult(port: port, online: true, error: nil)
+    }
+    return nil
+  }
+
+  fileprivate func spawnNewServer(workspace: Models.Workspace, connection: SSHConnection) async throws -> SpawnResult {
+    let spawnCommand = createSpawnCommand(for: workspace)
+
+    await AppLogger.shared.log(
+      "Spawning opencode server with script:\n\(createSpawnScript(for: workspace))",
+      level: .info,
+      category: .workspace
+    )
+
+    try await tmuxService.ensureWindow(
+      session: workspace.tmuxSession,
+      window: "opencode",
+      path: workspace.remotePath
+    )
+
+    try await tmuxService.respawnPane(
+      session: workspace.tmuxSession,
+      window: "opencode",
+      path: workspace.remotePath,
+      command: spawnCommand
+    )
+
+    return try await waitForServerStartup(workspace: workspace, connection: connection)
+  }
+
+  fileprivate func createSpawnCommand(for workspace: Models.Workspace) -> String {
+    let spawnScript = createSpawnScript(for: workspace)
+    return "bash -lc \(escapeShellArgument(spawnScript))"
+  }
+
+  fileprivate func createSpawnScript(for workspace: Models.Workspace) -> String {
+    let opencodeCommand = "opencode serve --hostname 127.0.0.1 --port 0 --print-logs"
+    let runDir = workspace.remotePath
+    let stateDirectory = workspaceStateDirectory(for: workspace)
+    let logPath = workspaceLogPath(for: workspace)
+
+    return """
+      set -euo pipefail
+      state_dir=\(stateDirectory.escapingDoubleQuotes())
+      lock_dir="$state_dir/lock.d"
+      log_file=\(logPath.escapingDoubleQuotes())
+      run_dir=\(runDir.escapingDoubleQuotes())
+
+      mkdir -p "$state_dir"
+
+      cleanup_lock() {
+        if [ -d "$lock_dir" ]; then
+          rmdir "$lock_dir" 2>/dev/null || true
+        fi
+      }
+
+      if mkdir "$lock_dir" 2>/dev/null; then
+        trap cleanup_lock EXIT INT TERM HUP
+        cd "$run_dir"
+        \(opencodeCommand) | tee -a "$log_file"
+      else
+        printf '[Live Output] Another opencode launch is already in progress.\\n'
+        exit 0
+      fi
+      """
+  }
+
+  fileprivate func waitForServerStartup(workspace: Models.Workspace, connection: SSHConnection) async throws -> SpawnResult {
+    let maxRetries = 30
+    for _ in 0..<maxRetries {
+      if let assignedPort = try await parsePortFromLogs(workspace: workspace, connection: connection) {
+        try await persistPort(assignedPort, for: workspace, connection: connection)
+
+        if await healthCheck(port: assignedPort, workspace: workspace) {
+          await AppLogger.shared.log(
+            "OpenCode server started successfully on port \(assignedPort)",
+            level: .info,
+            category: .workspace
+          )
+          return SpawnResult(port: assignedPort, online: true, error: nil)
+        }
+      }
+      try await Task.sleep(for: .seconds(1))
+    }
+
+    await AppLogger.shared.log(
+      "Failed to start opencode server within timeout for workspace: \(workspace.name)",
+      level: .error,
+      category: .workspace
+    )
+    let timeoutError = SSHError.spawnTimeout("Failed to start opencode server within timeout")
+    return SpawnResult(port: 0, online: false, error: timeoutError)
+  }
+
+  fileprivate func persistPort(_ port: Int, for workspace: Models.Workspace, connection: SSHConnection) async throws {
+    let daemonData = try JSONEncoder().encode(["port": port])
+    if let daemonJson = String(data: daemonData, encoding: .utf8) {
+      let stateDirectory = workspaceStateDirectory(for: workspace)
+      let daemonPath = workspaceDaemonPath(for: workspace)
+      let writeCommand = "mkdir -p \(stateDirectory) && echo '\(daemonJson)' > \(daemonPath)"
+      _ = try await connection.exec(writeCommand)
+    }
+  }
+
   fileprivate func workspaceStateDirectory(for workspace: Models.Workspace) -> String {
     "$HOME/.opencoder/workspaces/\(workspace.id.uuidString)"
   }

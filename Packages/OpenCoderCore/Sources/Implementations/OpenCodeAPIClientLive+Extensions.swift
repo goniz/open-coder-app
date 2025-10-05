@@ -44,74 +44,66 @@ extension LiveOpenCodeAPIClient {
 
 extension LiveOpenCodeAPIClient {
   public func sendCommand(sessionID: String, command: String, arguments: [String]) async throws -> OpenCodeMessage {
-     let requestBody = Operations.session_period_command.Input.Body.json(
-       .init(arguments: arguments.joined(separator: " "), command: command)
-     )
+      let requestBody = Operations.session_period_command.Input.Body.json(
+        .init(arguments: arguments.joined(separator: " "), command: command)
+      )
 
-     let input = Operations.session_period_command.Input(
-       path: .init(id: sessionID),
-       body: requestBody
-     )
+      let input = Operations.session_period_command.Input(
+        path: .init(id: sessionID),
+        body: requestBody
+      )
 
-     return try await performAPICall(
-       "Sending command '\(command)' to session: \(sessionID)",
-       input: input,
-       apiCall: client.session_period_command
-     ) { response in
-       switch response {
-       case let .ok(okResponse):
-         switch okResponse.body {
-         case .json:
-           return OpenCodeMessage(
-             id: UUID().uuidString,
-             sessionID: sessionID,
-             parts: [.text("Command executed: \(command)")],
-             timestamp: Date(),
-             role: .assistant,
-             modelID: nil,
-             providerID: nil
-           )
-         }
-       case let .undocumented(statusCode, _):
-         return try handleUndocumentedResponse("send command", statusCode: statusCode)
-       }
-     }
-   }
+      return try await performAPICall(
+        "Sending command '\(command)' to session: \(sessionID)",
+        input: input,
+        apiCall: client.session_period_command
+      ) { response in
+        switch response {
+        case let .ok(okResponse):
+          switch okResponse.body {
+          case let .json(messageData):
+            // Parse the actual server response instead of creating a fake message
+            guard let message = parseMessageData(from: .commandResponse(messageData), sessionID: sessionID) else {
+              throw OpenCodeAPIError.decodingError("Failed to parse command response")
+            }
+            return message
+          }
+        case let .undocumented(statusCode, _):
+          return try handleUndocumentedResponse("send command", statusCode: statusCode)
+        }
+      }
+    }
 
   public func runShellCommand(sessionID: String, command: String) async throws -> OpenCodeMessage {
-     let requestBody = Operations.session_period_shell.Input.Body.json(
-       .init(agent: "shell", command: command)
-     )
+      let requestBody = Operations.session_period_shell.Input.Body.json(
+        .init(agent: "shell", command: command)
+      )
 
-     let input = Operations.session_period_shell.Input(
-       path: .init(id: sessionID),
-       body: requestBody
-     )
+      let input = Operations.session_period_shell.Input(
+        path: .init(id: sessionID),
+        body: requestBody
+      )
 
-     return try await performAPICall(
-       "Running shell command '\(command)' in session: \(sessionID)",
-       input: input,
-       apiCall: client.session_period_shell
-     ) { response in
-       switch response {
-       case let .ok(okResponse):
-         switch okResponse.body {
-         case .json:
-           return OpenCodeMessage(
-             id: UUID().uuidString,
-             sessionID: sessionID,
-             parts: [.text("Shell command executed: \(command)")],
-             timestamp: Date(),
-             role: .assistant,
-             modelID: nil,
-             providerID: nil
-           )
-         }
-       case let .undocumented(statusCode, _):
-         return try handleUndocumentedResponse("run shell command", statusCode: statusCode)
-       }
-     }
-   }
+      return try await performAPICall(
+        "Running shell command '\(command)' in session: \(sessionID)",
+        input: input,
+        apiCall: client.session_period_shell
+      ) { response in
+        switch response {
+        case let .ok(okResponse):
+          switch okResponse.body {
+          case let .json(assistantMessage):
+            // Parse the actual server response instead of creating a fake message
+            guard let message = parseMessageData(from: .shellResponse(assistantMessage), sessionID: sessionID) else {
+              throw OpenCodeAPIError.decodingError("Failed to parse shell command response")
+            }
+            return message
+          }
+        case let .undocumented(statusCode, _):
+          return try handleUndocumentedResponse("run shell command", statusCode: statusCode)
+        }
+      }
+    }
 }
 
 // MARK: - Configuration Operations Extension
