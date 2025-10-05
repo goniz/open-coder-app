@@ -178,6 +178,10 @@ enum ChatMessageMapper {
         return "📸 \(text)"
       case .reasoning:
         return "💭 Reasoning"
+      case .stepStart:
+        return nil
+      case .patch:
+        return nil
       }
     }
 
