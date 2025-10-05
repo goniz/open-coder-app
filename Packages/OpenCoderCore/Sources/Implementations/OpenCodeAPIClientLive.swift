@@ -208,102 +208,140 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
+struct EventMessage: Codable {
+  let info: EventMessageInfo
+  let parts: [PartInfo]
+}
+
+struct EventMessageInfo: Codable {
+  let id: String
+  let sessionID: String
+  let role: String
+  let time: Double
+  let modelID: String?
+  let providerID: String?
+}
+
+struct PartInfo: Codable {
+  let type: String
+  let content: String
+  let id: String?
+}
+
+struct MessagePartUpdate: Codable {
+  let sessionID: String
+  let messageID: String
+  let part: PartInfo
+}
+
 private func parseEvent(from jsonString: String) -> OpenCodeEvent? {
-  guard let jsonData = jsonString.data(using: .utf8) else {
-    return nil
+  guard let jsonData = jsonString.data(using: .utf8),
+        let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+        let type = json["type"] as? String else {
+    log("OpenCode API: Failed to parse event structure: \(jsonString)", level: .warning)
+    return .unknown(jsonString)
   }
 
-  let decoder = JSONDecoder()
-
-  if let event = tryParseSessionUpdated(from: jsonData) ?? tryParseSessionDeleted(from: jsonData) ?? tryParseMessageUpdated(from: jsonData) ?? tryParseMessagePartUpdated(from: jsonData) {
-    return event
-  } else {
-    log("OpenCode API: Received unknown event: \(jsonString)", level: .warning)
+  switch type {
+  case "session.updated":
+    return parseSessionUpdatedEvent(json)
+  case "session.deleted":
+    return parseSessionDeletedEvent(json)
+  case "message.updated":
+    return parseMessageUpdatedEvent(json)
+  case "message.part.updated":
+    return parseMessagePartUpdatedEvent(json)
+  default:
+    log("OpenCode API: Received unknown event type: \(type)", level: .warning)
     return .unknown(jsonString)
   }
 }
 
-private func tryParseSessionUpdated(from jsonData: Data) -> OpenCodeEvent? {
-  guard let sessionUpdated = try? JSONDecoder().decode(
-    Components.Schemas.Event_period_session_period_updated.self,
-    from: jsonData
-  ) else { return nil }
+private func parseSessionUpdatedEvent(_ json: [String: Any]) -> OpenCodeEvent? {
+  guard let sessionData = json["data"] as? [String: Any],
+        let timeData = sessionData["time"] as? [String: Any],
+        let created = timeData["created"] as? Double,
+        let updated = timeData["updated"] as? Double else {
+    return nil
+  }
 
-  let sessionData = sessionUpdated.properties.info
+  let id = sessionData["id"] as? String ?? ""
+  let title = sessionData["title"] as? String ?? ""
   let session = OpenCodeSession(
-    id: sessionData.id,
-    createdAt: Date(timeIntervalSince1970: sessionData.time.created),
-    updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+    id: id,
+    createdAt: Date(timeIntervalSince1970: created),
+    updatedAt: Date(timeIntervalSince1970: updated),
     isActive: true,
-    title: sessionData.title
+    title: title
   )
   log("OpenCode API: Received session.updated event for session: \(session.id)")
   return .sessionUpdated(session)
 }
 
-private func tryParseSessionDeleted(from jsonData: Data) -> OpenCodeEvent? {
-  guard let sessionDeleted = try? JSONDecoder().decode(
-    Components.Schemas.Event_period_session_period_deleted.self,
-    from: jsonData
-  ) else { return nil }
-
-  let sessionID = sessionDeleted.properties.info.id
+private func parseSessionDeletedEvent(_ json: [String: Any]) -> OpenCodeEvent? {
+  guard let sessionID = json["data"] as? String else {
+    return nil
+  }
   log("OpenCode API: Received session.deleted event for session: \(sessionID)")
   return .sessionDeleted(sessionID)
 }
 
-private func tryParseMessageUpdated(from jsonData: Data) -> OpenCodeEvent? {
-  guard let messageUpdated = try? JSONDecoder().decode(
-    Components.Schemas.Event_period_message_period_updated.self,
-    from: jsonData
-  ) else { return nil }
+private func parseMessageUpdatedEvent(_ json: [String: Any]) -> OpenCodeEvent? {
+  guard let messageJSON = json["data"] as? [String: Any] else {
+    return nil
+  }
 
-  let messageData = messageUpdated.properties.info
+  let id = messageJSON["id"] as? String ?? UUID().uuidString
+  let sessionID = messageJSON["sessionID"] as? String ?? ""
+  let partsData = messageJSON["parts"] as? [[String: Any]] ?? []
+  let parts = partsData.map { partJSON in
+    parseMessagePartFromJSON(partJSON)
+  }
+  let timeValue = messageJSON["timestamp"] as? Double ?? Date().timeIntervalSince1970
+  let timestamp = Date(timeIntervalSince1970: timeValue)
+  let roleString = messageJSON["role"] as? String ?? "assistant"
+  let role = MessageRole(rawValue: roleString) ?? .assistant
+  let modelID = messageJSON["modelID"] as? String
+  let providerID = messageJSON["providerID"] as? String
   let message = OpenCodeMessage(
-    id: messageData.id,
-    sessionID: messageData.sessionID,
-    parts: messageData.parts.map { partData in
-      switch partData.type {
-      case "text":
-        return .text(partData.content ?? "", id: partData.id)
-      case "reasoning":
-        return .reasoning(partData.content ?? "", id: partData.id)
-      default:
-        return .text(partData.content ?? "", id: partData.id)
-      }
-    },
-    timestamp: Date(timeIntervalSince1970: messageData.time),
-    role: MessageRole(rawValue: messageData.role) ?? .assistant,
-    modelID: messageData.modelID,
-    providerID: messageData.providerID
+    id: id,
+    sessionID: sessionID,
+    parts: parts,
+    timestamp: timestamp,
+    role: role,
+    modelID: modelID,
+    providerID: providerID
   )
-  log("OpenCode API: Received message.updated for \(message.id)")
+  log("OpenCode API: Received message.updated event for message: \(message.id)")
   return .messageUpdated(message)
 }
 
-private func tryParseMessagePartUpdated(from jsonData: Data) -> OpenCodeEvent? {
-  guard let messagePartUpdated = try? JSONDecoder().decode(
-    Components.Schemas.Event_period_message_period_part_period_updated.self,
-    from: jsonData
-  ) else { return nil }
-
-  let partData = messagePartUpdated.properties.part
-  let part: MessagePart
-  switch partData.type {
-  case "text":
-    part = .text(partData.content ?? "", id: partData.id)
-  case "reasoning":
-    part = .reasoning(partData.content ?? "", id: partData.id)
-  default:
-    part = .text(partData.content ?? "", id: partData.id)
+private func parseMessagePartUpdatedEvent(_ json: [String: Any]) -> OpenCodeEvent? {
+  guard let updateJSON = json["data"] as? [String: Any],
+        let partJSON = updateJSON["part"] as? [String: Any] else {
+    return nil
   }
-  log("OpenCode API: Received message.part.updated for session \(messagePartUpdated.properties.sessionID), message \(messagePartUpdated.properties.messageID), part \(partData.id)")
-  return .messagePartUpdated(
-    sessionID: messagePartUpdated.properties.sessionID,
-    messageID: messagePartUpdated.properties.messageID,
-    partID: partData.id,
-    part: part
-  )
+
+  let sessionID = updateJSON["sessionID"] as? String ?? ""
+  let messageID = updateJSON["messageID"] as? String ?? ""
+  let id = partJSON["id"] as? String ?? UUID().uuidString
+  let part = parseMessagePartFromJSON(partJSON)
+
+  log("OpenCode API: Received message.part.updated for session: \(sessionID), message: \(messageID), part: \(id)")
+  return .messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: id, part: part)
+}
+
+private func parseMessagePartFromJSON(_ partJSON: [String: Any]) -> MessagePart {
+  let type = partJSON["type"] as? String ?? "text"
+  let content = partJSON["content"] as? String ?? ""
+  let id = partJSON["id"] as? String ?? UUID().uuidString
+
+  switch type {
+  case "reasoning":
+    return .reasoning(content, id: id)
+  default:
+    return .text(content, id: id)
+  }
 }
 }
 

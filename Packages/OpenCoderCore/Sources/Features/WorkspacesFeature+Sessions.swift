@@ -70,7 +70,7 @@ extension WorkspacesFeature {
   func previewText(for messages: [OpenCodeMessage]) -> String {
     guard let lastMessage = messages.last else { return "" }
     for part in lastMessage.parts {
-      if case let .text(content) = part {
+      if case let .text(content, _) = part {
         return content
       }
     }
