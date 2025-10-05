@@ -313,7 +313,7 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
-      parts: [.text("\(command) \(arguments.joined(separator: " "))")],
+      parts: [.text("\(command) \(arguments.joined(separator: " "))", id: nil)],
       timestamp: Date(),
       role: .user,
       modelID: nil,
@@ -326,7 +326,7 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
-      parts: [.text("$ \(command)")],
+      parts: [.text("$ \(command)", id: nil)],
       timestamp: Date(),
       role: .user,
       modelID: nil,
