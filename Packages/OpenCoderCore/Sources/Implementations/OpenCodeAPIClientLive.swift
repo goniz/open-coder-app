@@ -208,39 +208,103 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  private func parseEvent(from jsonString: String) -> OpenCodeEvent? {
-    guard let jsonData = jsonString.data(using: .utf8) else {
-      return nil
-    }
-
-    let decoder = JSONDecoder()
-
-    if let sessionUpdated = try? decoder.decode(
-      Components.Schemas.Event_period_session_period_updated.self,
-      from: jsonData
-    ) {
-      let sessionData = sessionUpdated.properties.info
-      let session = OpenCodeSession(
-        id: sessionData.id,
-        createdAt: Date(timeIntervalSince1970: sessionData.time.created),
-        updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
-        isActive: true,
-        title: sessionData.title
-      )
-      log("OpenCode API: Received session.updated event for session: \(session.id)")
-      return .sessionUpdated(session)
-    } else if let sessionDeleted = try? decoder.decode(
-      Components.Schemas.Event_period_session_period_deleted.self,
-      from: jsonData
-    ) {
-      let sessionID = sessionDeleted.properties.info.id
-      log("OpenCode API: Received session.deleted event for session: \(sessionID)")
-      return .sessionDeleted(sessionID)
-    } else {
-      log("OpenCode API: Received unknown event: \(jsonString)", level: .warning)
-      return .unknown(jsonString)
-    }
+private func parseEvent(from jsonString: String) -> OpenCodeEvent? {
+  guard let jsonData = jsonString.data(using: .utf8) else {
+    return nil
   }
+
+  let decoder = JSONDecoder()
+
+  if let event = tryParseSessionUpdated(from: jsonData) ?? tryParseSessionDeleted(from: jsonData) ?? tryParseMessageUpdated(from: jsonData) ?? tryParseMessagePartUpdated(from: jsonData) {
+    return event
+  } else {
+    log("OpenCode API: Received unknown event: \(jsonString)", level: .warning)
+    return .unknown(jsonString)
+  }
+}
+
+private func tryParseSessionUpdated(from jsonData: Data) -> OpenCodeEvent? {
+  guard let sessionUpdated = try? JSONDecoder().decode(
+    Components.Schemas.Event_period_session_period_updated.self,
+    from: jsonData
+  ) else { return nil }
+
+  let sessionData = sessionUpdated.properties.info
+  let session = OpenCodeSession(
+    id: sessionData.id,
+    createdAt: Date(timeIntervalSince1970: sessionData.time.created),
+    updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+    isActive: true,
+    title: sessionData.title
+  )
+  log("OpenCode API: Received session.updated event for session: \(session.id)")
+  return .sessionUpdated(session)
+}
+
+private func tryParseSessionDeleted(from jsonData: Data) -> OpenCodeEvent? {
+  guard let sessionDeleted = try? JSONDecoder().decode(
+    Components.Schemas.Event_period_session_period_deleted.self,
+    from: jsonData
+  ) else { return nil }
+
+  let sessionID = sessionDeleted.properties.info.id
+  log("OpenCode API: Received session.deleted event for session: \(sessionID)")
+  return .sessionDeleted(sessionID)
+}
+
+private func tryParseMessageUpdated(from jsonData: Data) -> OpenCodeEvent? {
+  guard let messageUpdated = try? JSONDecoder().decode(
+    Components.Schemas.Event_period_message_period_updated.self,
+    from: jsonData
+  ) else { return nil }
+
+  let messageData = messageUpdated.properties.info
+  let message = OpenCodeMessage(
+    id: messageData.id,
+    sessionID: messageData.sessionID,
+    parts: messageData.parts.map { partData in
+      switch partData.type {
+      case "text":
+        return .text(partData.content ?? "", id: partData.id)
+      case "reasoning":
+        return .reasoning(partData.content ?? "", id: partData.id)
+      default:
+        return .text(partData.content ?? "", id: partData.id)
+      }
+    },
+    timestamp: Date(timeIntervalSince1970: messageData.time),
+    role: MessageRole(rawValue: messageData.role) ?? .assistant,
+    modelID: messageData.modelID,
+    providerID: messageData.providerID
+  )
+  log("OpenCode API: Received message.updated for \(message.id)")
+  return .messageUpdated(message)
+}
+
+private func tryParseMessagePartUpdated(from jsonData: Data) -> OpenCodeEvent? {
+  guard let messagePartUpdated = try? JSONDecoder().decode(
+    Components.Schemas.Event_period_message_period_part_period_updated.self,
+    from: jsonData
+  ) else { return nil }
+
+  let partData = messagePartUpdated.properties.part
+  let part: MessagePart
+  switch partData.type {
+  case "text":
+    part = .text(partData.content ?? "", id: partData.id)
+  case "reasoning":
+    part = .reasoning(partData.content ?? "", id: partData.id)
+  default:
+    part = .text(partData.content ?? "", id: partData.id)
+  }
+  log("OpenCode API: Received message.part.updated for session \(messagePartUpdated.properties.sessionID), message \(messagePartUpdated.properties.messageID), part \(partData.id)")
+  return .messagePartUpdated(
+    sessionID: messagePartUpdated.properties.sessionID,
+    messageID: messagePartUpdated.properties.messageID,
+    partID: partData.id,
+    part: part
+  )
+}
 }
 
 // MARK: - Project Operations

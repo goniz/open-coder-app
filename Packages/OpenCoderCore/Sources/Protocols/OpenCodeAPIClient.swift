@@ -41,6 +41,8 @@ public enum OpenCodeEvent: Equatable, Sendable {
   case sessionUpdated(OpenCodeSession)
   case sessionDeleted(String)
   case messageReceived(OpenCodeMessage)
+  case messageUpdated(OpenCodeMessage)
+  case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
   case unknown(String)
 }
 
@@ -140,12 +142,12 @@ public enum MessageRole: String, Equatable, Sendable, CaseIterable {
 }
 
 public enum MessagePart: Equatable, Sendable {
-  case text(String)
-  case reasoning(String)
-  case file(path: String, content: String)
-  case agent(type: String, result: String)
-  case tool(name: String, input: String, output: String, error: String?)
-  case patch(hash: String, files: [String])
+  case text(String, id: String?)
+  case reasoning(String, id: String?)
+  case file(path: String, content: String, id: String?)
+  case agent(type: String, result: String, id: String?)
+  case tool(name: String, input: String, output: String, error: String?, id: String?)
+  case patch(hash: String, files: [String], id: String?)
 }
 
 public struct OpenCodeConfig: Equatable, Sendable {
@@ -348,11 +350,33 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     )
   }
 
-  public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error> {
-    return AsyncThrowingStream { continuation in
+public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error> {
+  return AsyncThrowingStream { continuation in
+    Task {
+      // Simulate events for testing
+      try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+      let sampleMessage = OpenCodeMessage(
+        id: "mock-message-1",
+        sessionID: "mock-session-1",
+        parts: [.text("Updated message content", id: "part1")],
+        timestamp: Date(),
+        role: .assistant
+      )
+      continuation.yield(.messageUpdated(sampleMessage))
+
+      try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+      continuation.yield(.messagePartUpdated(
+        sessionID: "mock-session-1",
+        messageID: "mock-message-1",
+        partID: "part2",
+        part: .text("Appended part", id: "part2")
+      ))
+
+      try? await Task.sleep(nanoseconds: 1_000_000_000)
       continuation.finish()
     }
   }
+}
 }
 
 // MARK: - Dependency Injection
