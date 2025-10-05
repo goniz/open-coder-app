@@ -10,15 +10,18 @@ struct ChatView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
-        HStack(spacing: 8) {
-          Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
-            .lineLimit(1)
-            .truncationMode(.tail)
-          Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 8) {
+            Text(store.currentSessionTitle)
+              .font(.title2)
+              .fontWeight(.bold)
+              .lineLimit(1)
+              .truncationMode(.tail)
+            Spacer(minLength: 0)
+            sessionSelectorButton
+          }
+
           connectionStatusIndicators
-          sessionSelectorButton
         }
         .padding(.horizontal, 12)
       }
@@ -55,14 +58,36 @@ struct ChatView: View {
   }
 
   private var connectionStatusIndicators: some View {
-    HStack(spacing: 6) {
-      Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
-        .foregroundStyle(store.serverURL != nil ? .green : .red)
-        .font(.caption)
+    HStack(spacing: 8) {
+      HStack(spacing: 3) {
+        Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
+          .foregroundStyle(store.serverURL != nil ? .green : .red)
+          .font(.system(size: 10))
 
-      Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
-        .foregroundStyle(store.isEventsConnected ? .green : .red)
-        .font(.caption)
+        Text("SSH")
+          .font(.system(size: 10, weight: .medium))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color(.systemGray6))
+      .cornerRadius(4)
+
+      HStack(spacing: 3) {
+        Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
+          .foregroundStyle(store.isEventsConnected ? .green : .red)
+          .font(.system(size: 10))
+
+        Text("OC")
+          .font(.system(size: 10, weight: .medium))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color(.systemGray6))
+      .cornerRadius(4)
+
+      Spacer()
     }
   }
 
