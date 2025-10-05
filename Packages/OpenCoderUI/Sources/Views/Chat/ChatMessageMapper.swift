@@ -24,7 +24,9 @@ enum ChatMessageMapper {
     from messages: [OpenCodeMessage],
     pendingMessageIDs: Set<String>
   ) -> BuildResult {
-    messages.reduce(into: BuildResult(
+    let startTime = CFAbsoluteTimeGetCurrent()
+
+    let result = messages.reduce(into: BuildResult(
       messages: [],
       enhancedParts: [:],
       unsupportedParts: []
@@ -36,6 +38,14 @@ enum ChatMessageMapper {
       }
       result.unsupportedParts.formUnion(mapped.unsupportedParts)
     }
+
+    let timeElapsed = CFAbsoluteTimeGetCurrent() - startTime
+    if timeElapsed > 0.1 {
+      let msg = "⚠️ ChatMessageMapper.buildMessages took \(String(format: "%.3f", timeElapsed))s"
+      print("\(msg) for \(messages.count) messages")
+    }
+
+    return result
   }
 
   private static func map(

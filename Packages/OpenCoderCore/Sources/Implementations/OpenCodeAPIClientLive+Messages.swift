@@ -80,6 +80,7 @@ extension LiveOpenCodeAPIClient {
     }
 
   public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
+     let startTime = CFAbsoluteTimeGetCurrent()
      log("OpenCode API: Getting messages from session: \(sessionID)")
 
      let input = Operations.session_period_messages.Input(path: .init(id: sessionID))
@@ -91,8 +92,17 @@ extension LiveOpenCodeAPIClient {
        case let .ok(okResponse):
          switch okResponse.body {
          case let .json(messageList):
+           let parseStart = CFAbsoluteTimeGetCurrent()
            let messages = messageList.compactMap { messageData in
              parseMessageData(messageData, sessionID: sessionID)
+           }
+           let parseTime = CFAbsoluteTimeGetCurrent() - parseStart
+
+           let totalTime = CFAbsoluteTimeGetCurrent() - startTime
+           if totalTime > 0.1 {
+             let msg = "⚠️ getMessages took \(String(format: "%.3f", totalTime))s"
+             let parseMsg = "(parse: \(String(format: "%.3f", parseTime))s)"
+             print("\(msg) \(parseMsg) for \(messages.count) messages")
            }
 
            log("OpenCode API: Successfully retrieved \(messages.count) messages from session: \(sessionID)")
