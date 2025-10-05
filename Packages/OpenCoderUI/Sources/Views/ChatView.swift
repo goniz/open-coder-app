@@ -41,7 +41,7 @@ struct ChatView: View {
           .padding()
       }
     }
-    .task {
+    .task(id: store.sessionID) {
       await store.send(.task).finish()
     }
   }
