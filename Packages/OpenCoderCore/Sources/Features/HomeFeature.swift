@@ -6,7 +6,7 @@ import Models
 public struct HomeFeature: Sendable {
   @ObservableState
   public struct State: Equatable, Sendable {
-    public var selectedTab: Tab = .servers
+    public var selectedTab: Tab = .workspaces
     public var workspaces = WorkspacesFeature.State()
     public var servers = ServersFeature.State()
     public var settings = SettingsFeature.State()

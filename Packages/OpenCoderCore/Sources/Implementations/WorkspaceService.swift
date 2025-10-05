@@ -174,7 +174,10 @@ extension WorkspaceService {
     try await tmuxService.newSession(name: workspace.tmuxSession, path: workspace.remotePath)
   }
 
-  fileprivate func checkExistingServer(workspace: Models.Workspace, connection: SSHConnection) async throws -> SpawnResult? {
+  fileprivate func checkExistingServer(
+    workspace: Models.Workspace,
+    connection: SSHConnection
+  ) async throws -> SpawnResult? {
     if let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
       let port = daemonData["port"],
       await healthCheck(port: port, workspace: workspace) {
@@ -250,7 +253,10 @@ extension WorkspaceService {
       """
   }
 
-  fileprivate func waitForServerStartup(workspace: Models.Workspace, connection: SSHConnection) async throws -> SpawnResult {
+  fileprivate func waitForServerStartup(
+    workspace: Models.Workspace,
+    connection: SSHConnection
+  ) async throws -> SpawnResult {
     let maxRetries = 30
     for _ in 0..<maxRetries {
       if let assignedPort = try await parsePortFromLogs(workspace: workspace, connection: connection) {

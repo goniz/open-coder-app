@@ -124,19 +124,29 @@ struct WorkspaceRowView: View {
   let onShowLiveOutput: () -> Void
   let onCleanAndRetry: () -> Void
 
+  private var serverName: String {
+    guard let serverID = workspaceState.workspace.serverID else {
+      return workspaceState.workspace.host
+    }
+
+    guard let data = UserDefaults.standard.data(forKey: "savedServers"),
+          let configurations = try? JSONDecoder().decode([SSHServerConfiguration].self, from: data),
+          let server = configurations.first(where: { $0.id == serverID }) else {
+      return workspaceState.workspace.host
+    }
+
+    return server.name
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(workspaceState.workspace.name)
+        VStack(alignment: .leading, spacing: 4) {
+          Text("\(workspaceState.workspace.name) via \(serverName)")
             .font(.headline)
 
-          Text("\(workspaceState.workspace.user)@\(workspaceState.workspace.host)")
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-
           Text(workspaceState.workspace.remotePath)
-            .font(.caption)
+            .font(.subheadline)
             .foregroundColor(.secondary)
         }
 
