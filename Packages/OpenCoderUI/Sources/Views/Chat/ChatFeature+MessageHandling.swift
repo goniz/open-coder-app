@@ -138,8 +138,8 @@ extension ChatFeature {
       return convertToolPart(name: name, input: input, output: output, error: error)
     case .agent(let type, let result, _):
       return .agent(result, agentType: type)
-    case .patch(let hash, let files, _):
-      return convertPatchPart(hash: hash, files: files)
+    case .patch:
+      return nil
     case .stepStart:
       return nil
     case .stepFinish(let cost, let inputTokens, let outputTokens, _):
@@ -171,12 +171,6 @@ extension ChatFeature {
       output: output,
       error: error
     ))
-  }
-
-  private func convertPatchPart(hash: String, files: [String]) -> EnhancedMessagePart {
-    let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
-    let filesText = files.joined(separator: "\n")
-    return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
   }
 
   private func convertStepFinishPart(cost: Double, inputTokens: Double, outputTokens: Double) -> EnhancedMessagePart {

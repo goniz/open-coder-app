@@ -110,10 +110,10 @@ enum ChatMessageMapper {
       return (nil, .agent(content, agentType: agentType))
     case let .tool(name, input, output, error, _):
       return (nil, createToolEnhancedPart(name: name, input: input, output: output, error: error))
-    case let .patch(hash, files, _):
-      return (nil, createPatchEnhancedPart(hash: hash, files: files))
-    case let .stepStart(id):
-      return (nil, .stepStart("Processing step", stepID: id ?? ""))
+    case .patch:
+      return (nil, nil)
+    case .stepStart:
+      return (nil, nil)
     case let .stepFinish(cost, inputTokens, outputTokens, id):
       let part = createStepFinishEnhancedPart(
         cost: cost,
@@ -152,12 +152,6 @@ enum ChatMessageMapper {
     return .tool(toolInfo)
   }
 
-  private static func createPatchEnhancedPart(hash: String, files: [String]) -> EnhancedMessagePart {
-    let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
-    let filesText = files.joined(separator: "\n")
-    return .patch(title, filePath: "Hash: \(hash)", diff: filesText)
-  }
-
   private static func createStepFinishEnhancedPart(
     cost: Double,
     inputTokens: Double,
@@ -178,14 +172,10 @@ enum ChatMessageMapper {
         return "🔧 \(toolInfo.name)"
       case .agent(_, let agentType):
         return "🤖 \(agentType) agent"
-      case .stepStart(let text, _):
-        return "▶️ \(text)"
       case .stepFinish(let text, _, _):
         return "✅ \(text)"
       case .snapshot(let text, _):
         return "📸 \(text)"
-      case .patch(let text, _, _):
-        return "🔧 \(text)"
       case .reasoning:
         return "💭 Reasoning"
       }
