@@ -22,6 +22,9 @@ let package = Package(
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-Xfrontend", "-warn-concurrency"], .when(configuration: .debug))
             ]
         )
     ]

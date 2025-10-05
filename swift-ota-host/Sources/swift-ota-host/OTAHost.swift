@@ -75,7 +75,7 @@ public class OTAHost {
         try await generateFiles(ipaInfo: latestIpa, baseUrl: baseUrl)
         
         // Start HTTP server
-        server = HTTPServer(ipaInfo: latestIpa, config: config, baseUrl: baseUrl)
+        server = HTTPServer(ipaPath: latestIpa.path, config: config, baseUrl: baseUrl)
         
         try await server?.start()
     }
@@ -116,7 +116,8 @@ public class OTAHost {
             version: ipaInfo.version,
             bundleId: ipaInfo.bundleId,
             installUrl: installUrl,
-            fileSize: ipaInfo.size.formatFileSize()
+            fileSize: ipaInfo.size.formatFileSize(),
+            modifiedTime: ipaInfo.modifiedTime.formatModifiedTime()
         )
         
         let installPath = distDir.appendingPathComponent("install.html")
