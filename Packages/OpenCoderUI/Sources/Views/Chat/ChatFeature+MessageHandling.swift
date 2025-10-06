@@ -32,7 +32,7 @@ extension ChatFeature {
   }
 
   func handleMessagesLoaded(state: inout State, messages: [OpenCodeMessage]) -> Effect<Action> {
-    state.messages = messages
+    state.messages = messages.sorted(by: messageSortComparator)
     state.rebuildDerivedState()
     state.isLoading = false
     state.errorMessage = nil
@@ -46,22 +46,23 @@ extension ChatFeature {
   }
 
   func handleMessageReceived(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    state.messages.append(message)
+    if let currentSessionID = state.sessionID, currentSessionID != message.sessionID {
+      return .none
+    }
+
+    upsertMessage(message, into: &state.messages)
+
+    state.pendingMessageIDs.remove(message.id)
     state.rebuildDerivedState()
     return .none
   }
 
   func handleMessageUpdated(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    guard state.sessionID == nil || state.sessionID == message.sessionID else {
+    if let currentSessionID = state.sessionID, currentSessionID != message.sessionID {
       return .none
     }
 
-    if let index = state.messages.firstIndex(where: { $0.id == message.id }) {
-      state.messages[index] = message
-    } else {
-      state.messages.append(message)
-      state.messages.sort { $0.timestamp < $1.timestamp }
-    }
+    upsertMessage(message, into: &state.messages)
 
     state.pendingMessageIDs.remove(message.id)
     state.rebuildDerivedState()
@@ -75,7 +76,7 @@ extension ChatFeature {
     partID: String,
     part: MessagePart
   ) -> Effect<Action> {
-    guard state.sessionID == nil || state.sessionID == sessionID else {
+    if let currentSessionID = state.sessionID, currentSessionID != sessionID {
       return .none
     }
 
@@ -108,8 +109,7 @@ extension ChatFeature {
         timestamp: Date(),
         role: .assistant
       )
-      state.messages.append(placeholder)
-      state.messages.sort { $0.timestamp < $1.timestamp }
+      upsertMessage(placeholder, into: &state.messages)
     }
 
     state.rebuildDerivedState()
@@ -120,6 +120,7 @@ extension ChatFeature {
     state.isLoading = false
     state.errorMessage = nil
     state.pendingMessageIDs.remove(messageID)
+    state.rebuildDerivedState()
     return .none
   }
 
@@ -133,6 +134,7 @@ extension ChatFeature {
     if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
       state.exyteMessages.remove(at: exyteIndex)
     }
+    state.rebuildDerivedState()
     return .none
   }
 
@@ -141,8 +143,10 @@ extension ChatFeature {
     messages: [OpenCodeMessage],
     hasMore: Bool
   ) -> Effect<Action> {
-    state.messages.insert(contentsOf: messages, at: 0)
-    state.exyteMessages.insert(contentsOf: messages.map { createEnhancedMessage(from: $0) }, at: 0)
+    messages.sorted(by: messageSortComparator).forEach { message in
+      upsertMessage(message, into: &state.messages)
+    }
+    state.rebuildDerivedState()
     state.canLoadMoreMessages = hasMore
     state.isLoadingMoreMessages = false
     return .none
@@ -240,5 +244,25 @@ extension ChatFeature {
   private func convertStepFinishPart(cost: Double, inputTokens: Double, outputTokens: Double) -> EnhancedMessagePart {
     let costText = String(format: "%.4f", cost)
     return .text("Step completed - Cost: $\(costText), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out")
+  }
+
+  func upsertMessage(_ message: OpenCodeMessage, into messages: inout [OpenCodeMessage]) {
+    if let existingIndex = messages.firstIndex(where: { $0.id == message.id }) {
+      messages[existingIndex] = message
+      return
+    }
+
+    let insertionIndex = messages.firstIndex { candidate in
+      messageSortComparator(message, candidate)
+    } ?? messages.endIndex
+
+    messages.insert(message, at: insertionIndex)
+  }
+
+  func messageSortComparator(_ lhs: OpenCodeMessage, _ rhs: OpenCodeMessage) -> Bool {
+    if lhs.timestamp == rhs.timestamp {
+      return lhs.id < rhs.id
+    }
+    return lhs.timestamp < rhs.timestamp
   }
 }
