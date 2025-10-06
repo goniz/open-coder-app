@@ -142,11 +142,12 @@ extension ChatFeature {
     state.isLoading = false
     state.pendingMessageIDs.remove(tempID)
 
-    if let tempIndex = state.messages.firstIndex(where: { $0.id == tempID }) {
-      state.messages.remove(at: tempIndex)
+    if !replaceMessage(withID: tempID, using: message, in: &state.messages) {
+      upsertMessage(message, into: &state.messages)
     }
 
-    return processIncomingMessage(state: &state, message: message, allowEnrichment: false)
+    state.rebuildDerivedState()
+    return .none
   }
 
   func handleLoadMoreCompleted(
@@ -275,6 +276,27 @@ extension ChatFeature {
       return lhs.id < rhs.id
     }
     return lhs.timestamp < rhs.timestamp
+  }
+
+  private func replaceMessage(
+    withID existingID: String,
+    using message: OpenCodeMessage,
+    in messages: inout [OpenCodeMessage]
+  ) -> Bool {
+    guard let index = messages.firstIndex(where: { $0.id == existingID }) else {
+      return false
+    }
+
+    messages[index] = message
+
+    // Ensure ordering remains consistent if the authoritative timestamp differs.
+    if index > 0, !messageSortComparator(messages[index - 1], messages[index]) {
+      messages.sort(by: messageSortComparator)
+    } else if index < messages.count - 1, !messageSortComparator(messages[index], messages[index + 1]) {
+      messages.sort(by: messageSortComparator)
+    }
+
+    return true
   }
 
   private func processIncomingMessage(
