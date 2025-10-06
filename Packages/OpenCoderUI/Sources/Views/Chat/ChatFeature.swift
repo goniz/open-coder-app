@@ -62,6 +62,7 @@ public struct ChatFeature: Sendable {
     public var sessions: [OpenCodeSession] = []
     public var isLoadingSessions = false
     public var messagesAwaitingDetails: Set<String> = []
+    public var scrollToBottomSequence = 0
     public var draft = ChatDraftState()
     public var mediaPicker = ChatMediaPickerState()
     public var thinkingBlocksEnabled = true

@@ -230,10 +230,11 @@ extension ChatFeature {
     return .text("Step completed - Cost: $\(costText), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out")
   }
 
-  func upsertMessage(_ message: OpenCodeMessage, into messages: inout [OpenCodeMessage]) {
+  @discardableResult
+  func upsertMessage(_ message: OpenCodeMessage, into messages: inout [OpenCodeMessage]) -> Bool {
     if let existingIndex = messages.firstIndex(where: { $0.id == message.id }) {
       messages[existingIndex] = message
-      return
+      return false
     }
 
     let insertionIndex = messages.firstIndex { candidate in
@@ -241,6 +242,7 @@ extension ChatFeature {
     } ?? messages.endIndex
 
     messages.insert(message, at: insertionIndex)
+    return true
   }
 
   func messageSortComparator(_ lhs: OpenCodeMessage, _ rhs: OpenCodeMessage) -> Bool {
@@ -259,8 +261,12 @@ extension ChatFeature {
       return .none
     }
 
-    upsertMessage(message, into: &state.messages)
+    let inserted = upsertMessage(message, into: &state.messages)
     state.rebuildDerivedState()
+
+    if inserted {
+      state.scrollToBottomSequence &+= 1
+    }
 
     guard allowEnrichment,
           message.parts.isEmpty,

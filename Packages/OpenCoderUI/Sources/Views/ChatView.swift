@@ -55,6 +55,9 @@ struct ChatView: View {
     .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
       store.send(.appWillResignActive)
     }
+    .onChange(of: store.scrollToBottomSequence) { _, _ in
+      NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+    }
   }
 
   private var connectionStatusIndicators: some View {

@@ -120,6 +120,8 @@ extension ChatFeature {
     state.unsupportedPartKinds = []
     state.errorMessage = nil
     state.messagesAwaitingDetails = []
+    state.scrollToBottomSequence = 0
+    state.scrollToBottomSequence = 0
     return .none
   }
 
@@ -222,6 +224,7 @@ extension ChatFeature {
     state.unsupportedPartKinds = []
     state.errorMessage = nil
     state.messagesAwaitingDetails = []
+    state.scrollToBottomSequence = 0
   }
 
   func handleLoadMore(state: inout State) -> Effect<Action> {
