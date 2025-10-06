@@ -61,7 +61,6 @@ public struct ChatFeature: Sendable {
     public var serverURL: URL?
     public var sessions: [OpenCodeSession] = []
     public var isLoadingSessions = false
-    public var pendingMessageIDs: Set<String> = []
     public var messagesAwaitingDetails: Set<String> = []
     public var draft = ChatDraftState()
     public var mediaPicker = ChatMediaPickerState()
@@ -102,7 +101,6 @@ public struct ChatFeature: Sendable {
     case messageReceived(OpenCodeMessage)
     case messageUpdated(OpenCodeMessage)
     case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
-    case messageSendSucceeded(tempID: String, message: OpenCodeMessage)
     case messageDetailsLoaded(OpenCodeMessage)
     case messageDetailsFailed(messageID: String, error: String)
     case messageSendCompleted(messageID: String)
@@ -155,7 +153,7 @@ public struct ChatFeature: Sendable {
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
     case .messagesLoaded, .messagesFailed, .messageReceived, .messageUpdated, .messagePartUpdated,
-         .messageDetailsLoaded, .messageDetailsFailed, .messageSendSucceeded,
+         .messageDetailsLoaded, .messageDetailsFailed,
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,

@@ -25,8 +25,6 @@ extension ChatFeature {
       return handleMessagePartUpdated(
         state: &state, sessionID: sessionID, messageID: messageID, partID: partID, part: part
       )
-    case let .messageSendSucceeded(tempID, message):
-      return handleMessageSendSucceeded(state: &state, tempID: tempID, message: message)
     default:
       return .none
     }
@@ -104,8 +102,6 @@ extension ChatFeature {
   func handleMessageSendCompleted(state: inout State, messageID: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = nil
-    state.pendingMessageIDs.remove(messageID)
-    state.rebuildDerivedState()
     return .none
   }
 
@@ -123,30 +119,6 @@ extension ChatFeature {
   func handleMessageSendFailed(state: inout State, messageID: String, error: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = error
-    state.pendingMessageIDs.remove(messageID)
-    if let index = state.messages.firstIndex(where: { $0.id == messageID }) {
-      state.messages.remove(at: index)
-    }
-    if let exyteIndex = state.exyteMessages.firstIndex(where: { $0.id == messageID }) {
-      state.exyteMessages.remove(at: exyteIndex)
-    }
-    state.rebuildDerivedState()
-    return .none
-  }
-
-  func handleMessageSendSucceeded(
-    state: inout State,
-    tempID: String,
-    message: OpenCodeMessage
-  ) -> Effect<Action> {
-    state.isLoading = false
-    state.pendingMessageIDs.remove(tempID)
-
-    if !replaceMessage(withID: tempID, using: message, in: &state.messages) {
-      upsertMessage(message, into: &state.messages)
-    }
-
-    state.rebuildDerivedState()
     return .none
   }
 
@@ -278,27 +250,6 @@ extension ChatFeature {
     return lhs.timestamp < rhs.timestamp
   }
 
-  private func replaceMessage(
-    withID existingID: String,
-    using message: OpenCodeMessage,
-    in messages: inout [OpenCodeMessage]
-  ) -> Bool {
-    guard let index = messages.firstIndex(where: { $0.id == existingID }) else {
-      return false
-    }
-
-    messages[index] = message
-
-    // Ensure ordering remains consistent if the authoritative timestamp differs.
-    if index > 0, !messageSortComparator(messages[index - 1], messages[index]) {
-      messages.sort(by: messageSortComparator)
-    } else if index < messages.count - 1, !messageSortComparator(messages[index], messages[index + 1]) {
-      messages.sort(by: messageSortComparator)
-    }
-
-    return true
-  }
-
   private func processIncomingMessage(
     state: inout State,
     message: OpenCodeMessage,
@@ -309,7 +260,6 @@ extension ChatFeature {
     }
 
     upsertMessage(message, into: &state.messages)
-    state.pendingMessageIDs.remove(message.id)
     state.rebuildDerivedState()
 
     guard allowEnrichment,

@@ -21,8 +21,7 @@ enum ChatMessageMapper {
     let unsupportedParts: Set<ChatUnsupportedMessagePartKind>
   }
   static func buildMessages(
-    from messages: [OpenCodeMessage],
-    pendingMessageIDs: Set<String>
+    from messages: [OpenCodeMessage]
   ) -> BuildResult {
     let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -31,7 +30,7 @@ enum ChatMessageMapper {
       enhancedParts: [:],
       unsupportedParts: []
     )) { result, message in
-      let mapped = map(message: message, isPending: pendingMessageIDs.contains(message.id))
+      let mapped = map(message: message)
       result.messages.append(mapped.message)
       if !mapped.enhancedParts.isEmpty {
         result.enhancedParts[message.id] = mapped.enhancedParts
@@ -49,12 +48,11 @@ enum ChatMessageMapper {
   }
 
   private static func map(
-    message: OpenCodeMessage,
-    isPending: Bool
+    message: OpenCodeMessage
   ) -> MessageResult {
     let content = textAndEnhancedParts(from: message.parts)
     let user = user(for: message.role, message: message)
-    let status = status(for: message.role, isPending: isPending)
+    let status = status(for: message.role)
 
     // Use fallback text if no text content but have enhanced parts
     let displayText = content.text.isEmpty && !content.enhancedParts.isEmpty
@@ -200,10 +198,10 @@ enum ChatMessageMapper {
     }
   }
 
-  private static func status(for role: MessageRole, isPending: Bool) -> Message.Status? {
+  private static func status(for role: MessageRole) -> Message.Status? {
     switch role {
     case .user:
-      return isPending ? .sending : .sent
+      return .sent
     case .assistant:
       return .read
     case .system:
@@ -215,8 +213,7 @@ enum ChatMessageMapper {
 extension ChatFeature.State {
   mutating func rebuildDerivedState() {
     let result = ChatMessageMapper.buildMessages(
-      from: messages,
-      pendingMessageIDs: pendingMessageIDs
+      from: messages
     )
     exyteMessages = result.messages
     enhancedMessageParts = result.enhancedParts

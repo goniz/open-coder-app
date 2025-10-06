@@ -91,17 +91,7 @@ extension ChatFeature {
 
     let messageID = draft.id ?? UUID().uuidString
     let parts: [MessagePart] = [.text(trimmedText, id: nil)]
-    let pendingMessage = OpenCodeMessage(
-      id: messageID,
-      sessionID: sessionID,
-      parts: parts,
-      timestamp: Date(),
-      role: .user
-    )
 
-    upsertMessage(pendingMessage, into: &state.messages)
-    state.rebuildDerivedState()
-    state.pendingMessageIDs.insert(messageID)
     state.draft = ChatDraftState()
     state.isLoading = true
 
@@ -109,8 +99,9 @@ extension ChatFeature {
     return .run { send in
       do {
         let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
-        let serverMessage = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
-        await send(.messageSendSucceeded(tempID: messageID, message: serverMessage))
+        let serverMessage = try await apiClient.sendMessage(sessionID: sessionID, parts: parts)
+        await send(.messageReceived(serverMessage))
+        await send(.messageSendCompleted(messageID: serverMessage.id))
       } catch {
         await send(.messageSendFailed(messageID: messageID, error: error.localizedDescription))
       }
@@ -126,7 +117,6 @@ extension ChatFeature {
     state.sessionID = sessionID
     state.messages = []
     state.exyteMessages = []
-    state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
     state.messagesAwaitingDetails = []
@@ -229,7 +219,6 @@ extension ChatFeature {
   private func clearSessionState(state: inout State) {
     state.messages = []
     state.exyteMessages = []
-    state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
     state.messagesAwaitingDetails = []
@@ -272,7 +261,7 @@ extension ChatFeature {
   func handleCoreMessageActions(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .messagesLoaded, .messagesFailed, .messageReceived, .messageDetailsLoaded,
-         .messageDetailsFailed, .messageUpdated, .messagePartUpdated, .messageSendSucceeded:
+         .messageDetailsFailed, .messageUpdated, .messagePartUpdated:
       return handleMessageLifecycleActions(state: &state, action: action)
     case let .messageSendCompleted(messageID):
       return handleMessageSendCompleted(state: &state, messageID: messageID)
@@ -319,7 +308,6 @@ extension ChatFeature {
     state.serverURL = url
     state.messages = []
     state.exyteMessages = []
-    state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
     state.messagesAwaitingDetails = []
