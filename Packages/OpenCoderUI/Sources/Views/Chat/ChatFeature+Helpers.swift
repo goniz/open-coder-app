@@ -4,7 +4,7 @@ import Protocols
 import ExyteChat
 import Models
 
-private actor SharedAPIClientCache {
+package actor SharedAPIClientCache {
   static let shared = SharedAPIClientCache()
 
   private var clients: [URL: OpenCodeAPIClientProtocol] = [:]
@@ -109,8 +109,8 @@ extension ChatFeature {
     return .run { send in
       do {
         let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
-        _ = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
-        await send(.messageSendCompleted(messageID: messageID))
+        let serverMessage = try await apiClient.sendMessage(sessionID: sessionID, parts: pendingMessage.parts)
+        await send(.messageSendSucceeded(tempID: messageID, message: serverMessage))
       } catch {
         await send(.messageSendFailed(messageID: messageID, error: error.localizedDescription))
       }
@@ -129,6 +129,7 @@ extension ChatFeature {
     state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
+    state.messagesAwaitingDetails = []
     return .none
   }
 
@@ -231,6 +232,7 @@ extension ChatFeature {
     state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
+    state.messagesAwaitingDetails = []
   }
 
   func handleLoadMore(state: inout State) -> Effect<Action> {
@@ -269,9 +271,17 @@ extension ChatFeature {
 
   func handleCoreMessageActions(state: inout State, action: Action) -> Effect<Action> {
     switch action {
-    case .messagesLoaded, .messagesFailed, .messageReceived,
-         .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed:
+    case .messagesLoaded, .messagesFailed, .messageReceived, .messageDetailsLoaded,
+         .messageDetailsFailed, .messageUpdated, .messagePartUpdated, .messageSendSucceeded:
       return handleMessageLifecycleActions(state: &state, action: action)
+    case let .messageSendCompleted(messageID):
+      return handleMessageSendCompleted(state: &state, messageID: messageID)
+    case let .messageSendFailed(messageID, error):
+      return handleMessageSendFailed(state: &state, messageID: messageID, error: error)
+    case let .loadMoreCompleted(messages, hasMore):
+      return handleLoadMoreCompleted(state: &state, messages: messages, hasMore: hasMore)
+    case let .loadMoreFailed(error):
+      return handleLoadMoreFailed(state: &state, error: error)
     case let .updateSession(sessionID):
       return handleUpdateSession(state: &state, sessionID: sessionID)
     default:
@@ -312,6 +322,7 @@ extension ChatFeature {
     state.pendingMessageIDs = []
     state.unsupportedPartKinds = []
     state.errorMessage = nil
+    state.messagesAwaitingDetails = []
 
     // Clear cached client for old URL if it changed
     if let oldURL = oldURL, oldURL != url {

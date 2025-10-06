@@ -5,6 +5,13 @@ import ExyteChat
 
 extension ChatFeature {
   func handleMessageLifecycleActions(state: inout State, action: Action) -> Effect<Action> {
+    if case let .messageDetailsLoaded(message) = action {
+      return handleMessageDetailsLoaded(state: &state, message: message)
+    }
+    if case let .messageDetailsFailed(messageID, error) = action {
+      return handleMessageDetailsFailed(state: &state, messageID: messageID, error: error)
+    }
+
     switch action {
     case let .messagesLoaded(messages):
       return handleMessagesLoaded(state: &state, messages: messages)
@@ -18,14 +25,8 @@ extension ChatFeature {
       return handleMessagePartUpdated(
         state: &state, sessionID: sessionID, messageID: messageID, partID: partID, part: part
       )
-    case let .messageSendCompleted(messageID):
-      return handleMessageSendCompleted(state: &state, messageID: messageID)
-    case let .messageSendFailed(messageID, error):
-      return handleMessageSendFailed(state: &state, messageID: messageID, error: error)
-    case let .loadMoreCompleted(messages, hasMore):
-      return handleLoadMoreCompleted(state: &state, messages: messages, hasMore: hasMore)
-    case let .loadMoreFailed(error):
-      return handleLoadMoreFailed(state: &state, error: error)
+    case let .messageSendSucceeded(tempID, message):
+      return handleMessageSendSucceeded(state: &state, tempID: tempID, message: message)
     default:
       return .none
     }
@@ -46,27 +47,11 @@ extension ChatFeature {
   }
 
   func handleMessageReceived(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    if let currentSessionID = state.sessionID, currentSessionID != message.sessionID {
-      return .none
-    }
-
-    upsertMessage(message, into: &state.messages)
-
-    state.pendingMessageIDs.remove(message.id)
-    state.rebuildDerivedState()
-    return .none
+    processIncomingMessage(state: &state, message: message, allowEnrichment: true)
   }
 
   func handleMessageUpdated(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    if let currentSessionID = state.sessionID, currentSessionID != message.sessionID {
-      return .none
-    }
-
-    upsertMessage(message, into: &state.messages)
-
-    state.pendingMessageIDs.remove(message.id)
-    state.rebuildDerivedState()
-    return .none
+    processIncomingMessage(state: &state, message: message, allowEnrichment: true)
   }
 
   func handleMessagePartUpdated(
@@ -124,6 +109,17 @@ extension ChatFeature {
     return .none
   }
 
+  func handleMessageDetailsLoaded(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
+    state.messagesAwaitingDetails.remove(message.id)
+    return processIncomingMessage(state: &state, message: message, allowEnrichment: false)
+  }
+
+  func handleMessageDetailsFailed(state: inout State, messageID: String, error: String) -> Effect<Action> {
+    state.messagesAwaitingDetails.remove(messageID)
+    state.errorMessage = error
+    return .none
+  }
+
   func handleMessageSendFailed(state: inout State, messageID: String, error: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = error
@@ -136,6 +132,21 @@ extension ChatFeature {
     }
     state.rebuildDerivedState()
     return .none
+  }
+
+  func handleMessageSendSucceeded(
+    state: inout State,
+    tempID: String,
+    message: OpenCodeMessage
+  ) -> Effect<Action> {
+    state.isLoading = false
+    state.pendingMessageIDs.remove(tempID)
+
+    if let tempIndex = state.messages.firstIndex(where: { $0.id == tempID }) {
+      state.messages.remove(at: tempIndex)
+    }
+
+    return processIncomingMessage(state: &state, message: message, allowEnrichment: false)
   }
 
   func handleLoadMoreCompleted(
@@ -264,5 +275,41 @@ extension ChatFeature {
       return lhs.id < rhs.id
     }
     return lhs.timestamp < rhs.timestamp
+  }
+
+  private func processIncomingMessage(
+    state: inout State,
+    message: OpenCodeMessage,
+    allowEnrichment: Bool
+  ) -> Effect<Action> {
+    if let currentSessionID = state.sessionID, currentSessionID != message.sessionID {
+      return .none
+    }
+
+    upsertMessage(message, into: &state.messages)
+    state.pendingMessageIDs.remove(message.id)
+    state.rebuildDerivedState()
+
+    guard allowEnrichment,
+          message.parts.isEmpty,
+          let serverURL = state.serverURL,
+          !state.messagesAwaitingDetails.contains(message.id) else {
+      return .none
+    }
+
+    state.messagesAwaitingDetails.insert(message.id)
+    let factory = self.openCodeAPIFactory
+    return .run { send in
+      do {
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
+        let fullMessage = try await apiClient.getMessage(
+          sessionID: message.sessionID,
+          messageID: message.id
+        )
+        await send(.messageDetailsLoaded(fullMessage))
+      } catch {
+        await send(.messageDetailsFailed(messageID: message.id, error: error.localizedDescription))
+      }
+    }
   }
 }

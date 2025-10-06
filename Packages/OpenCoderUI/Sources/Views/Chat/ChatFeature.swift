@@ -62,6 +62,7 @@ public struct ChatFeature: Sendable {
     public var sessions: [OpenCodeSession] = []
     public var isLoadingSessions = false
     public var pendingMessageIDs: Set<String> = []
+    public var messagesAwaitingDetails: Set<String> = []
     public var draft = ChatDraftState()
     public var mediaPicker = ChatMediaPickerState()
     public var thinkingBlocksEnabled = true
@@ -99,8 +100,11 @@ public struct ChatFeature: Sendable {
     case messagesLoaded([OpenCodeMessage])
     case messagesFailed(String)
     case messageReceived(OpenCodeMessage)
-case messageUpdated(OpenCodeMessage)
-case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
+    case messageUpdated(OpenCodeMessage)
+    case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
+    case messageSendSucceeded(tempID: String, message: OpenCodeMessage)
+    case messageDetailsLoaded(OpenCodeMessage)
+    case messageDetailsFailed(messageID: String, error: String)
     case messageSendCompleted(messageID: String)
     case messageSendFailed(messageID: String, error: String)
     case updateSession(String?)
@@ -127,6 +131,7 @@ case messagePartUpdated(sessionID: String, messageID: String, partID: String, pa
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
+  @Dependency(\.sessionUpdateClient) var sessionUpdateClient
 
   public init() {
   }
@@ -150,6 +155,7 @@ case messagePartUpdated(sessionID: String, messageID: String, partID: String, pa
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
     case .messagesLoaded, .messagesFailed, .messageReceived, .messageUpdated, .messagePartUpdated,
+         .messageDetailsLoaded, .messageDetailsFailed, .messageSendSucceeded,
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
