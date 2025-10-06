@@ -131,6 +131,7 @@ public struct ChatFeature: Sendable {
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
   @Dependency(\.sessionUpdateClient) var sessionUpdateClient
+  @Dependency(\.date) var date
 
   public init() {
   }

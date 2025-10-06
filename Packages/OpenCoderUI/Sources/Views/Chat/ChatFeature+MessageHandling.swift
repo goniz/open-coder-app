@@ -89,7 +89,7 @@ extension ChatFeature {
         id: messageID,
         sessionID: sessionID,
         parts: [part],
-        timestamp: Date(),
+        timestamp: date(),
         role: .assistant
       )
       upsertMessage(placeholder, into: &state.messages)

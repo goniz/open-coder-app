@@ -21,6 +21,9 @@ let package = Package(
     .package(path: "./Packages/OpenCoderUI"),
     .package(path: "./Packages/OpenCoderApp"),
     
+    // Third-party dependencies shared across packages/tests
+    .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.22.2"),
+
     // OpenAPI Generator for code generation
     .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.0.0"),
   ],
@@ -32,9 +35,9 @@ let package = Package(
         .product(name: "OpenCoderCore", package: "OpenCoderCore"),
         .product(name: "OpenCoderUI", package: "OpenCoderUI"),
         .product(name: "OpenCoderApp", package: "OpenCoderApp"),
+        .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
       ]
     ),
   ]
 )
-
 
