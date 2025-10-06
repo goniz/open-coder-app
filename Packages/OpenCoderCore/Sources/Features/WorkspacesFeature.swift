@@ -150,12 +150,34 @@ public struct WorkspacesFeature: Sendable {
     case .workspaceInteraction(.dismiss):
       return .send(.hideWorkspaceInteraction)
 
+    case let .workspaceInteraction(.sessionUpdated(session)):
+      return handleSessionUpdated(state: &state, session: session)
+
     case .workspaceInteraction:
       return .none
 
     case .settings:
       return .none
     }
+  }
+
+  private func handleSessionUpdated(state: inout State, session: OpenCodeSession) -> Effect<Action> {
+    // Find the workspace that contains this session
+    for workspaceIndex in state.workspaces.indices {
+      let workspaceState = state.workspaces[workspaceIndex]
+      if let sessionIndex = workspaceState.sessions.firstIndex(where: { $0.id == session.id }) {
+        // Update the session meta with new title and updatedAt
+        let updatedMeta = SessionMeta(
+          id: session.id,
+          title: makeSessionTitle(for: session, workspace: workspaceState.workspace),
+          updatedAt: session.updatedAt,
+          workspaceId: workspaceState.workspace.id
+        )
+        state.workspaces[workspaceIndex].sessions[sessionIndex] = updatedMeta
+        break
+      }
+    }
+    return .none
   }
 
 }

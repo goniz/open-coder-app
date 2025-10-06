@@ -7,7 +7,7 @@ final class OpenCodeMessageTests: XCTestCase {
     let message = OpenCodeMessage(
       id: "test-id",
       sessionID: "test-session",
-      parts: [.text("Hello")],
+      parts: [.text("Hello", id: nil)],
       timestamp: Date(),
       role: .assistant,
       modelID: "gpt-4o",
@@ -21,7 +21,7 @@ final class OpenCodeMessageTests: XCTestCase {
     let message = OpenCodeMessage(
       id: "test-id",
       sessionID: "test-session",
-      parts: [.text("Hello")],
+      parts: [.text("Hello", id: nil)],
       timestamp: Date(),
       role: .assistant,
       modelID: "claude-3-5-sonnet",
@@ -35,7 +35,7 @@ final class OpenCodeMessageTests: XCTestCase {
     let message = OpenCodeMessage(
       id: "test-id",
       sessionID: "test-session", 
-      parts: [.text("Hello")],
+      parts: [.text("Hello", id: nil)],
       timestamp: Date(),
       role: .assistant,
       modelID: nil,
@@ -49,7 +49,7 @@ final class OpenCodeMessageTests: XCTestCase {
     let message = OpenCodeMessage(
       id: "test-id",
       sessionID: "test-session",
-      parts: [.text("Hello")],
+      parts: [.text("Hello", id: nil)],
       timestamp: Date(),
       role: .user,
       modelID: nil,

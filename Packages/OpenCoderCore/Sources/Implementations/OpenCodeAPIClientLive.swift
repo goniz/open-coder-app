@@ -142,6 +142,72 @@ extension LiveOpenCodeAPIClient {
 
 }
 
+// MARK: - Event Streaming
+
+extension LiveOpenCodeAPIClient {
+  public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error> {
+    log("OpenCode API: Subscribing to events stream")
+
+    let input = Operations.event_period_subscribe.Input()
+
+    do {
+      let response = try await client.event_period_subscribe(input)
+
+      switch response {
+      case let .ok(okResponse):
+        switch okResponse.body {
+        case let .text_event_hyphen_stream(httpBody):
+          return createEventStream(from: httpBody)
+        }
+      case let .undocumented(statusCode, _):
+        log(
+          "OpenCode API: Subscribe to events failed with status code: \(statusCode)",
+          level: .error
+        )
+        throw OpenCodeAPIError.serverError("Failed to subscribe to events: \(statusCode)")
+      }
+    } catch {
+      log("OpenCode API: Subscribe to events failed: \(error.localizedDescription)", level: .error)
+      throw error
+    }
+  }
+
+  private func createEventStream(
+    from httpBody: HTTPBody
+  ) -> AsyncThrowingStream<OpenCodeEvent, Error> {
+    return AsyncThrowingStream { continuation in
+      Task {
+        var parser = SSEEventParser()
+
+        do {
+          for try await chunk in httpBody {
+            guard let chunkString = String(bytes: chunk, encoding: .utf8) else {
+              continue
+            }
+
+            parser.ingest(chunkString) { eventJSON in
+              emitEvent(from: eventJSON, continuation: continuation)
+            }
+          }
+
+          parser.finish { eventJSON in
+            emitEvent(from: eventJSON, continuation: continuation)
+          }
+
+          log("OpenCode API: Event stream ended")
+          continuation.finish()
+        } catch {
+          log(
+            "OpenCode API: Event stream error: \(error.localizedDescription)",
+            level: .error
+          )
+          continuation.finish(throwing: error)
+        }
+      }
+    }
+  }
+}
+
 // MARK: - Project Operations
 
 extension LiveOpenCodeAPIClient {

@@ -2,6 +2,7 @@ import ComposableArchitecture
 import OpenCoderCore
 import ExyteChat
 import SwiftUI
+import UIKit
 
 struct ChatView: View {
   @Bindable var store: StoreOf<ChatFeature>
@@ -9,14 +10,18 @@ struct ChatView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
-        HStack(spacing: 8) {
-          Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
-            .lineLimit(1)
-            .truncationMode(.tail)
-          Spacer(minLength: 0)
-          sessionSelectorButton
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 8) {
+            Text(store.currentSessionTitle)
+              .font(.title2)
+              .fontWeight(.bold)
+              .lineLimit(1)
+              .truncationMode(.tail)
+            Spacer(minLength: 0)
+            sessionSelectorButton
+          }
+
+          connectionStatusIndicators
         }
         .padding(.horizontal, 12)
       }
@@ -41,8 +46,51 @@ struct ChatView: View {
           .padding()
       }
     }
-    .task {
+    .task(id: store.sessionID) {
       await store.send(.task).finish()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+      store.send(.appDidBecomeActive)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+      store.send(.appWillResignActive)
+    }
+    .onChange(of: store.scrollToBottomSequence) { _, _ in
+      NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+    }
+  }
+
+  private var connectionStatusIndicators: some View {
+    HStack(spacing: 8) {
+      HStack(spacing: 3) {
+        Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
+          .foregroundStyle(store.serverURL != nil ? .green : .red)
+          .font(.system(size: 10))
+
+        Text("SSH")
+          .font(.system(size: 10, weight: .medium))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color(.systemGray6))
+      .cornerRadius(4)
+
+      HStack(spacing: 3) {
+        Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
+          .foregroundStyle(store.isEventsConnected ? .green : .red)
+          .font(.system(size: 10))
+
+        Text("OC")
+          .font(.system(size: 10, weight: .medium))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color(.systemGray6))
+      .cornerRadius(4)
+
+      Spacer()
     }
   }
 

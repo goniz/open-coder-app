@@ -453,39 +453,7 @@ public struct SSHClient: SSHClientProtocol, Sendable {
     }
   }
 
-  private func withTimeout<T: Sendable>(
-    seconds: Int,
-    operation: @escaping @Sendable () async throws -> T
-  ) async throws -> T {
-    return try await withThrowingTaskGroup(of: T.self) { group in
-      group.addTask {
-        try await operation()
-      }
 
-      group.addTask {
-        try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
-        throw SSHError.commandFailed("Command execution timeout")
-      }
-
-      guard let result = try await group.next() else {
-        throw SSHError.commandFailed("No result from command execution")
-      }
-
-      group.cancelAll()
-      return result
-    }
-  }
-
-  private func getCommandOutput(from channel: Channel) async throws -> String {
-    // Access handler.futureResult on the channel's event loop to avoid syncOperations off-EL
-    let future: EventLoopFuture<String> = channel.eventLoop
-      .submit {
-        let handler = try channel.pipeline.syncOperations.handler(type: CommandOutputHandler.self)
-        return handler.completionFuture
-      }
-      .flatMap { $0 }
-    return try await future.get()
-  }
 
   public func execCleanCommand(
     _ baseCommand: String,

@@ -18,13 +18,19 @@ struct WorkspaceInteractionView: View {
       content
         .onAppear {
           if !hasInitialized {
+             let weakStore = store
              chatStore = withDependencies {
-               $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
-             } operation: {
-               Store(
-                 initialState: ChatFeature.State(thinkingBlocksEnabled: settings.thinkingBlocksEnabled)
-               ) { ChatFeature() }
-             }
+                $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+                $0.sessionUpdateClient = SessionUpdateClient { session in
+                  Task { @MainActor in
+                    weakStore.send(.sessionUpdated(session))
+                  }
+                }
+              } operation: {
+                Store(
+                  initialState: ChatFeature.State(thinkingBlocksEnabled: settings.thinkingBlocksEnabled)
+                ) { ChatFeature() }
+              }
             hasInitialized = true
             DispatchQueue.main.async {
               syncChat(state: viewStore.state)
@@ -199,7 +205,7 @@ struct ActivityTabView: View {
           }
         }
 
-        RecentLogsView()
+        LiveLogsView()
       }
     }
   }
@@ -228,37 +234,68 @@ struct PlaceholderView: View {
   }
 }
 
-struct RecentLogsView: View {
+struct LiveLogsView: View {
+  @ObservedObject private var logger = AppLogger.shared
+
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Recent Logs")
+      Text("Live Logs")
         .font(.headline)
-        .padding(.top)
-      ScrollView {
-        VStack(alignment: .leading, spacing: 4) {
-          ForEach(Array(AppLogger.shared.recentLogs.prefix(10)), id: \.id) { log in
-            HStack {
-              Image(systemName: log.level.icon)
-                .foregroundColor(log.level.color)
-                .font(.caption)
-              VStack(alignment: .leading) {
-                Text(log.message)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+
+      if logger.logEntries.isEmpty {
+        Text("No logs yet")
+          .font(.subheadline)
+          .foregroundColor(.secondary)
+          .padding(.horizontal, 12)
+          .padding(.bottom, 12)
+      } else {
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 4) {
+            ForEach(logger.logEntries) { log in
+              HStack(alignment: .top, spacing: 8) {
+                Image(systemName: log.level.icon)
+                  .foregroundColor(log.level.color)
                   .font(.caption)
-                  .lineLimit(2)
-                Text(log.timestamp, style: .time)
-                  .font(.caption2)
-                  .foregroundColor(.secondary)
+                  .frame(width: 16)
+
+                VStack(alignment: .leading, spacing: 2) {
+                  HStack {
+                    Text(log.category.rawValue)
+                      .font(.caption2)
+                      .foregroundColor(.secondary)
+                      .padding(.horizontal, 4)
+                      .padding(.vertical, 2)
+                      .background(Color.secondary.opacity(0.1))
+                      .cornerRadius(4)
+
+                    Text(log.formattedTimestamp)
+                      .font(.caption2)
+                      .foregroundColor(.secondary)
+
+                    Spacer()
+                  }
+
+                  Text(log.message)
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
               }
+              .padding(.horizontal, 8)
+              .padding(.vertical, 4)
             }
           }
+          .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 8)
+        .frame(maxHeight: 300)
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(8)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
       }
-      .frame(height: 200)
-      .background(Color.secondary.opacity(0.05))
-      .cornerRadius(8)
     }
-    .padding()
   }
 }
 

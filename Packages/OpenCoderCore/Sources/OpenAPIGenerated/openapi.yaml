@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: opencode
   description: opencode api
-  version: 0.13.5
+  version: 0.14.3
 paths:
   /project:
     get:
@@ -3399,6 +3399,31 @@ components:
       required:
         - type
         - properties
+    Event.file.watcher.updated:
+      type: object
+      properties:
+        type:
+          type: string
+          const: file.watcher.updated
+        properties:
+          type: object
+          properties:
+            file:
+              type: string
+            event:
+              anyOf:
+                - type: string
+                  const: add
+                - type: string
+                  const: change
+                - type: string
+                  const: unlink
+          required:
+            - file
+            - event
+      required:
+        - type
+        - properties
     Event.session.idle:
       type: object
       properties:
@@ -3467,31 +3492,6 @@ components:
       required:
         - type
         - properties
-    Event.file.watcher.updated:
-      type: object
-      properties:
-        type:
-          type: string
-          const: file.watcher.updated
-        properties:
-          type: object
-          properties:
-            file:
-              type: string
-            event:
-              anyOf:
-                - type: string
-                  const: add
-                - type: string
-                  const: change
-                - type: string
-                  const: unlink
-          required:
-            - file
-            - event
-      required:
-        - type
-        - properties
     Event.server.connected:
       type: object
       properties:
@@ -3532,10 +3532,10 @@ components:
         - $ref: '#/components/schemas/Event.permission.updated'
         - $ref: '#/components/schemas/Event.permission.replied'
         - $ref: '#/components/schemas/Event.file.edited'
+        - $ref: '#/components/schemas/Event.file.watcher.updated'
         - $ref: '#/components/schemas/Event.session.idle'
         - $ref: '#/components/schemas/Event.session.updated'
         - $ref: '#/components/schemas/Event.session.deleted'
         - $ref: '#/components/schemas/Event.session.error'
-        - $ref: '#/components/schemas/Event.file.watcher.updated'
         - $ref: '#/components/schemas/Event.server.connected'
         - $ref: '#/components/schemas/Event.ide.installed'

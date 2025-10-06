@@ -61,11 +61,14 @@ public struct ChatFeature: Sendable {
     public var serverURL: URL?
     public var sessions: [OpenCodeSession] = []
     public var isLoadingSessions = false
-    public var pendingMessageIDs: Set<String> = []
+    public var messagesAwaitingDetails: Set<String> = []
+    public var scrollToBottomSequence = 0
     public var draft = ChatDraftState()
     public var mediaPicker = ChatMediaPickerState()
     public var thinkingBlocksEnabled = true
     public var workspaceDisplayTitle: String?
+    public var isEventsConnected = false
+    public var shouldReconnectEvents = false
 
     public init(thinkingBlocksEnabled: Bool = true, workspaceDisplayTitle: String? = nil) {
       self.thinkingBlocksEnabled = thinkingBlocksEnabled
@@ -97,6 +100,10 @@ public struct ChatFeature: Sendable {
     case messagesLoaded([OpenCodeMessage])
     case messagesFailed(String)
     case messageReceived(OpenCodeMessage)
+    case messageUpdated(OpenCodeMessage)
+    case messagePartUpdated(sessionID: String, messageID: String, partID: String, part: MessagePart)
+    case messageDetailsLoaded(OpenCodeMessage)
+    case messageDetailsFailed(messageID: String, error: String)
     case messageSendCompleted(messageID: String)
     case messageSendFailed(messageID: String, error: String)
     case updateSession(String?)
@@ -113,10 +120,17 @@ public struct ChatFeature: Sendable {
     case mediaPickerPresented(Bool)
     case mediaPickerAttachmentsUpdated(Int)
     case messageMenuAction(DefaultMessageMenuAction, messageID: String)
+    case eventReceived(OpenCodeEvent)
+    case eventsConnected
+    case eventsDisconnected
+    case reconnectEvents
+    case appDidBecomeActive
+    case appWillResignActive
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
   @Dependency(\.openCodeConfiguration) var openCodeConfiguration
+  @Dependency(\.sessionUpdateClient) var sessionUpdateClient
 
   public init() {
   }
@@ -139,7 +153,8 @@ public struct ChatFeature: Sendable {
       return handleTask(state: &state)
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
-    case .messagesLoaded, .messagesFailed, .messageReceived,
+    case .messagesLoaded, .messagesFailed, .messageReceived, .messageUpdated, .messagePartUpdated,
+         .messageDetailsLoaded, .messageDetailsFailed,
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
@@ -149,6 +164,65 @@ public struct ChatFeature: Sendable {
       return handleLoadMore(state: &state)
     case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
+    case .eventsConnected, .eventsDisconnected, .eventReceived, .reconnectEvents,
+         .appDidBecomeActive, .appWillResignActive:
+      return handleEventActions(state: &state, action: action)
+    }
+  }
+
+  private func handleEventActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .eventsConnected:
+      state.isEventsConnected = true
+      state.shouldReconnectEvents = true
+      return .none
+    case .eventsDisconnected:
+      state.isEventsConnected = false
+      if state.shouldReconnectEvents && state.serverURL != nil {
+        return .send(.reconnectEvents)
+      }
+      return .none
+    case let .eventReceived(event):
+      return handleEventReceived(state: &state, event: event)
+    case .reconnectEvents:
+      guard let serverURL = state.serverURL else {
+        return .none
+      }
+      let factory = self.openCodeAPIFactory
+      return subscribeToEventsEffect(serverURL: serverURL, factory: factory)
+    case .appDidBecomeActive:
+      if !state.isEventsConnected && state.shouldReconnectEvents && state.serverURL != nil {
+        return .send(.reconnectEvents)
+      }
+      return .none
+    case .appWillResignActive:
+      return .none
+    default:
+      return .none
+    }
+  }
+
+  private func handleEventReceived(state: inout State, event: OpenCodeEvent) -> Effect<Action> {
+    switch event {
+    case let .sessionUpdated(session):
+      if let index = state.sessions.firstIndex(where: { $0.id == session.id }) {
+        state.sessions[index] = session
+      }
+      return .none
+    case let .sessionDeleted(sessionID):
+      state.sessions.removeAll { $0.id == sessionID }
+      if state.sessionID == sessionID {
+        state.sessionID = nil
+      }
+      return .none
+    case let .messageReceived(message):
+      return .send(.messageReceived(message))
+    case let .messageUpdated(message):
+      return .send(.messageUpdated(message))
+    case let .messagePartUpdated(sessionID, messageID, partID, part):
+      return .send(.messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: partID, part: part))
+    case .unknown:
+      return .none
     }
   }
 }

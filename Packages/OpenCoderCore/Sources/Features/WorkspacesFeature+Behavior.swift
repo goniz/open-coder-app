@@ -243,17 +243,21 @@ extension WorkspacesFeature {
        return false
      }
 
-     state.workspaces[index] = workspaceState
+      state.workspaces[index] = workspaceState
 
-     if isSelected {
-       state.workspaceInteraction?.onlineState = workspaceState.onlineState
-       state.workspaceInteraction?.workspace = workspaceState.workspace
-     }
+      if isSelected {
+        state.workspaceInteraction?.onlineState = workspaceState.onlineState
+        state.workspaceInteraction?.workspace = workspaceState.workspace
+        // Switch to chat tab when workspace goes online
+        if case .online = workspaceState.onlineState {
+          state.workspaceInteraction?.selectedTab = .chat
+        }
+      }
 
-     switch workspaceState.onlineState {
-     case .online: return true
-     case .idle, .spawning, .error: return false
-     }
+      switch workspaceState.onlineState {
+      case .online: return true
+      case .idle, .spawning, .error: return false
+      }
    }
 
    func handleWorkspaceOpened(

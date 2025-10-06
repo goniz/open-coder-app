@@ -82,20 +82,17 @@ public struct SessionMeta: Identifiable, Codable, Equatable, Sendable {
 
   public let id: String
   public var title: String
-  public var lastMessagePreview: String
   public var updatedAt: Date
   public var workspaceId: UUID
 
   public init(
     id: String,
     title: String,
-    lastMessagePreview: String = "",
     updatedAt: Date = Date(),
     workspaceId: UUID
   ) {
     self.id = id
     self.title = title
-    self.lastMessagePreview = lastMessagePreview
     self.updatedAt = updatedAt
     self.workspaceId = workspaceId
   }
@@ -141,14 +138,12 @@ public struct SessionMetaDTO: Codable, Sendable {
 
   let id: String
   let title: String
-  let lastMessagePreview: String
   let updatedAt: Date
   let workspaceId: UUID
 
   init(from session: SessionMeta) {
     self.id = session.id
     self.title = session.title
-    self.lastMessagePreview = session.lastMessagePreview
     self.updatedAt = session.updatedAt
     self.workspaceId = session.workspaceId
   }
@@ -157,7 +152,6 @@ public struct SessionMetaDTO: Codable, Sendable {
     SessionMeta(
       id: id,
       title: title,
-      lastMessagePreview: lastMessagePreview,
       updatedAt: updatedAt,
       workspaceId: workspaceId
     )

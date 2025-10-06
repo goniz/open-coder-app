@@ -12,7 +12,7 @@ struct IPAService {
             options: [.skipsHiddenFiles]
         )
         
-        let ipaFiles = try contents
+        let ipaFiles = contents
             .filter { $0.pathExtension.lowercased() == "ipa" }
             .compactMap { url -> IPAInfo? in
                 guard let attributes = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) else {
@@ -49,9 +49,7 @@ struct IPAService {
     }
     
     static func extractIPAMetadata(from ipaPath: String) throws -> IPAMetadata {
-        guard let archive = Archive(url: URL(fileURLWithPath: ipaPath), accessMode: .read) else {
-            throw OTAError.invalidIPA
-        }
+        let archive = try Archive(url: URL(fileURLWithPath: ipaPath), accessMode: .read)
         
         guard let infoPlistEntry = archive.first(where: { $0.path.contains(".app/Info.plist") }) else {
             throw OTAError.missingInfoPlist

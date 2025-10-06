@@ -37,7 +37,7 @@ struct Templates {
         """
     }
     
-    static func installHTML(appName: String, version: String, bundleId: String, installUrl: String, fileSize: String) -> String {
+    static func installHTML(appName: String, version: String, bundleId: String, installUrl: String, fileSize: String, modifiedTime: String) -> String {
         return """
         <!DOCTYPE html>
         <html lang="en">
@@ -126,6 +126,10 @@ struct Templates {
                         <span class="label">File Size:</span> 
                         <span class="value">\(fileSize)</span>
                     </div>
+                    <div class="info-item">
+                        <span class="label">Modified:</span> 
+                        <span class="value">\(modifiedTime)</span>
+                    </div>
                 </div>
                 
                 <p style="text-align: center; color: #6e6e73; font-size: 14px; margin-top: 30px;">
@@ -145,5 +149,14 @@ extension Int {
         let i = Int(log(Double(self)) / log(1024))
         let size = Double(self) / pow(1024, Double(i))
         return String(format: "%.1f %@", size, sizes[i])
+    }
+}
+
+extension Date {
+    func formatModifiedTime() -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: self)
     }
 }

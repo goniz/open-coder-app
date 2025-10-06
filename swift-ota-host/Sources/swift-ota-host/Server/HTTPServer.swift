@@ -32,19 +32,43 @@ final class HTTPHandler: ChannelInboundHandler {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
     
-    private let ipaInfo: IPAInfo
+    private let ipaPath: String
     private let config: ServerConfig
     private let baseUrl: String
     private let distDir: URL
     private var pendingRequest: HTTPRequestHead?
     private let onceExitManager: OnceExitManager?
     
-    init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String, onceExitManager: OnceExitManager?) {
-        self.ipaInfo = ipaInfo
+    init(ipaPath: String, config: ServerConfig, baseUrl: String, onceExitManager: OnceExitManager?) {
+        self.ipaPath = ipaPath
         self.config = config
         self.baseUrl = baseUrl
         self.distDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("dist/ota")
         self.onceExitManager = onceExitManager
+    }
+    
+    private func getLatestIPAInfo() -> IPAInfo? {
+        let url = URL(fileURLWithPath: ipaPath)
+        
+        guard let attributes = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) else {
+            return nil
+        }
+        
+        do {
+            let metadata = try IPAService.extractIPAMetadata(from: ipaPath)
+            return IPAInfo(
+                path: ipaPath,
+                bundleId: metadata.bundleId,
+                version: metadata.version,
+                displayName: metadata.displayName,
+                buildNumber: metadata.buildNumber,
+                size: attributes.fileSize ?? 0,
+                modifiedTime: attributes.contentModificationDate ?? Date()
+            )
+        } catch {
+            Logger.error("Failed to extract metadata from IPA: \(error)")
+            return nil
+        }
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -82,13 +106,20 @@ final class HTTPHandler: ChannelInboundHandler {
     }
     
     private func serveInstallPage(context: ChannelHandlerContext) {
+        guard let ipaInfo = getLatestIPAInfo() else {
+            Logger.error("❌ Failed to read IPA metadata")
+            serve404(context: context)
+            return
+        }
+        
         let installUrl = "itms-services://?action=download-manifest&url=\(baseUrl)/manifest.plist"
         let html = Templates.installHTML(
             appName: ipaInfo.displayName,
             version: ipaInfo.version,
             bundleId: ipaInfo.bundleId,
             installUrl: installUrl,
-            fileSize: ipaInfo.size.formatFileSize()
+            fileSize: ipaInfo.size.formatFileSize(),
+            modifiedTime: ipaInfo.modifiedTime.formatModifiedTime()
         )
         
         Logger.info("📄 Serving install page")
@@ -96,6 +127,12 @@ final class HTTPHandler: ChannelInboundHandler {
     }
     
     private func serveManifest(context: ChannelHandlerContext) {
+        guard let ipaInfo = getLatestIPAInfo() else {
+            Logger.error("❌ Failed to read IPA metadata")
+            serve404(context: context)
+            return
+        }
+        
         let manifest = Templates.manifestPlist(
             bundleId: ipaInfo.bundleId,
             version: ipaInfo.version,
@@ -108,8 +145,8 @@ final class HTTPHandler: ChannelInboundHandler {
     }
     
     private func serveIPA(context: ChannelHandlerContext) {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: ipaInfo.path)) else {
-            Logger.info("❌ IPA file not found: \(ipaInfo.path)")
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: ipaPath)) else {
+            Logger.info("❌ IPA file not found: \(ipaPath)")
             serve404(context: context)
             return
         }
@@ -153,15 +190,13 @@ final class HTTPHandler: ChannelInboundHandler {
         let buffer = context.channel.allocator.buffer(bytes: data)
         context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
         
-        let promise = context.eventLoop.makePromise(of: Void.self)
-        promise.futureResult.whenComplete { _ in
-            context.close(promise: nil)
+        nonisolated(unsafe) let unsafeContext = context
+        context.writeAndFlush(wrapOutboundOut(.end(nil))).whenComplete { _ in
+            unsafeContext.close(promise: nil)
         }
-        
-        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: promise)
     }
     
-    private func sendBinaryResponse(context: ChannelHandlerContext, data: Data, contentType: String, completion: @escaping () -> Void = {}) {
+    private func sendBinaryResponse(context: ChannelHandlerContext, data: Data, contentType: String, completion: @escaping @Sendable () -> Void = {}) {
         var headers = HTTPHeaders()
         headers.add(name: "Content-Type", value: contentType)
         headers.add(name: "Content-Length", value: "\(data.count)")
@@ -178,27 +213,25 @@ final class HTTPHandler: ChannelInboundHandler {
         let buffer = context.channel.allocator.buffer(bytes: data)
         context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
         
-        let promise = context.eventLoop.makePromise(of: Void.self)
-        promise.futureResult.whenComplete { _ in
+        nonisolated(unsafe) let unsafeContext = context
+        context.writeAndFlush(wrapOutboundOut(.end(nil))).whenComplete { _ in
             completion()
-            context.close(promise: nil)
+            unsafeContext.close(promise: nil)
         }
-        
-        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: promise)
     }
 }
 
 final class HTTPServer: @unchecked Sendable {
     private let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     private var channel: Channel?
-    private let ipaInfo: IPAInfo
+    private let ipaPath: String
     private let config: ServerConfig
     private let baseUrl: String
     private var certificates: CertificateFiles?
     private let onceExitManager: OnceExitManager?
     
-    init(ipaInfo: IPAInfo, config: ServerConfig, baseUrl: String) {
-        self.ipaInfo = ipaInfo
+    init(ipaPath: String, config: ServerConfig, baseUrl: String) {
+        self.ipaPath = ipaPath
         self.config = config
         self.baseUrl = baseUrl
         self.onceExitManager = config.once ? OnceExitManager(idleSeconds: 5) : nil
@@ -238,10 +271,10 @@ final class HTTPServer: @unchecked Sendable {
         
         Logger.info("🔄 Binding to \(config.hostname):\(config.port)...")
         
-        do {
+            do {
             channel = try await bootstrap.bind(host: config.hostname, port: config.port).get()
             Logger.info("🚀 OTA Server started successfully")
-            Logger.info("📱 App: \(ipaInfo.displayName) v\(ipaInfo.version)")
+            Logger.info("📱 IPA Path: \(ipaPath)")
             Logger.info("🌐 Install URL: \(baseUrl)/")
             Logger.info("📋 Direct install: itms-services://?action=download-manifest&url=\(baseUrl)/manifest.plist")
             Logger.info("⚙️  Mode: \(config.devMode ? "Development" : "Production")")
@@ -287,11 +320,11 @@ final class HTTPServer: @unchecked Sendable {
     
     private func configureHTTP(channel: Channel) -> EventLoopFuture<Void> {
         return channel.pipeline.configureHTTPServerPipeline().flatMap {
-            channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
+            channel.pipeline.addHandler(HTTPHandler(ipaPath: self.ipaPath, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
         }
     }
     
-    private func configureHTTPS(channel: Channel) -> EventLoopFuture<Void> {
+    @preconcurrency private func configureHTTPS(channel: Channel) -> EventLoopFuture<Void> {
         do {
             guard let certs = self.certificates else {
                 Logger.error("❌ No certificates available")
@@ -310,12 +343,11 @@ final class HTTPServer: @unchecked Sendable {
             tlsConfig.applicationProtocols = ["http/1.1"]
             
             let sslContext = try NIOSSLContext(configuration: tlsConfig)
-            let sslHandler = NIOSSLServerHandler(context: sslContext)
             
-            return channel.pipeline.addHandler(sslHandler).flatMap {
+            return channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext)).flatMap {
                 channel.pipeline.configureHTTPServerPipeline()
             }.flatMap {
-                channel.pipeline.addHandler(HTTPHandler(ipaInfo: self.ipaInfo, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
+                channel.pipeline.addHandler(HTTPHandler(ipaPath: self.ipaPath, config: self.config, baseUrl: self.baseUrl, onceExitManager: self.onceExitManager))
             }
         } catch {
             return channel.eventLoop.makeFailedFuture(error)

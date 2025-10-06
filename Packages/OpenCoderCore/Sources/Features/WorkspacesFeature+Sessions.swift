@@ -48,16 +48,11 @@ extension WorkspacesFeature {
     metadata.reserveCapacity(sessions.count)
 
     for session in sessions {
-      let messages = try? await apiClient.getMessages(sessionID: session.id)
-      let preview = previewText(for: messages ?? [])
-      let updatedAt = messages?.last?.timestamp ?? session.updatedAt
-
       metadata.append(
         SessionMeta(
           id: session.id,
           title: makeSessionTitle(for: session, workspace: workspace),
-          lastMessagePreview: preview,
-          updatedAt: updatedAt,
+          updatedAt: session.updatedAt,
           workspaceId: workspace.id
         )
       )
@@ -67,20 +62,13 @@ extension WorkspacesFeature {
     return (sortedMetadata, sessions)
   }
 
-  func previewText(for messages: [OpenCodeMessage]) -> String {
-    guard let lastMessage = messages.last else { return "" }
-    for part in lastMessage.parts {
-      if case let .text(content) = part {
-        return content
-      }
-    }
-    return ""
-  }
-
   func makeSessionTitle(
     for session: OpenCodeSession,
     workspace: Workspace
   ) -> String {
+    if let title = session.title, !title.isEmpty {
+      return title
+    }
     if session.id.hasPrefix(workspace.name) {
       return session.id
     }

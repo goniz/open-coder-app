@@ -16,6 +16,8 @@ public final class AppLogger: ObservableObject {
 
   private let maxLogsPerSession = 1000
   private let maxPreviousLogs = 2000
+  private var saveTask: Task<Void, Never>?
+  private var hasPendingSave = false
 
   private var documentsDirectory: URL {
     FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -69,23 +71,45 @@ public final class AppLogger: ObservableObject {
       logger.error("\(message)")
     }
 
-    // Auto-save current logs periodically
-    Task {
+    // Debounced save: only save after 2 seconds of no new logs
+    debouncedSave()
+  }
+
+  private func debouncedSave() {
+    saveTask?.cancel()
+    hasPendingSave = true
+
+    saveTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 2_000_000_000)
+      guard !Task.isCancelled, hasPendingSave else { return }
       await saveCurrentLogs()
+      hasPendingSave = false
     }
   }
 
   public func clearLogs() {
     logEntries.removeAll()
+    saveTask?.cancel()
     Task {
       await saveCurrentLogs()
+      hasPendingSave = false
     }
   }
 
   public func clearPreviousLogs() {
     previousLaunchLogs.removeAll()
+    saveTask?.cancel()
     Task {
       await savePreviousLogs()
+      hasPendingSave = false
+    }
+  }
+
+  public func flush() async {
+    saveTask?.cancel()
+    if hasPendingSave {
+      await saveCurrentLogs()
+      hasPendingSave = false
     }
   }
 

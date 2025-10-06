@@ -289,7 +289,7 @@ private extension LiveActivityFeature {
 
 private func summarizeResponse(_ message: OpenCodeMessage) -> String {
   for part in message.parts {
-    if case let .text(content) = part {
+    if case let .text(content, _) = part {
       return content
     }
   }

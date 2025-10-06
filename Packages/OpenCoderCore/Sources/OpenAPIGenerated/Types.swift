@@ -8465,6 +8465,127 @@ package enum Components {
                 case properties
             }
         }
+        /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated`.
+        package struct Event_period_file_period_watcher_period_updated: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/type`.
+            @frozen package enum _typePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case file_period_watcher_period_updated = "file.watcher.updated"
+            }
+            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/type`.
+            package var _type: Components.Schemas.Event_period_file_period_watcher_period_updated._typePayload
+            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties`.
+            package struct propertiesPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/file`.
+                package var file: Swift.String
+                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event`.
+                package struct eventPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value1`.
+                    @frozen package enum Value1Payload: String, Codable, Hashable, Sendable, CaseIterable {
+                        case add = "add"
+                    }
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value1`.
+                    package var value1: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value1Payload?
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value2`.
+                    @frozen package enum Value2Payload: String, Codable, Hashable, Sendable, CaseIterable {
+                        case change = "change"
+                    }
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value2`.
+                    package var value2: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value2Payload?
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value3`.
+                    @frozen package enum Value3Payload: String, Codable, Hashable, Sendable, CaseIterable {
+                        case unlink = "unlink"
+                    }
+                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value3`.
+                    package var value3: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value3Payload?
+                    /// Creates a new `eventPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - value1:
+                    ///   - value2:
+                    ///   - value3:
+                    package init(
+                        value1: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value1Payload? = nil,
+                        value2: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value2Payload? = nil,
+                        value3: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value3Payload? = nil
+                    ) {
+                        self.value1 = value1
+                        self.value2 = value2
+                        self.value3 = value3
+                    }
+                    package init(from decoder: any Decoder) throws {
+                        var errors: [any Error] = []
+                        do {
+                            self.value1 = try decoder.decodeFromSingleValueContainer()
+                        } catch {
+                            errors.append(error)
+                        }
+                        do {
+                            self.value2 = try decoder.decodeFromSingleValueContainer()
+                        } catch {
+                            errors.append(error)
+                        }
+                        do {
+                            self.value3 = try decoder.decodeFromSingleValueContainer()
+                        } catch {
+                            errors.append(error)
+                        }
+                        try Swift.DecodingError.verifyAtLeastOneSchemaIsNotNil(
+                            [
+                                self.value1,
+                                self.value2,
+                                self.value3
+                            ],
+                            type: Self.self,
+                            codingPath: decoder.codingPath,
+                            errors: errors
+                        )
+                    }
+                    package func encode(to encoder: any Encoder) throws {
+                        try encoder.encodeFirstNonNilValueToSingleValueContainer([
+                            self.value1,
+                            self.value2,
+                            self.value3
+                        ])
+                    }
+                }
+                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event`.
+                package var event: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload
+                /// Creates a new `propertiesPayload`.
+                ///
+                /// - Parameters:
+                ///   - file:
+                ///   - event:
+                package init(
+                    file: Swift.String,
+                    event: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload
+                ) {
+                    self.file = file
+                    self.event = event
+                }
+                package enum CodingKeys: String, CodingKey {
+                    case file
+                    case event
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties`.
+            package var properties: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload
+            /// Creates a new `Event_period_file_period_watcher_period_updated`.
+            ///
+            /// - Parameters:
+            ///   - _type:
+            ///   - properties:
+            package init(
+                _type: Components.Schemas.Event_period_file_period_watcher_period_updated._typePayload,
+                properties: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload
+            ) {
+                self._type = _type
+                self.properties = properties
+            }
+            package enum CodingKeys: String, CodingKey {
+                case _type = "type"
+                case properties
+            }
+        }
         /// - Remark: Generated from `#/components/schemas/Event.session.idle`.
         package struct Event_period_session_period_idle: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Event.session.idle/type`.
@@ -8710,127 +8831,6 @@ package enum Components {
                 case properties
             }
         }
-        /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated`.
-        package struct Event_period_file_period_watcher_period_updated: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/type`.
-            @frozen package enum _typePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case file_period_watcher_period_updated = "file.watcher.updated"
-            }
-            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/type`.
-            package var _type: Components.Schemas.Event_period_file_period_watcher_period_updated._typePayload
-            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties`.
-            package struct propertiesPayload: Codable, Hashable, Sendable {
-                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/file`.
-                package var file: Swift.String
-                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event`.
-                package struct eventPayload: Codable, Hashable, Sendable {
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value1`.
-                    @frozen package enum Value1Payload: String, Codable, Hashable, Sendable, CaseIterable {
-                        case add = "add"
-                    }
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value1`.
-                    package var value1: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value1Payload?
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value2`.
-                    @frozen package enum Value2Payload: String, Codable, Hashable, Sendable, CaseIterable {
-                        case change = "change"
-                    }
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value2`.
-                    package var value2: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value2Payload?
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value3`.
-                    @frozen package enum Value3Payload: String, Codable, Hashable, Sendable, CaseIterable {
-                        case unlink = "unlink"
-                    }
-                    /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event/value3`.
-                    package var value3: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value3Payload?
-                    /// Creates a new `eventPayload`.
-                    ///
-                    /// - Parameters:
-                    ///   - value1:
-                    ///   - value2:
-                    ///   - value3:
-                    package init(
-                        value1: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value1Payload? = nil,
-                        value2: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value2Payload? = nil,
-                        value3: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload.Value3Payload? = nil
-                    ) {
-                        self.value1 = value1
-                        self.value2 = value2
-                        self.value3 = value3
-                    }
-                    package init(from decoder: any Decoder) throws {
-                        var errors: [any Error] = []
-                        do {
-                            self.value1 = try decoder.decodeFromSingleValueContainer()
-                        } catch {
-                            errors.append(error)
-                        }
-                        do {
-                            self.value2 = try decoder.decodeFromSingleValueContainer()
-                        } catch {
-                            errors.append(error)
-                        }
-                        do {
-                            self.value3 = try decoder.decodeFromSingleValueContainer()
-                        } catch {
-                            errors.append(error)
-                        }
-                        try Swift.DecodingError.verifyAtLeastOneSchemaIsNotNil(
-                            [
-                                self.value1,
-                                self.value2,
-                                self.value3
-                            ],
-                            type: Self.self,
-                            codingPath: decoder.codingPath,
-                            errors: errors
-                        )
-                    }
-                    package func encode(to encoder: any Encoder) throws {
-                        try encoder.encodeFirstNonNilValueToSingleValueContainer([
-                            self.value1,
-                            self.value2,
-                            self.value3
-                        ])
-                    }
-                }
-                /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties/event`.
-                package var event: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload
-                /// Creates a new `propertiesPayload`.
-                ///
-                /// - Parameters:
-                ///   - file:
-                ///   - event:
-                package init(
-                    file: Swift.String,
-                    event: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload.eventPayload
-                ) {
-                    self.file = file
-                    self.event = event
-                }
-                package enum CodingKeys: String, CodingKey {
-                    case file
-                    case event
-                }
-            }
-            /// - Remark: Generated from `#/components/schemas/Event.file.watcher.updated/properties`.
-            package var properties: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload
-            /// Creates a new `Event_period_file_period_watcher_period_updated`.
-            ///
-            /// - Parameters:
-            ///   - _type:
-            ///   - properties:
-            package init(
-                _type: Components.Schemas.Event_period_file_period_watcher_period_updated._typePayload,
-                properties: Components.Schemas.Event_period_file_period_watcher_period_updated.propertiesPayload
-            ) {
-                self._type = _type
-                self.properties = properties
-            }
-            package enum CodingKeys: String, CodingKey {
-                case _type = "type"
-                case properties
-            }
-        }
         /// - Remark: Generated from `#/components/schemas/Event.server.connected`.
         package struct Event_period_server_period_connected: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Event.server.connected/type`.
@@ -8923,15 +8923,15 @@ package enum Components {
             /// - Remark: Generated from `#/components/schemas/Event/value10`.
             package var value10: Components.Schemas.Event_period_file_period_edited?
             /// - Remark: Generated from `#/components/schemas/Event/value11`.
-            package var value11: Components.Schemas.Event_period_session_period_idle?
+            package var value11: Components.Schemas.Event_period_file_period_watcher_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value12`.
-            package var value12: Components.Schemas.Event_period_session_period_updated?
+            package var value12: Components.Schemas.Event_period_session_period_idle?
             /// - Remark: Generated from `#/components/schemas/Event/value13`.
-            package var value13: Components.Schemas.Event_period_session_period_deleted?
+            package var value13: Components.Schemas.Event_period_session_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value14`.
-            package var value14: Components.Schemas.Event_period_session_period_error?
+            package var value14: Components.Schemas.Event_period_session_period_deleted?
             /// - Remark: Generated from `#/components/schemas/Event/value15`.
-            package var value15: Components.Schemas.Event_period_file_period_watcher_period_updated?
+            package var value15: Components.Schemas.Event_period_session_period_error?
             /// - Remark: Generated from `#/components/schemas/Event/value16`.
             package var value16: Components.Schemas.Event_period_server_period_connected?
             /// - Remark: Generated from `#/components/schemas/Event/value17`.
@@ -8967,11 +8967,11 @@ package enum Components {
                 value8: Components.Schemas.Event_period_permission_period_updated? = nil,
                 value9: Components.Schemas.Event_period_permission_period_replied? = nil,
                 value10: Components.Schemas.Event_period_file_period_edited? = nil,
-                value11: Components.Schemas.Event_period_session_period_idle? = nil,
-                value12: Components.Schemas.Event_period_session_period_updated? = nil,
-                value13: Components.Schemas.Event_period_session_period_deleted? = nil,
-                value14: Components.Schemas.Event_period_session_period_error? = nil,
-                value15: Components.Schemas.Event_period_file_period_watcher_period_updated? = nil,
+                value11: Components.Schemas.Event_period_file_period_watcher_period_updated? = nil,
+                value12: Components.Schemas.Event_period_session_period_idle? = nil,
+                value13: Components.Schemas.Event_period_session_period_updated? = nil,
+                value14: Components.Schemas.Event_period_session_period_deleted? = nil,
+                value15: Components.Schemas.Event_period_session_period_error? = nil,
                 value16: Components.Schemas.Event_period_server_period_connected? = nil,
                 value17: Components.Schemas.Event_period_ide_period_installed? = nil
             ) {

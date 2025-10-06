@@ -47,6 +47,15 @@ devcycle:
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}
 
+ota-host-unblock:
+    @echo "Unblocking swift-ota-host binary in firewall..."
+    cd swift-ota-host && \
+    swift build && \
+    codesign --sign - --force --deep .build/debug/swift-ota-host && \
+    sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add $(pwd)/.build/debug/swift-ota-host && \
+    sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblock $(pwd)/.build/debug/swift-ota-host && \
+    echo "✅ Binary unblocked and added to firewall"
+
 preview-ota *args:
     just preview && just ota-host --ipa ../bazel-bin/OpenCoder.preview.ipa {{args}}
 

@@ -21,30 +21,38 @@ enum ChatMessageMapper {
     let unsupportedParts: Set<ChatUnsupportedMessagePartKind>
   }
   static func buildMessages(
-    from messages: [OpenCodeMessage],
-    pendingMessageIDs: Set<String>
+    from messages: [OpenCodeMessage]
   ) -> BuildResult {
-    messages.reduce(into: BuildResult(
+    let startTime = CFAbsoluteTimeGetCurrent()
+
+    let result = messages.reduce(into: BuildResult(
       messages: [],
       enhancedParts: [:],
       unsupportedParts: []
     )) { result, message in
-      let mapped = map(message: message, isPending: pendingMessageIDs.contains(message.id))
+      let mapped = map(message: message)
       result.messages.append(mapped.message)
       if !mapped.enhancedParts.isEmpty {
         result.enhancedParts[message.id] = mapped.enhancedParts
       }
       result.unsupportedParts.formUnion(mapped.unsupportedParts)
     }
+
+    let timeElapsed = CFAbsoluteTimeGetCurrent() - startTime
+    if timeElapsed > 0.1 {
+      let msg = "⚠️ ChatMessageMapper.buildMessages took \(String(format: "%.3f", timeElapsed))s"
+      print("\(msg) for \(messages.count) messages")
+    }
+
+    return result
   }
 
   private static func map(
-    message: OpenCodeMessage,
-    isPending: Bool
+    message: OpenCodeMessage
   ) -> MessageResult {
     let content = textAndEnhancedParts(from: message.parts)
     let user = user(for: message.role, message: message)
-    let status = status(for: message.role, isPending: isPending)
+    let status = status(for: message.role)
 
     // Use fallback text if no text content but have enhanced parts
     let displayText = content.text.isEmpty && !content.enhancedParts.isEmpty
@@ -72,38 +80,12 @@ enum ChatMessageMapper {
     var enhancedParts: [EnhancedMessagePart] = []
 
     for part in parts {
-      switch part {
-      case let .text(content):
-        textSegments.append(content)
-        enhancedParts.append(.text(content))
-      case let .reasoning(content):
-        enhancedParts.append(.reasoning(content))
-      case let .file(path, content):
-        enhancedParts.append(.file(path: path, content: content, operation: .read))
-      case let .agent(content, agentType):
-        enhancedParts.append(.agent(content, agentType: agentType))
-      case let .tool(name, input, output, error):
-        let state: EnhancedMessagePart.ToolState
-        if let error = error, !error.isEmpty {
-          state = .error
-        } else if output.isEmpty {
-          state = .running
-        } else {
-          state = .completed
-        }
-        let toolInfo = EnhancedMessagePart.ToolCallInfo(
-          id: UUID().uuidString,
-          name: name,
-          state: state,
-          input: input,
-          output: output,
-          error: error
-        )
-        enhancedParts.append(.tool(toolInfo))
-      case let .patch(hash, files):
-        let title = "Patch (\(files.count) file\(files.count == 1 ? "" : "s"))"
-        let filesText = files.joined(separator: "\n")
-        enhancedParts.append(.patch(title, filePath: "Hash: \(hash)", diff: filesText))
+      let result = processMessagePart(part)
+      if let text = result.text {
+        textSegments.append(text)
+      }
+      if let enhanced = result.enhancedPart {
+        enhancedParts.append(enhanced)
       }
     }
 
@@ -112,6 +94,71 @@ enum ChatMessageMapper {
       enhancedParts: enhancedParts,
       unsupportedParts: []
     )
+  }
+
+  private static func processMessagePart(_ part: MessagePart) -> (text: String?, enhancedPart: EnhancedMessagePart?) {
+    switch part {
+    case let .text(content, _):
+      return (content, .text(content))
+    case let .reasoning(content, _):
+      return (nil, .reasoning(content))
+    case let .file(path, content, _):
+      return (nil, .file(path: path, content: content, operation: .read))
+    case let .agent(agentType, content, _):
+      return (nil, .agent(content, agentType: agentType))
+    case let .tool(name, input, output, error, _):
+      return (nil, createToolEnhancedPart(name: name, input: input, output: output, error: error))
+    case .patch:
+      return (nil, nil)
+    case .stepStart:
+      return (nil, nil)
+    case let .stepFinish(cost, inputTokens, outputTokens, id):
+      let part = createStepFinishEnhancedPart(
+        cost: cost,
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        id: id
+      )
+      return (nil, part)
+    case let .snapshot(content, id):
+      return (nil, .snapshot(content, snapshotID: id ?? ""))
+    }
+  }
+
+  private static func createToolEnhancedPart(
+    name: String,
+    input: String,
+    output: String,
+    error: String?
+  ) -> EnhancedMessagePart {
+    let state: EnhancedMessagePart.ToolState
+    if let error = error, !error.isEmpty {
+      state = .error
+    } else if output.isEmpty {
+      state = .running
+    } else {
+      state = .completed
+    }
+    let toolInfo = EnhancedMessagePart.ToolCallInfo(
+      id: UUID().uuidString,
+      name: name,
+      state: state,
+      input: input,
+      output: output,
+      error: error
+    )
+    return .tool(toolInfo)
+  }
+
+  private static func createStepFinishEnhancedPart(
+    cost: Double,
+    inputTokens: Double,
+    outputTokens: Double,
+    id: String?
+  ) -> EnhancedMessagePart? {
+    guard cost != 0 else { return nil }
+    let text = "Cost: $\(String(format: "%.4f", cost)), Tokens: \(Int(inputTokens)) in / \(Int(outputTokens)) out"
+    return .stepFinish(text, stepID: id ?? "", success: true)
   }
   private static func generateFallbackText(from enhancedParts: [EnhancedMessagePart]) -> String {
     let descriptions = enhancedParts.compactMap { part in
@@ -124,16 +171,16 @@ enum ChatMessageMapper {
         return "🔧 \(toolInfo.name)"
       case .agent(_, let agentType):
         return "🤖 \(agentType) agent"
-      case .stepStart(let text, _):
-        return "▶️ \(text)"
       case .stepFinish(let text, _, _):
         return "✅ \(text)"
       case .snapshot(let text, _):
         return "📸 \(text)"
-      case .patch(let text, _, _):
-        return "🔧 \(text)"
       case .reasoning:
         return "💭 Reasoning"
+      case .stepStart:
+        return nil
+      case .patch:
+        return nil
       }
     }
 
@@ -151,10 +198,10 @@ enum ChatMessageMapper {
     }
   }
 
-  private static func status(for role: MessageRole, isPending: Bool) -> Message.Status? {
+  private static func status(for role: MessageRole) -> Message.Status? {
     switch role {
     case .user:
-      return isPending ? .sending : .sent
+      return .sent
     case .assistant:
       return .read
     case .system:
@@ -166,8 +213,7 @@ enum ChatMessageMapper {
 extension ChatFeature.State {
   mutating func rebuildDerivedState() {
     let result = ChatMessageMapper.buildMessages(
-      from: messages,
-      pendingMessageIDs: pendingMessageIDs
+      from: messages
     )
     exyteMessages = result.messages
     enhancedMessageParts = result.enhancedParts
