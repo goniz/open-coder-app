@@ -73,6 +73,7 @@ public struct WorkspaceInteractionFeature: Sendable {
     case onlineStateChanged(WorkspaceOnlineState)
     case retryConnection
     case dismiss
+    case sessionUpdated(OpenCodeSession)
   }
 
   public init() {}
@@ -82,6 +83,10 @@ public struct WorkspaceInteractionFeature: Sendable {
   }
 
   public func core(state: inout State, action: Action) -> Effect<Action> {
+    return handleAction(state: &state, action: action)
+  }
+
+  private func handleAction(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
       return handleTaskAction(state: &state)
@@ -110,8 +115,8 @@ public struct WorkspaceInteractionFeature: Sendable {
     case .retryConnection:
       return handleRetryConnection(state: &state)
 
-    case .dismiss:
-      return .none // This action will be handled by the parent feature
+    case .dismiss, .sessionUpdated:
+      return .none // These actions will be handled by the parent feature
     }
   }
 

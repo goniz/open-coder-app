@@ -66,6 +66,9 @@ extension WorkspacesFeature {
     for session: OpenCodeSession,
     workspace: Workspace
   ) -> String {
+    if let title = session.title, !title.isEmpty {
+      return title
+    }
     if session.id.hasPrefix(workspace.name) {
       return session.id
     }

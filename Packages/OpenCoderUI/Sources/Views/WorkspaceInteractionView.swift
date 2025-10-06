@@ -18,13 +18,19 @@ struct WorkspaceInteractionView: View {
       content
         .onAppear {
           if !hasInitialized {
+             let weakStore = store
              chatStore = withDependencies {
-               $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
-             } operation: {
-               Store(
-                 initialState: ChatFeature.State(thinkingBlocksEnabled: settings.thinkingBlocksEnabled)
-               ) { ChatFeature() }
-             }
+                $0.openCodeAPIFactory = OpenCodeAPIClientFactory.live
+                $0.sessionUpdateClient = SessionUpdateClient { session in
+                  Task { @MainActor in
+                    weakStore.send(.sessionUpdated(session))
+                  }
+                }
+              } operation: {
+                Store(
+                  initialState: ChatFeature.State(thinkingBlocksEnabled: settings.thinkingBlocksEnabled)
+                ) { ChatFeature() }
+              }
             hasInitialized = true
             DispatchQueue.main.async {
               syncChat(state: viewStore.state)
