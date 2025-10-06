@@ -52,10 +52,19 @@ extension ChatFeature {
   }
 
   func handleMessageUpdated(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
+    guard state.sessionID == nil || state.sessionID == message.sessionID else {
+      return .none
+    }
+
     if let index = state.messages.firstIndex(where: { $0.id == message.id }) {
       state.messages[index] = message
-      state.rebuildDerivedState()
+    } else {
+      state.messages.append(message)
+      state.messages.sort { $0.timestamp < $1.timestamp }
     }
+
+    state.pendingMessageIDs.remove(message.id)
+    state.rebuildDerivedState()
     return .none
   }
 
@@ -66,30 +75,43 @@ extension ChatFeature {
     partID: String,
     part: MessagePart
   ) -> Effect<Action> {
-    guard let messageIndex = state.messages.firstIndex(where: { $0.id == messageID }) else {
+    guard state.sessionID == nil || state.sessionID == sessionID else {
       return .none
     }
 
-    let message = state.messages[messageIndex]
-    var updatedParts = message.parts
+    if let messageIndex = state.messages.firstIndex(where: { $0.id == messageID }) {
+      let message = state.messages[messageIndex]
+      var updatedParts = message.parts
 
-    if let partIndex = updatedParts.firstIndex(where: { $0.id == partID }) {
-      updatedParts[partIndex] = part
+      if let partIndex = updatedParts.firstIndex(where: { $0.id == partID }) {
+        updatedParts[partIndex] = part
+      } else {
+        updatedParts.append(part)
+      }
+
+      let updatedMessage = OpenCodeMessage(
+        id: message.id,
+        sessionID: message.sessionID,
+        parts: updatedParts,
+        timestamp: message.timestamp,
+        role: message.role,
+        modelID: message.modelID,
+        providerID: message.providerID
+      )
+
+      state.messages[messageIndex] = updatedMessage
     } else {
-      updatedParts.append(part)
+      let placeholder = OpenCodeMessage(
+        id: messageID,
+        sessionID: sessionID,
+        parts: [part],
+        timestamp: Date(),
+        role: .assistant
+      )
+      state.messages.append(placeholder)
+      state.messages.sort { $0.timestamp < $1.timestamp }
     }
 
-    let updatedMessage = OpenCodeMessage(
-      id: message.id,
-      sessionID: message.sessionID,
-      parts: updatedParts,
-      timestamp: message.timestamp,
-      role: message.role,
-      modelID: message.modelID,
-      providerID: message.providerID
-    )
-
-    state.messages[messageIndex] = updatedMessage
     state.rebuildDerivedState()
     return .none
   }
@@ -97,12 +119,14 @@ extension ChatFeature {
   func handleMessageSendCompleted(state: inout State, messageID: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = nil
+    state.pendingMessageIDs.remove(messageID)
     return .none
   }
 
   func handleMessageSendFailed(state: inout State, messageID: String, error: String) -> Effect<Action> {
     state.isLoading = false
     state.errorMessage = error
+    state.pendingMessageIDs.remove(messageID)
     if let index = state.messages.firstIndex(where: { $0.id == messageID }) {
       state.messages.remove(at: index)
     }

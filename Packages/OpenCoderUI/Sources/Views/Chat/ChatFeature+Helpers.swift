@@ -106,6 +106,7 @@ extension ChatFeature {
       createdAt: Date(),
       text: trimmedText
     ))
+    state.pendingMessageIDs.insert(messageID)
     state.draft = ChatDraftState()
     state.isLoading = true
 
