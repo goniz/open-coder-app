@@ -20,8 +20,6 @@ struct ChatView: View {
             .fixedSize(horizontal: false, vertical: true)
 
           settingsMenu
-
-          connectionStatusIndicators
         }
         .padding(.horizontal, 12)
       }
@@ -88,10 +86,14 @@ struct ChatView: View {
 
         Spacer(minLength: 4)
 
-        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
-          .font(.footnote.weight(.semibold))
-          .foregroundStyle(.tertiary)
-          .padding(.top, 2)
+        VStack(alignment: .trailing, spacing: 4) {
+          statusChips
+
+          Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.tertiary)
+        }
+        .padding(.top, 2)
       }
       .padding(.vertical, 6)
       .padding(.horizontal, 10)
@@ -103,38 +105,6 @@ struct ChatView: View {
       .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
-  }
-
-  private var connectionStatusIndicators: some View {
-    HStack(spacing: 8) {
-      HStack(spacing: 3) {
-        Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundStyle(store.serverURL != nil ? .green : .red)
-          .font(.system(size: 10))
-
-        Text("SSH")
-          .font(.system(size: 10, weight: .medium))
-          .foregroundStyle(.secondary)
-      }
-      .padding(.horizontal, 6)
-      .padding(.vertical, 3)
-      .background(Color(.systemGray6))
-      .cornerRadius(4)
-
-      HStack(spacing: 3) {
-        Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundStyle(store.isEventsConnected ? .green : .red)
-          .font(.system(size: 10))
-
-        Text("OC")
-          .font(.system(size: 10, weight: .medium))
-          .foregroundStyle(.secondary)
-      }
-      .padding(.horizontal, 6)
-      .padding(.vertical, 3)
-      .background(Color(.systemGray6))
-      .cornerRadius(4)
-    }
   }
 
   private var settingsSummary: String {
@@ -157,6 +127,36 @@ struct ChatView: View {
     }
 
     return [sessionText, providerText].joined(separator: " • ")
+  }
+
+  private var statusChips: some View {
+    HStack(spacing: 6) {
+      statusChip(
+        label: "SSH",
+        isActive: store.serverURL != nil
+      )
+
+      statusChip(
+        label: "OC",
+        isActive: store.isEventsConnected
+      )
+    }
+  }
+
+  private func statusChip(label: String, isActive: Bool) -> some View {
+    HStack(spacing: 3) {
+      Image(systemName: isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
+        .foregroundStyle(isActive ? Color.green : Color.red)
+        .font(.system(size: 9))
+
+      Text(label)
+        .font(.system(size: 9, weight: .semibold))
+        .foregroundStyle(.secondary)
+    }
+    .padding(.horizontal, 6)
+    .padding(.vertical, 3)
+    .background(Color(.systemGray5))
+    .cornerRadius(5)
   }
 
   private var sessionSelectorButton: some View {
