@@ -142,7 +142,7 @@ extension LiveOpenCodeAPIClient {
       modelID: modelID,
       providerID: providerID
     )
-    log("OpenCode API: Received message.updated event for message: \(message.id)")
+    log("Received message.updated: \(message.id)", level: .debug)
     return .messageUpdated(message)
   }
 
@@ -190,7 +190,7 @@ extension LiveOpenCodeAPIClient {
     let id = partJSON["id"] as? String ?? UUID().uuidString
     let part = parseMessagePart(partJSON) ?? parseMessagePartFromJSON(partJSON)
 
-    log("OpenCode API: Received message.part.updated for session: \(sessionID), message: \(messageID), part: \(id)")
+    log("Received message.part.updated: session=\(sessionID), msg=\(messageID), part=\(id)", level: .debug)
     return .messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: id, part: part)
   }
 
