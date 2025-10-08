@@ -142,22 +142,23 @@ public struct ReasoningPartRenderer: MessagePartRenderer {
   public func render(_ part: EnhancedMessagePart, message: Message) -> some View {
     Group {
       if case let .reasoning(content) = part {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
           HStack {
             Image(systemName: "brain.head.profile")
+              .font(.caption2)
               .foregroundColor(.orange)
             Text("Reasoning")
-              .font(.caption)
+              .font(.caption2)
               .foregroundColor(.orange)
               .fontWeight(.medium)
           }
 
           Text(content)
-            .font(.body)
+            .font(.caption.italic())
             .foregroundColor(.secondary)
-            .padding(8)
+            .padding(6)
             .background(Color.orange.opacity(0.1))
-            .cornerRadius(8)
+            .cornerRadius(6)
         }
       } else {
         EmptyView()
