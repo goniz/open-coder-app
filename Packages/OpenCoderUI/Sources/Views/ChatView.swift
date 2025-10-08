@@ -108,13 +108,6 @@ struct ChatView: View {
   }
 
   private var settingsSummary: String {
-    let sessionText: String
-    if let sessionID = store.sessionID, !sessionID.isEmpty {
-      sessionText = store.currentSessionTitle
-    } else {
-      sessionText = "Session not selected"
-    }
-
     let providerText: String
     if let provider = store.currentProvider {
       if let model = store.currentModel {
@@ -123,10 +116,10 @@ struct ChatView: View {
         providerText = provider.name
       }
     } else {
-      providerText = "Model not selected"
+      providerText = "Select provider & model"
     }
 
-    return [sessionText, providerText].joined(separator: " • ")
+    return providerText
   }
 
   private var statusChips: some View {
