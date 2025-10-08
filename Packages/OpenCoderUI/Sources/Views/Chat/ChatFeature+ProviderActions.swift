@@ -7,12 +7,12 @@ extension ChatFeature {
     case .fetchProviders:
       return handleFetchProviders(state: &state)
 
-    case let .providersLoaded(providers, defaultProviderID, defaultModelID):
+    case let .providersLoaded(providers, defaultProviderID, defaultModelIDsByProvider):
       return handleProvidersLoaded(
         state: &state,
         providers: providers,
         defaultProviderID: defaultProviderID,
-        defaultModelID: defaultModelID
+        defaultModelIDsByProvider: defaultModelIDsByProvider
       )
 
     case let .providersFailed(error):
@@ -23,7 +23,10 @@ extension ChatFeature {
     case let .selectProvider(providerID):
       state.selectedProviderID = providerID
       let provider = state.providers.first { $0.id == providerID }
-      state.selectedModelID = provider?.models.first?.id
+      state.selectedModelID = selectDefaultModel(
+        for: provider,
+        defaultModelIDsByProvider: state.defaultModelIDsByProvider
+      )
       return .none
 
     case let .selectModel(modelID):
@@ -51,7 +54,7 @@ extension ChatFeature {
         await send(.providersLoaded(
           providersWithDefaults.providers,
           defaultProviderID: providersWithDefaults.defaultProviderID,
-          defaultModelID: providersWithDefaults.defaultModelID
+          defaultModelIDsByProvider: providersWithDefaults.defaultModelIDsByProvider
         ))
       } catch {
         await send(.providersFailed(error.localizedDescription))
@@ -63,16 +66,17 @@ extension ChatFeature {
     state: inout State,
     providers: [Provider],
     defaultProviderID: String,
-    defaultModelID: String?
+    defaultModelIDsByProvider: [String: String]
   ) -> Effect<Action> {
     state.isLoadingProviders = false
     state.providers = providers
+    state.defaultModelIDsByProvider = defaultModelIDsByProvider
 
     validateAndUpdateSelections(
       state: &state,
       providers: providers,
       defaultProviderID: defaultProviderID,
-      defaultModelID: defaultModelID
+      defaultModelIDsByProvider: defaultModelIDsByProvider
     )
 
     return .none
@@ -82,13 +86,16 @@ extension ChatFeature {
     state: inout State,
     providers: [Provider],
     defaultProviderID: String,
-    defaultModelID: String?
+    defaultModelIDsByProvider: [String: String]
   ) {
     let currentProviderValid = state.selectedProviderID != nil &&
       providers.contains { $0.id == state.selectedProviderID }
 
     if !currentProviderValid {
-      state.selectedProviderID = defaultProviderID
+      let resolvedDefaultProviderID = defaultProviderID.isEmpty
+        ? providers.first?.id
+        : defaultProviderID
+      state.selectedProviderID = resolvedDefaultProviderID
     }
 
     let currentModelValid = state.selectedModelID != nil &&
@@ -97,18 +104,18 @@ extension ChatFeature {
     if !currentModelValid {
       state.selectedModelID = selectDefaultModel(
         for: state.currentProvider,
-        defaultModelID: defaultModelID
+        defaultModelIDsByProvider: defaultModelIDsByProvider
       )
     }
   }
 
   private func selectDefaultModel(
     for provider: Provider?,
-    defaultModelID: String?
+    defaultModelIDsByProvider: [String: String]
   ) -> String? {
     guard let provider = provider else { return nil }
 
-    if let defaultModelID = defaultModelID,
+    if let defaultModelID = defaultModelIDsByProvider[provider.id],
        provider.models.contains(where: { $0.id == defaultModelID }) {
       return defaultModelID
     }

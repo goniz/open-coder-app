@@ -73,6 +73,7 @@ public struct ChatFeature: Sendable {
     public var isLoadingProviders = false
     public var selectedProviderID: String?
     public var selectedModelID: String?
+    public var defaultModelIDsByProvider: [String: String] = [:]
 
     public init(thinkingBlocksEnabled: Bool = true, workspaceDisplayTitle: String? = nil) {
       self.thinkingBlocksEnabled = thinkingBlocksEnabled
@@ -145,7 +146,7 @@ public struct ChatFeature: Sendable {
     case appDidBecomeActive
     case appWillResignActive
     case fetchProviders
-    case providersLoaded([Provider], defaultProviderID: String, defaultModelID: String?)
+    case providersLoaded([Provider], defaultProviderID: String, defaultModelIDsByProvider: [String: String])
     case providersFailed(String)
     case selectProvider(String)
     case selectModel(String)

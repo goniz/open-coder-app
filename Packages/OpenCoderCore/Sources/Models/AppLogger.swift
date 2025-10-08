@@ -199,6 +199,10 @@ public struct LogEntry: Identifiable, Equatable, Sendable, Codable {
     formatter.dateStyle = .none
     return formatter.string(from: timestamp)
   }
+
+  public var clipboardText: String {
+    "[\(formattedTimestamp)] [\(level.rawValue)] [\(category.rawValue)] \(message)"
+  }
 }
 
 public enum LogLevel: String, CaseIterable, Sendable, Codable {

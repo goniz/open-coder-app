@@ -5,22 +5,21 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
+  @State private var isSettingsExpanded = false
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 8) {
-            Text(store.currentSessionTitle)
-              .font(.title2)
-              .fontWeight(.bold)
-              .lineLimit(1)
-              .truncationMode(.tail)
-            Spacer(minLength: 0)
-            ModelPickerView(store: store)
-            sessionSelectorButton
-          }
+        VStack(alignment: .leading, spacing: 12) {
+          Text(store.currentSessionTitle)
+            .font(.title2)
+            .fontWeight(.bold)
+            .multilineTextAlignment(.leading)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+
+          settingsMenu
 
           connectionStatusIndicators
         }
@@ -61,6 +60,37 @@ struct ChatView: View {
     }
   }
 
+  private var settingsMenu: some View {
+    DisclosureGroup(isExpanded: $isSettingsExpanded) {
+      VStack(alignment: .leading, spacing: 12) {
+        sessionSelectorButton
+        Divider()
+        ModelPickerView(store: store)
+      }
+      .padding(.top, 8)
+    } label: {
+      HStack(spacing: 8) {
+        Image(systemName: "slider.horizontal.3")
+          .font(.subheadline.weight(.semibold))
+        Text("Chat Settings")
+          .font(.subheadline.weight(.semibold))
+        Spacer()
+        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.vertical, 8)
+      .padding(.horizontal, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .fill(Color(.systemGray6))
+      )
+      .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+    .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
+  }
+
   private var connectionStatusIndicators: some View {
     HStack(spacing: 8) {
       HStack(spacing: 3) {
@@ -90,48 +120,44 @@ struct ChatView: View {
       .padding(.vertical, 3)
       .background(Color(.systemGray6))
       .cornerRadius(4)
-
-      Spacer()
     }
   }
 
   private var sessionSelectorButton: some View {
-    HStack(spacing: 4) {
-      if store.isLoadingSessions {
-        ProgressView()
-          .scaleEffect(0.8)
-      }
-      Menu {
-        Button {
-          store.send(.newSession)
-        } label: {
-          HStack {
-            Image(systemName: "plus")
-            Text("New Session")
-          }
-        }
-
-        if !store.sessions.isEmpty {
-          Divider()
-
-          ForEach(store.sessions) { session in
-            Button(session.displayTitle) {
-              store.send(.selectSession(session.id))
-            }
-          }
-        }
-
-        if store.sessions.isEmpty && !store.isLoadingSessions {
-          Text("No sessions available")
-            .foregroundStyle(.secondary)
-        }
+    Menu {
+      Button {
+        store.send(.newSession)
       } label: {
-        Image(systemName: "chevron.down.circle")
-          .font(.title3)
+        HStack {
+          Image(systemName: "plus")
+          Text("New Session")
+        }
+      }
+
+      if !store.sessions.isEmpty {
+        Divider()
+
+        ForEach(store.sessions) { session in
+          Button(session.displayTitle) {
+            store.send(.selectSession(session.id))
+          }
+        }
+      }
+
+      if store.sessions.isEmpty && !store.isLoadingSessions {
+        Text("No sessions available")
           .foregroundStyle(.secondary)
       }
-      .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
+    } label: {
+      SettingsPickerLabel(
+        title: "Session",
+        displayText: store.currentSessionTitle,
+        isPlaceholder: store.sessionID == nil,
+        isLoading: store.isLoadingSessions,
+        iconName: "bubble.left.and.text.bubble.right.fill"
+      )
     }
+    .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
   }
 
   private var sessionPlaceholder: some View {
@@ -150,7 +176,7 @@ struct ChatView: View {
   }
 }
 
-  private extension ChatView {
+private extension ChatView {
   var chatSurface: some View {
     ExyteChat.ChatView(
       messages: store.exyteMessages,

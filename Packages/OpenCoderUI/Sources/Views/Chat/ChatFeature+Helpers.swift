@@ -318,12 +318,15 @@ extension ChatFeature {
 
     // Clear cached client for old URL if it changed
     if let oldURL = oldURL, oldURL != url {
-      return .run { _ in
-        await SharedAPIClientCache.shared.removeClient(for: oldURL)
-      }
+      return .merge(
+        .run { _ in
+          await SharedAPIClientCache.shared.removeClient(for: oldURL)
+        },
+        url != nil ? .send(.fetchProviders) : .none
+      )
     }
 
-    return .none
+    return url != nil ? .send(.fetchProviders) : .none
   }
 
   func handleMessageDraftActions(state: inout State, action: Action) -> Effect<Action> {

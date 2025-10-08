@@ -271,7 +271,7 @@ private struct LogEntryView: View {
     compactLayout
       .contentShape(Rectangle())
       .onTapGesture {
-        copyToPasteboard(entry.message)
+        copyToPasteboard(entry.clipboardText)
       }
   }
 
