@@ -149,15 +149,15 @@ extension LiveOpenCodeAPIClient {
   package func extractTimestamp(from messageJSON: [String: Any]) -> Date {
     if let timeInfo = messageJSON["time"] as? [String: Any],
        let created = timeInfo["created"] as? Double {
-      return Date(timeIntervalSince1970: created)
+      return Date(timeIntervalSince1970: created / 1000.0)
     }
 
     if let timestampValue = messageJSON["timestamp"] as? Double {
-      return Date(timeIntervalSince1970: timestampValue)
+      return Date(timeIntervalSince1970: timestampValue / 1000.0)
     }
 
     if let createdAt = messageJSON["createdAt"] as? Double {
-      return Date(timeIntervalSince1970: createdAt)
+      return Date(timeIntervalSince1970: createdAt / 1000.0)
     }
 
     return Date()
