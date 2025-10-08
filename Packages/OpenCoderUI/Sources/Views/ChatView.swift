@@ -5,6 +5,7 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
+  @State private var isSettingsExpanded = false
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
@@ -17,6 +18,8 @@ struct ChatView: View {
             .multilineTextAlignment(.leading)
             .lineLimit(nil)
             .fixedSize(horizontal: false, vertical: true)
+
+          settingsMenu
 
           connectionStatusIndicators
         }
@@ -57,6 +60,37 @@ struct ChatView: View {
     }
   }
 
+  private var settingsMenu: some View {
+    DisclosureGroup(isExpanded: $isSettingsExpanded) {
+      VStack(alignment: .leading, spacing: 12) {
+        sessionSelectorButton
+        Divider()
+        ModelPickerView(store: store)
+      }
+      .padding(.top, 8)
+    } label: {
+      HStack(spacing: 8) {
+        Image(systemName: "slider.horizontal.3")
+          .font(.subheadline.weight(.semibold))
+        Text("Chat Settings")
+          .font(.subheadline.weight(.semibold))
+        Spacer()
+        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.vertical, 8)
+      .padding(.horizontal, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .fill(Color(.systemGray6))
+      )
+      .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+    .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
+  }
+
   private var connectionStatusIndicators: some View {
     HStack(spacing: 8) {
       HStack(spacing: 3) {
@@ -86,85 +120,44 @@ struct ChatView: View {
       .padding(.vertical, 3)
       .background(Color(.systemGray6))
       .cornerRadius(4)
-
-      Spacer(minLength: 0)
-      chatSettingsMenu
     }
   }
 
-  private var chatSettingsMenu: some View {
+  private var sessionSelectorButton: some View {
     Menu {
-      Section("Session") {
-        if store.isLoadingSessions {
-          Label("Loading sessions…", systemImage: "clock")
-            .foregroundStyle(.secondary)
-        } else {
-          Button {
-            store.send(.newSession)
-          } label: {
-            Label("New Session", systemImage: "plus")
-          }
+      Button {
+        store.send(.newSession)
+      } label: {
+        HStack {
+          Image(systemName: "plus")
+          Text("New Session")
+        }
+      }
 
-          if store.sessions.isEmpty {
-            Label("No sessions available", systemImage: "exclamationmark.triangle")
-              .foregroundStyle(.secondary)
-          } else {
-            Divider()
-            ForEach(store.sessions) { session in
-              Button(session.displayTitle) {
-                store.send(.selectSession(session.id))
-              }
-            }
+      if !store.sessions.isEmpty {
+        Divider()
+
+        ForEach(store.sessions) { session in
+          Button(session.displayTitle) {
+            store.send(.selectSession(session.id))
           }
         }
       }
 
-      Section("Provider & Model") {
-        if store.isLoadingProviders {
-          Label("Loading providers…", systemImage: "clock")
-            .foregroundStyle(.secondary)
-        } else if store.providers.isEmpty {
-          Label("No providers available", systemImage: "exclamationmark.triangle")
-            .foregroundStyle(.secondary)
-        } else {
-          ForEach(store.providers) { provider in
-            Menu {
-              if provider.models.isEmpty {
-                Text("No models available")
-                  .foregroundStyle(.secondary)
-              } else {
-                ForEach(provider.models) { model in
-                  Button(model.displayName) {
-                    store.send(.selectProvider(provider.id))
-                    store.send(.selectModel(model.id))
-                  }
-                }
-              }
-            } label: {
-              Label(
-                store.selectedProviderID == provider.id
-                  ? "\(provider.name) ✓"
-                  : provider.name,
-                systemImage: "person.text.rectangle"
-              )
-            }
-          }
-        }
+      if store.sessions.isEmpty && !store.isLoadingSessions {
+        Text("No sessions available")
+          .foregroundStyle(.secondary)
       }
     } label: {
-      HStack(spacing: 6) {
-        Image(systemName: "slider.horizontal.3")
-          .font(.subheadline.weight(.semibold))
-        Text("Chat Settings")
-          .font(.subheadline.weight(.semibold))
-      }
-      .padding(.horizontal, 10)
-      .padding(.vertical, 6)
-      .background(
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .fill(Color(.systemGray6))
+      SettingsPickerLabel(
+        title: "Session",
+        displayText: store.currentSessionTitle,
+        isPlaceholder: store.sessionID == nil,
+        isLoading: store.isLoadingSessions,
+        iconName: "bubble.left.and.text.bubble.right.fill"
       )
     }
+    .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
   }
 
   private var sessionPlaceholder: some View {
