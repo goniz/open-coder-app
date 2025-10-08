@@ -6,6 +6,7 @@ import UIKit
 
 struct ChatView: View {
   @State private var isSettingsExpanded = false
+  @State private var activeSettingsMenu: ActiveSettingsMenu?
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
@@ -56,13 +57,6 @@ struct ChatView: View {
     .onChange(of: store.scrollToBottomSequence) { _, _ in
       NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
     }
-    .simultaneousGesture(TapGesture().onEnded {
-      if isSettingsExpanded {
-        withAnimation(.easeInOut(duration: 0.2)) {
-          isSettingsExpanded = false
-        }
-      }
-    })
   }
 
   private var settingsMenu: some View {
@@ -70,7 +64,10 @@ struct ChatView: View {
       VStack(alignment: .leading, spacing: 12) {
         sessionSelectorButton
         Divider()
-        ModelPickerView(store: store)
+        ModelPickerView(
+          store: store,
+          isExpanded: binding(for: .model)
+        )
       }
       .padding(.top, 8)
     } label: {
@@ -111,6 +108,11 @@ struct ChatView: View {
       .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
+    .onChange(of: isSettingsExpanded) { _, newValue in
+      if !newValue {
+        activeSettingsMenu = nil
+      }
+    }
   }
 
   private var settingsSummary: String {
@@ -159,40 +161,21 @@ struct ChatView: View {
   }
 
   private var sessionSelectorButton: some View {
-    Menu {
-      Button {
-        store.send(.newSession)
-      } label: {
-        HStack {
-          Image(systemName: "plus")
-          Text("New Session")
-        }
-      }
-
-      if !store.sessions.isEmpty {
-        Divider()
-
-        ForEach(store.sessions) { session in
-          Button(session.displayTitle) {
-            store.send(.selectSession(session.id))
-          }
-        }
-      }
-
-      if store.sessions.isEmpty && !store.isLoadingSessions {
-        Text("No sessions available")
-          .foregroundStyle(.secondary)
-      }
-    } label: {
+    SettingsDropdown(
+      isExpanded: binding(for: .session),
+      isDisabled: store.isLoadingSessions
+    ) {
       SettingsPickerLabel(
         title: "Session",
         displayText: store.currentSessionTitle,
         isPlaceholder: store.sessionID == nil,
         isLoading: store.isLoadingSessions,
-        iconName: "bubble.left.and.text.bubble.right.fill"
+        iconName: "bubble.left.and.text.bubble.right.fill",
+        isActive: activeSettingsMenu == .session
       )
+    } content: { dismiss in
+      SessionPickerMenuContent(store: store, dismiss: dismiss)
     }
-    .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
   }
 
   private var sessionPlaceholder: some View {
@@ -208,10 +191,120 @@ struct ChatView: View {
     .font(.subheadline)
     .foregroundStyle(.secondary)
     .padding(.horizontal, 12)
+    .onTapGesture(perform: collapseSettings)
   }
 }
 
 private extension ChatView {
+  func binding(for menu: ActiveSettingsMenu) -> Binding<Bool> {
+    Binding(
+      get: { activeSettingsMenu == menu },
+      set: { newValue in
+        withAnimation(.easeInOut(duration: 0.2)) {
+          if newValue {
+            activeSettingsMenu = menu
+          } else if activeSettingsMenu == menu {
+            activeSettingsMenu = nil
+          }
+        }
+      }
+    )
+  }
+
+  enum ActiveSettingsMenu {
+    case session
+    case model
+  }
+
+  func collapseSettings() {
+    activeSettingsMenu = nil
+  }
+
+  struct SessionPickerMenuContent: View {
+    @Bindable var store: StoreOf<ChatFeature>
+    let dismiss: () -> Void
+
+    var body: some View {
+      VStack(alignment: .leading, spacing: 12) {
+        Button {
+          store.send(.newSession)
+          dismiss()
+        } label: {
+          HStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+              .foregroundStyle(Color.accentColor)
+            Text("New Session")
+              .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+          }
+          .padding(.vertical, 8)
+          .padding(.horizontal, 10)
+          .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+              .fill(Color(.systemGray6))
+          )
+        }
+        .buttonStyle(.plain)
+
+        if store.isLoadingSessions {
+          HStack(spacing: 8) {
+            ProgressView()
+            Text("Loading sessions…")
+              .foregroundStyle(.secondary)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        } else if store.sessions.isEmpty {
+          Text("No sessions available")
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+          Divider()
+          ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(store.sessions) { session in
+                let isSelected = store.sessionID == session.id
+                Button {
+                  store.send(.selectSession(session.id))
+                  dismiss()
+                } label: {
+                  HStack {
+                    Text(session.displayTitle)
+                      .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    Spacer(minLength: 0)
+                    if isSelected {
+                      Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                    }
+                  }
+                  .padding(.vertical, 8)
+                  .padding(.horizontal, 10)
+                  .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                      .fill(isSelected ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
+                  )
+                }
+                .buttonStyle(.plain)
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+          }
+          .frame(maxHeight: 260)
+        }
+      }
+      .padding(.vertical, 16)
+      .padding(.horizontal, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .fill(Color(.systemBackground))
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .stroke(Color(.systemGray4))
+      )
+    }
+  }
+
   var chatSurface: some View {
     ExyteChat.ChatView(
       messages: store.exyteMessages,
@@ -334,6 +427,7 @@ private extension ChatView {
       }()
     )
     .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity, alignment: Alignment.top)
+    .onTapGesture(perform: collapseSettings)
   }
 
   var unsupportedMessageDescription: String? {

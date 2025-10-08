@@ -6,6 +6,7 @@ struct SettingsPickerLabel: View {
   var isPlaceholder: Bool = false
   var isLoading: Bool = false
   var iconName: String?
+  var isActive: Bool = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -47,7 +48,10 @@ struct SettingsPickerLabel: View {
       )
       .overlay(
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .stroke(Color(.systemGray4))
+          .stroke(
+            isActive ? Color.accentColor : Color(.systemGray4),
+            lineWidth: isActive ? 2 : 1
+          )
       )
       .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
