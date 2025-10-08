@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import ComposableArchitecture
 import OpenCoderCore
 
@@ -45,6 +46,8 @@ struct ModelPickerView: View {
     }
     .onChange(of: isExpanded) { _, isExpanded in
       if isExpanded {
+        // Dismiss keyboard when dropdown expands
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         selectedProviderID = store.currentProvider?.id ?? selectedProviderID ?? store.providers.first?.id
       }
     }
