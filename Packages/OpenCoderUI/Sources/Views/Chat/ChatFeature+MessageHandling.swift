@@ -49,7 +49,24 @@ extension ChatFeature {
   }
 
   func handleMessageUpdated(state: inout State, message: OpenCodeMessage) -> Effect<Action> {
-    processIncomingMessage(state: &state, message: message, allowEnrichment: true)
+    // Avoid clearing parts when server sends message.updated without parts
+    if let index = state.messages.firstIndex(where: { $0.id == message.id }) {
+      let existing = state.messages[index]
+      let mergedParts = message.parts.isEmpty ? existing.parts : message.parts
+      let merged = OpenCodeMessage(
+        id: message.id,
+        sessionID: message.sessionID,
+        parts: mergedParts,
+        timestamp: message.timestamp,
+        role: message.role,
+        modelID: message.modelID,
+        providerID: message.providerID
+      )
+      state.messages[index] = merged
+      state.rebuildDerivedState()
+      return .none
+    }
+    return processIncomingMessage(state: &state, message: message, allowEnrichment: true)
   }
 
   func handleMessagePartUpdated(

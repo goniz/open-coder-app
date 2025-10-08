@@ -12,8 +12,8 @@ struct ChatMessageView: View {
   let messageActionClosure: (Message, DefaultMessageMenuAction) -> Void
   let showAttachmentClosure: (Attachment) -> Void
 
-  // Enhanced parts support
-  let enhancedParts: [EnhancedMessagePart]?
+  // Enhanced parts support (identified for stable rendering)
+  let identifiedParts: [ChatMessageMapper.IdentifiedEnhancedPart]?
   let thinkingBlocksEnabled: Bool
 
   public init(
@@ -24,7 +24,7 @@ struct ChatMessageView: View {
     showContextMenuClosure: @escaping () -> Void,
     messageActionClosure: @escaping (Message, DefaultMessageMenuAction) -> Void,
     showAttachmentClosure: @escaping (Attachment) -> Void,
-    enhancedParts: [EnhancedMessagePart]? = nil,
+    identifiedParts: [ChatMessageMapper.IdentifiedEnhancedPart]? = nil,
     thinkingBlocksEnabled: Bool = true
   ) {
     self.message = message
@@ -34,7 +34,7 @@ struct ChatMessageView: View {
     self.showContextMenuClosure = showContextMenuClosure
     self.messageActionClosure = messageActionClosure
     self.showAttachmentClosure = showAttachmentClosure
-    self.enhancedParts = enhancedParts
+    self.identifiedParts = identifiedParts
     self.thinkingBlocksEnabled = thinkingBlocksEnabled
   }
 
@@ -65,10 +65,10 @@ struct ChatMessageView: View {
             .cornerRadius(8)
         }
 
-        if let enhancedParts = enhancedParts, !enhancedParts.isEmpty {
+        if let identifiedParts = identifiedParts, !identifiedParts.isEmpty {
           ChatMessageViewContent(
             message: message,
-            enhancedParts: enhancedParts,
+            identifiedParts: identifiedParts,
             thinkingBlocksEnabled: thinkingBlocksEnabled
           )
         } else if !message.text.isEmpty {
@@ -166,16 +166,14 @@ struct ChatMessageView: View {
     if !message.text.isEmpty {
       return true
     }
-    if let enhancedParts = enhancedParts {
-      let visibleParts = enhancedParts.filter { part in
-        if case .reasoning = part, !thinkingBlocksEnabled {
+    if let identifiedParts = identifiedParts {
+      let visible = identifiedParts.filter { identified in
+        if case .reasoning = identified.part, !thinkingBlocksEnabled {
           return false
         }
         return true
       }
-      if !visibleParts.isEmpty {
-        return true
-      }
+      if !visible.isEmpty { return true }
     }
     if !message.attachments.isEmpty {
       return true
@@ -194,19 +192,19 @@ struct ChatMessageView: View {
 
 struct ChatMessageViewContent: View {
   let message: Message
-  let enhancedParts: [EnhancedMessagePart]
+  let identifiedParts: [ChatMessageMapper.IdentifiedEnhancedPart]
   let thinkingBlocksEnabled: Bool
 
   var body: some View {
     let renderer = CompositeMessageRenderer(thinkingBlocksEnabled: thinkingBlocksEnabled)
     if message.user.isCurrentUser {
-      renderer.render(parts: enhancedParts, message: message)
+      renderer.render(identifiedParts: identifiedParts, message: message)
         .padding(12)
         .background(AppColorType.green.color.opacity(0.8))
         .foregroundColor(.white)
         .cornerRadius(18)
     } else {
-      renderer.render(parts: enhancedParts, message: message)
+      renderer.render(identifiedParts: identifiedParts, message: message)
         .foregroundColor(.primary)
     }
   }

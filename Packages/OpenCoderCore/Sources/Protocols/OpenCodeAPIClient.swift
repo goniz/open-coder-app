@@ -19,7 +19,12 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
   func getCurrentProject() async throws -> OpenCodeProject?
 
   // Message Operations
-  func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage
+  func sendMessage(
+    sessionID: String,
+    parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) async throws -> OpenCodeMessage
   func getMessages(sessionID: String) async throws -> [OpenCodeMessage]
   func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage
 
@@ -165,16 +170,6 @@ public struct OpenCodeConfig: Equatable, Sendable {
   }
 }
 
-public struct OpenCodeProviders: Equatable, Sendable {
-  public let providers: [String: [String: String]]
-  public let defaultProvider: String
-
-  public init(providers: [String: [String: String]], defaultProvider: String) {
-    self.providers = providers
-    self.defaultProvider = defaultProvider
-  }
-}
-
 // MARK: - Error Handling
 
 public enum OpenCodeAPIError: Error, Equatable, Sendable {
@@ -287,15 +282,20 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     return projects.first
   }
 
-  public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
+  public func sendMessage(
+    sessionID: String,
+    parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) async throws -> OpenCodeMessage {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
       parts: parts,
       timestamp: Date(),
       role: .user,
-      modelID: nil,
-      providerID: nil
+      modelID: modelID,
+      providerID: providerID
     )
     return message
   }
@@ -348,8 +348,10 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
 
   public func listProviders() async throws -> OpenCodeProviders {
     return OpenCodeProviders(
-      providers: ["openai": ["gpt-4": "GPT-4"]],
-      defaultProvider: "openai"
+      providers: ["openai": OpenCodeProviderInfo(name: "OpenAI", models: ["gpt-4": "GPT-4"])],
+      defaultModelsByProvider: ["openai": "gpt-4"],
+      primaryDefaultProviderID: "openai",
+      primaryDefaultModelID: "gpt-4"
     )
   }
 

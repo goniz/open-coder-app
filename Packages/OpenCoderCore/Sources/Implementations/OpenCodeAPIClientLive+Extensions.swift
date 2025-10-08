@@ -183,61 +183,208 @@ extension LiveOpenCodeAPIClient {
    }
 
   public func listProviders() async throws -> OpenCodeProviders {
-     let input = Operations.config_period_providers.Input()
+    let input = Operations.config_period_providers.Input()
 
-     return try await performAPICall(
-       "Listing providers",
-       input: input,
-       apiCall: client.config_period_providers
-     ) { response in
-       switch response {
-       case let .ok(okResponse):
-         switch okResponse.body {
-         case let .json(providersData):
-           let providerDict = buildProviderDictionary(from: providersData.providers)
-           let defaultProvider = extractDefaultProvider(
-             from: providersData._default,
-             fallback: providersData.providers.first?.id
-           )
+    do {
+      return try await performAPICall(
+        "Listing providers",
+        input: input,
+        apiCall: client.config_period_providers
+      ) { response in
+        switch response {
+        case let .ok(okResponse):
+          switch okResponse.body {
+          case let .json(providersData):
+            let providerDict = Self.buildProviderDictionary(from: providersData.providers)
+            let defaults = Self.extractDefaults(
+              from: providersData._default,
+              fallback: providersData.providers.first?.id
+            )
 
-           return OpenCodeProviders(
-             providers: providerDict,
-             defaultProvider: defaultProvider
-           )
-         }
-       case let .undocumented(statusCode, _):
-         return try handleUndocumentedResponse("list providers", statusCode: statusCode)
-       }
-     }
-   }
+            if defaults.didUseFallback {
+              let fallbackProviderID = defaults.primaryProviderID ?? "unknown"
+              let message =
+                "OpenCode API: Providers response missing _default; using fallback provider '\(fallbackProviderID)'"
+              log(message, level: .warning)
+            }
 
-  private func buildProviderDictionary(from providers: [Components.Schemas.Provider]) -> [String: [String: String]] {
-     var providerDict: [String: [String: String]] = [:]
-
-      for provider in providers {
-        var models: [String: String] = [:]
-
-        for (modelId, model) in provider.models.additionalProperties {
-          models[modelId] = model.name
+            return OpenCodeProviders(
+              providers: providerDict,
+              defaultModelsByProvider: defaults.modelIDsByProvider,
+              primaryDefaultProviderID: defaults.primaryProviderID,
+              primaryDefaultModelID: defaults.primaryModelID
+            )
+          }
+        case let .undocumented(statusCode, _):
+          return try handleUndocumentedResponse("list providers", statusCode: statusCode)
         }
+      }
+    } catch {
+      if shouldAttemptManualProviderFetch(for: error) {
+        log("OpenCode API: Falling back to manual provider decoding due to \(error)", level: .warning)
+        return try await manuallyFetchProviders()
+      }
+      throw error
+    }
+  }
 
-        if models.isEmpty {
-          models[provider.id] = provider.name
-        }
+  static func buildProviderDictionary(
+    from providers: [Components.Schemas.Provider]
+  ) -> [String: OpenCodeProviderInfo] {
+    var providerDict: [String: OpenCodeProviderInfo] = [:]
 
-        providerDict[provider.id] = models
+    for provider in providers {
+      var models: [String: String] = [:]
+
+      for (modelId, model) in provider.models.additionalProperties {
+        models[modelId] = model.name
       }
 
-     return providerDict
-   }
+      if models.isEmpty {
+        models[provider.id] = provider.name
+      }
 
-   private func extractDefaultProvider(
+      providerDict[provider.id] = OpenCodeProviderInfo(
+        name: provider.name,
+        models: models
+      )
+    }
+
+    return providerDict
+  }
+
+  struct ProviderDefaults: Equatable {
+    let primaryProviderID: String?
+    let primaryModelID: String?
+    let modelIDsByProvider: [String: String]
+    let didUseFallback: Bool
+  }
+
+  static func extractDefaults(
     from defaultData: Operations.config_period_providers.Output.Ok.Body.jsonPayload._defaultPayload,
     fallback: String?
-  ) -> String {
-     if let provider = defaultData.additionalProperties.keys.first {
-       return provider
-     }
-     return fallback ?? "openai"
+  ) -> ProviderDefaults {
+    let defaults = defaultData.additionalProperties
+
+    if defaults.isEmpty {
+      return ProviderDefaults(
+        primaryProviderID: fallback,
+        primaryModelID: fallback.flatMap { defaults[$0] },
+        modelIDsByProvider: defaults,
+        didUseFallback: true
+      )
+    }
+
+    let normalizedFallback = fallback?.lowercased()
+    let fallbackMatch = normalizedFallback.flatMap { id in
+      defaults.first { key, _ in key.lowercased() == id }
+    }
+
+    let primaryEntry: (key: String, value: String)?
+    if let match = fallbackMatch {
+      primaryEntry = match
+    } else {
+      primaryEntry = defaults.sorted { $0.key < $1.key }.first
+    }
+
+    let resolvedProviderID = primaryEntry?.key ?? fallback
+    let primaryModelID = primaryEntry?.value ?? fallback.flatMap { defaults[$0] }
+    let didUseFallback = fallbackMatch == nil && (primaryEntry == nil)
+
+    return ProviderDefaults(
+      primaryProviderID: resolvedProviderID,
+      primaryModelID: primaryModelID,
+      modelIDsByProvider: defaults,
+      didUseFallback: didUseFallback
+    )
+  }
+
+  private func shouldAttemptManualProviderFetch(for error: Error) -> Bool {
+    guard let clientError = error as? ClientError else {
+      return false
+    }
+
+    if clientError.causeDescription == "Unknown",
+       clientError.underlyingError is DecodingError {
+      return true
+    }
+
+    return false
+  }
+
+  private func manuallyFetchProviders() async throws -> OpenCodeProviders {
+    let providersURL = configuration.serverURL.appendingPathComponent("config/providers")
+    var request = URLRequest(url: providersURL)
+    request.timeoutInterval = configuration.timeout
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+    let (data, response) = try await URLSession.shared.data(for: request)
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw OpenCodeAPIError.serverError("Invalid response when fetching providers")
+    }
+
+    guard (200..<300).contains(httpResponse.statusCode) else {
+      throw OpenCodeAPIError.serverError("Failed to fetch providers: \(httpResponse.statusCode)")
+    }
+
+    let decoder = JSONDecoder()
+     let payload = try decoder.decode(ManualProvidersResponse.self, from: data)
+
+     let providerDict = Dictionary(uniqueKeysWithValues: payload.providers.map { provider in
+       let normalizedModels = provider.models.reduce(into: [String: String]()) { result, element in
+         let modelID = element.key
+         let model = element.value
+         let displayName = model.name?.isEmpty == false ? model.name! : (model.id ?? modelID)
+         result[modelID] = displayName
+       }
+
+       let models = normalizedModels.isEmpty
+         ? [provider.id: provider.name]
+         : normalizedModels
+
+       return (
+         provider.id,
+         OpenCodeProviderInfo(
+           name: provider.name,
+           models: models
+         )
+       )
+     })
+
+     let defaults = payload.defaultModels?.compactMapValues { $0 } ?? [:]
+     let primaryDefaultProviderID =
+       payload.providers.first(where: { defaults[$0.id] != nil })?.id
+       ?? payload.providers.first?.id
+     let primaryDefaultModelID = primaryDefaultProviderID.flatMap { defaults[$0] }
+
+     return OpenCodeProviders(
+       providers: providerDict,
+       defaultModelsByProvider: defaults,
+       primaryDefaultProviderID: primaryDefaultProviderID,
+       primaryDefaultModelID: primaryDefaultModelID
+     )
    }
+
+}
+
+private struct ManualProviderModelPayload: Decodable {
+  let id: String?
+  let name: String?
+}
+
+private struct ManualProviderPayload: Decodable {
+  let id: String
+  let name: String
+  let models: [String: ManualProviderModelPayload]
+}
+
+private struct ManualProvidersResponse: Decodable {
+  let providers: [ManualProviderPayload]
+  let defaultModels: [String: String?]?
+
+  private enum CodingKeys: String, CodingKey {
+    case providers
+    case defaultModels = "default"
+  }
 }

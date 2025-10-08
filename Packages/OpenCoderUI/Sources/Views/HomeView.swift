@@ -3,6 +3,7 @@ import OpenCoderCore
 import SwiftUI
 
 struct HomeView: View {
+  @Environment(\.scenePhase) private var scenePhase
   @Bindable var store: StoreOf<HomeFeature>
   var liveActivityStore: StoreOf<LiveActivityFeature>?
 
@@ -41,6 +42,16 @@ struct HomeView: View {
           Label("Settings", systemImage: "gear")
         }
         .tag(HomeFeature.Tab.settings)
+    }
+    .onChange(of: scenePhase) { _, newPhase in
+      switch newPhase {
+      case .active:
+        store.send(.servers(.appWillEnterForeground))
+      case .background:
+        store.send(.servers(.appDidEnterBackground))
+      default:
+        break
+      }
     }
   }
 }

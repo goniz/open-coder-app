@@ -11,15 +11,11 @@ update:
     swift package --package-path Packages/OpenCoderApp/Sources update
     swift package update
 
-lint:
-    swiftlint Packages/OpenCoderCore/Sources --strict
-    swiftlint Packages/OpenCoderUI/Sources --strict  
-    swiftlint Packages/OpenCoderApp/Sources --strict
+lint args="":
+    swiftlint Packages/OpenCoderCore/Sources Packages/OpenCoderUI/Sources Packages/OpenCoderApp/Sources --strict {{args}}
 
-fix:
-    swiftlint Packages/OpenCoderCore/Sources --fix
-    swiftlint Packages/OpenCoderUI/Sources --fix
-    swiftlint Packages/OpenCoderApp/Sources --fix
+fix args="":
+    swiftlint Packages/OpenCoderCore/Sources Packages/OpenCoderUI/Sources Packages/OpenCoderApp/Sources --fix {{args}}
 
 fmt:
     swift-format --in-place --recursive Packages/OpenCoderCore/Sources/
@@ -33,16 +29,13 @@ build-ios:
 beta:
     cd Xcode && fastlane appstore
 
-preview:
-    cd Xcode && fastlane preview
-
-check_builds:
-    cd Xcode && fastlane check_builds
+preview args="":
+    cd Xcode && fastlane preview {{args}}
 
 devcycle:
-    just fix && \
-    just lint && \
-    just preview
+    just fix --quiet && \
+    just lint --quiet && \
+    just preview quiet:true
 
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}

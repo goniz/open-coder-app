@@ -16,6 +16,9 @@ swift_test(
         ["Tests/ImplementationsTests/*.swift"],
         exclude = ["Tests/ImplementationsTests/SSHClientIntegrationTests.swift"],
     ),
+    data = [
+        "Tests/ImplementationsTests/Fixtures/config_providers_response.json",
+    ],
     deps = [
         "@swiftpkg_opencodercore//:OpenCoderCore",
     ],

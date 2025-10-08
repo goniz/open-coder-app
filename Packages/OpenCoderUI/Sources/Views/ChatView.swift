@@ -5,23 +5,23 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
+  @State private var isSettingsExpanded = false
+  @State private var activeSettingsMenu: ActiveSettingsMenu?
+  @State private var isAutoScrollEnabled = true
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 8) {
-            Text(store.currentSessionTitle)
-              .font(.title2)
-              .fontWeight(.bold)
-              .lineLimit(1)
-              .truncationMode(.tail)
-            Spacer(minLength: 0)
-            sessionSelectorButton
-          }
+        VStack(alignment: .leading, spacing: 12) {
+          Text(store.currentSessionTitle)
+            .font(.title2)
+            .fontWeight(.bold)
+            .multilineTextAlignment(.leading)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
 
-          connectionStatusIndicators
+          settingsMenu
         }
         .padding(.horizontal, 12)
       }
@@ -56,80 +56,132 @@ struct ChatView: View {
       store.send(.appWillResignActive)
     }
     .onChange(of: store.scrollToBottomSequence) { _, _ in
-      NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+      guard isAutoScrollEnabled else { return }
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+      }
+    }
+    .onChange(of: store.sessionID) { _, _ in
+      isAutoScrollEnabled = true
     }
   }
 
-  private var connectionStatusIndicators: some View {
-    HStack(spacing: 8) {
-      HStack(spacing: 3) {
-        Image(systemName: store.serverURL != nil ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundStyle(store.serverURL != nil ? .green : .red)
-          .font(.system(size: 10))
-
-        Text("SSH")
-          .font(.system(size: 10, weight: .medium))
-          .foregroundStyle(.secondary)
+  private var settingsMenu: some View {
+    DisclosureGroup(isExpanded: $isSettingsExpanded) {
+      VStack(alignment: .leading, spacing: 12) {
+        sessionSelectorButton
+        Divider()
+        ModelPickerView(
+          store: store,
+          isExpanded: binding(for: .model)
+        )
       }
-      .padding(.horizontal, 6)
-      .padding(.vertical, 3)
-      .background(Color(.systemGray6))
-      .cornerRadius(4)
-
-      HStack(spacing: 3) {
-        Image(systemName: store.isEventsConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
-          .foregroundStyle(store.isEventsConnected ? .green : .red)
-          .font(.system(size: 10))
-
-        Text("OC")
-          .font(.system(size: 10, weight: .medium))
+      .padding(.top, 8)
+    } label: {
+      HStack(alignment: .top, spacing: 10) {
+        Image(systemName: "slider.horizontal.3")
+          .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
-      }
-      .padding(.horizontal, 6)
-      .padding(.vertical, 3)
-      .background(Color(.systemGray6))
-      .cornerRadius(4)
 
-      Spacer()
+        VStack(alignment: .leading, spacing: 6) {
+          Text("Chat Settings")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.primary)
+
+          Text(settingsSummary)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
+
+          statusChips
+            .padding(.top, 2)
+        }
+
+        Spacer(minLength: 4)
+
+        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.tertiary)
+          .padding(.top, 2)
+      }
+      .padding(.vertical, 6)
+      .padding(.horizontal, 10)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+          .fill(Color(.systemGray6))
+      )
+      .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
+    .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
+    .onChange(of: isSettingsExpanded) { _, newValue in
+      if !newValue {
+        activeSettingsMenu = nil
+      }
+    }
+  }
+
+  private var settingsSummary: String {
+    let providerText: String
+    if let provider = store.currentProvider {
+      if let model = store.currentModel {
+        providerText = "\(provider.name) · \(model.displayName)"
+      } else {
+        providerText = provider.name
+      }
+    } else {
+      providerText = "Select provider & model"
+    }
+
+    return providerText
+  }
+
+  private var statusChips: some View {
+    HStack(spacing: 6) {
+      statusChip(
+        label: "SSH",
+        isActive: store.serverURL != nil
+      )
+
+      statusChip(
+        label: "OC",
+        isActive: store.isEventsConnected
+      )
+    }
+  }
+
+  private func statusChip(label: String, isActive: Bool) -> some View {
+    HStack(spacing: 3) {
+      Image(systemName: isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
+        .foregroundStyle(isActive ? Color.green : Color.red)
+        .font(.system(size: 9))
+
+      Text(label)
+        .font(.system(size: 9, weight: .semibold))
+        .foregroundStyle(.secondary)
+    }
+    .padding(.horizontal, 6)
+    .padding(.vertical, 3)
+    .background(Color(.systemGray5))
+    .cornerRadius(5)
   }
 
   private var sessionSelectorButton: some View {
-    HStack(spacing: 4) {
-      if store.isLoadingSessions {
-        ProgressView()
-          .scaleEffect(0.8)
-      }
-      Menu {
-        Button {
-          store.send(.newSession)
-        } label: {
-          HStack {
-            Image(systemName: "plus")
-            Text("New Session")
-          }
-        }
-
-        if !store.sessions.isEmpty {
-          Divider()
-
-          ForEach(store.sessions) { session in
-            Button(session.displayTitle) {
-              store.send(.selectSession(session.id))
-            }
-          }
-        }
-
-        if store.sessions.isEmpty && !store.isLoadingSessions {
-          Text("No sessions available")
-            .foregroundStyle(.secondary)
-        }
-      } label: {
-        Image(systemName: "chevron.down.circle")
-          .font(.title3)
-          .foregroundStyle(.secondary)
-      }
-      .disabled(store.sessions.isEmpty && !store.isLoadingSessions)
+    SettingsDropdown(
+      isExpanded: binding(for: .session),
+      isDisabled: store.isLoadingSessions
+    ) {
+      SettingsPickerLabel(
+        title: "Session",
+        displayText: store.currentSessionTitle,
+        isPlaceholder: store.sessionID == nil,
+        isLoading: store.isLoadingSessions,
+        iconName: "bubble.left.and.text.bubble.right.fill",
+        isActive: activeSettingsMenu == .session
+      )
+    } content: { dismiss in
+      SessionPickerMenuContent(store: store, dismiss: dismiss)
     }
   }
 
@@ -146,10 +198,120 @@ struct ChatView: View {
     .font(.subheadline)
     .foregroundStyle(.secondary)
     .padding(.horizontal, 12)
+    .onTapGesture(perform: collapseSettings)
   }
 }
 
-  private extension ChatView {
+private extension ChatView {
+  func binding(for menu: ActiveSettingsMenu) -> Binding<Bool> {
+    Binding(
+      get: { activeSettingsMenu == menu },
+      set: { newValue in
+        withAnimation(.easeInOut(duration: 0.2)) {
+          if newValue {
+            activeSettingsMenu = menu
+          } else if activeSettingsMenu == menu {
+            activeSettingsMenu = nil
+          }
+        }
+      }
+    )
+  }
+
+  enum ActiveSettingsMenu {
+    case session
+    case model
+  }
+
+  func collapseSettings() {
+    activeSettingsMenu = nil
+  }
+
+  struct SessionPickerMenuContent: View {
+    @Bindable var store: StoreOf<ChatFeature>
+    let dismiss: () -> Void
+
+    var body: some View {
+      VStack(alignment: .leading, spacing: 12) {
+        Button {
+          store.send(.newSession)
+          dismiss()
+        } label: {
+          HStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+              .foregroundStyle(Color.accentColor)
+            Text("New Session")
+              .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+          }
+          .padding(.vertical, 8)
+          .padding(.horizontal, 10)
+          .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+              .fill(Color(.systemGray6))
+          )
+        }
+        .buttonStyle(.plain)
+
+        if store.isLoadingSessions {
+          HStack(spacing: 8) {
+            ProgressView()
+            Text("Loading sessions…")
+              .foregroundStyle(.secondary)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        } else if store.sessions.isEmpty {
+          Text("No sessions available")
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+          Divider()
+          ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(store.sessions) { session in
+                let isSelected = store.sessionID == session.id
+                Button {
+                  store.send(.selectSession(session.id))
+                  dismiss()
+                } label: {
+                  HStack {
+                    Text(session.displayTitle)
+                      .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    Spacer(minLength: 0)
+                    if isSelected {
+                      Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                    }
+                  }
+                  .padding(.vertical, 8)
+                  .padding(.horizontal, 10)
+                  .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                      .fill(isSelected ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
+                  )
+                }
+                .buttonStyle(.plain)
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+          }
+          .frame(maxHeight: 260)
+        }
+      }
+      .padding(.vertical, 16)
+      .padding(.horizontal, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .fill(Color(.systemBackground))
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .stroke(Color(.systemGray4))
+      )
+    }
+  }
+
   var chatSurface: some View {
     ExyteChat.ChatView(
       messages: store.exyteMessages,
@@ -163,8 +325,8 @@ struct ChatView: View {
       reactionDelegate: nil,
       // swiftlint:disable:next line_length
       messageBuilder: { message, positionInUserGroup, positionInMessagesSection, positionInCommentsGroup, showContextMenuClosure, messageActionClosure, showAttachmentClosure in
-        // Get enhanced parts for this message if available
-        let enhancedParts = getEnhancedParts(for: message.id)
+        // Get identified parts for this message if available (stable IDs for streaming)
+        let identifiedParts = getIdentifiedParts(for: message.id)
 
         return ChatMessageView(
           message: message,
@@ -174,7 +336,7 @@ struct ChatView: View {
           showContextMenuClosure: showContextMenuClosure,
           messageActionClosure: messageActionClosure,
           showAttachmentClosure: showAttachmentClosure,
-          enhancedParts: enhancedParts,
+          identifiedParts: identifiedParts,
           thinkingBlocksEnabled: store.thinkingBlocksEnabled
         )
       },
@@ -190,6 +352,13 @@ struct ChatView: View {
               Image(systemName: "photo")
                 .foregroundColor(.secondary)
             }
+          }
+
+          Button {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+          } label: {
+            Image(systemName: "keyboard.chevron.compact.down")
+              .foregroundColor(.secondary)
           }
 
           Button {
@@ -272,6 +441,12 @@ struct ChatView: View {
       }()
     )
     .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity, alignment: Alignment.top)
+    .onTapGesture(perform: collapseSettings)
+    .overlay(alignment: .topLeading) {
+      ChatScrollObserver(isAutoScrollEnabled: $isAutoScrollEnabled)
+        .allowsHitTesting(false)
+        .frame(width: 0, height: 0)
+    }
   }
 
   var unsupportedMessageDescription: String? {
@@ -291,7 +466,7 @@ struct ChatView: View {
     return AppColorType.green.color
   }
 
-  private func getEnhancedParts(for messageID: String) -> [EnhancedMessagePart]? {
-    return store.enhancedMessageParts[messageID]
+  private func getIdentifiedParts(for messageID: String) -> [ChatMessageMapper.IdentifiedEnhancedPart]? {
+    return store.identifiedEnhancedMessageParts[messageID]
   }
 }

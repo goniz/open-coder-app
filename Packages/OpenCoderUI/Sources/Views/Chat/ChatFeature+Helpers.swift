@@ -45,7 +45,8 @@ extension ChatFeature {
     let factory = self.openCodeAPIFactory
     return .merge(
       loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory),
-      subscribeToEventsEffect(serverURL: serverURL, factory: factory)
+      subscribeToEventsEffect(serverURL: serverURL, factory: factory),
+      .send(.fetchProviders)
     )
   }
 
@@ -92,6 +93,9 @@ extension ChatFeature {
     let messageID = draft.id ?? UUID().uuidString
     let parts: [MessagePart] = [.text(trimmedText, id: nil)]
 
+    let providerID = state.selectedProviderID
+    let modelID = state.selectedModelID
+
     state.draft = ChatDraftState()
     state.isLoading = true
 
@@ -99,7 +103,12 @@ extension ChatFeature {
     return .run { send in
       do {
         let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
-        let serverMessage = try await apiClient.sendMessage(sessionID: sessionID, parts: parts)
+        let serverMessage = try await apiClient.sendMessage(
+          sessionID: sessionID,
+          parts: parts,
+          providerID: providerID,
+          modelID: modelID
+        )
         await send(.messageReceived(serverMessage))
         await send(.messageSendCompleted(messageID: serverMessage.id))
       } catch {
@@ -317,12 +326,15 @@ extension ChatFeature {
 
     // Clear cached client for old URL if it changed
     if let oldURL = oldURL, oldURL != url {
-      return .run { _ in
-        await SharedAPIClientCache.shared.removeClient(for: oldURL)
-      }
+      return .merge(
+        .run { _ in
+          await SharedAPIClientCache.shared.removeClient(for: oldURL)
+        },
+        url != nil ? .send(.fetchProviders) : .none
+      )
     }
 
-    return .none
+    return url != nil ? .send(.fetchProviders) : .none
   }
 
   func handleMessageDraftActions(state: inout State, action: Action) -> Effect<Action> {

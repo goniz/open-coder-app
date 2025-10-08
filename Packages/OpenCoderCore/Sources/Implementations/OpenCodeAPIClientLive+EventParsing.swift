@@ -142,22 +142,22 @@ extension LiveOpenCodeAPIClient {
       modelID: modelID,
       providerID: providerID
     )
-    log("OpenCode API: Received message.updated event for message: \(message.id)")
+    log("Received message.updated: \(message.id)", level: .debug)
     return .messageUpdated(message)
   }
 
   package func extractTimestamp(from messageJSON: [String: Any]) -> Date {
     if let timeInfo = messageJSON["time"] as? [String: Any],
        let created = timeInfo["created"] as? Double {
-      return Date(timeIntervalSince1970: created)
+      return Date(timeIntervalSince1970: created / 1000.0)
     }
 
     if let timestampValue = messageJSON["timestamp"] as? Double {
-      return Date(timeIntervalSince1970: timestampValue)
+      return Date(timeIntervalSince1970: timestampValue / 1000.0)
     }
 
     if let createdAt = messageJSON["createdAt"] as? Double {
-      return Date(timeIntervalSince1970: createdAt)
+      return Date(timeIntervalSince1970: createdAt / 1000.0)
     }
 
     return Date()
@@ -190,7 +190,7 @@ extension LiveOpenCodeAPIClient {
     let id = partJSON["id"] as? String ?? UUID().uuidString
     let part = parseMessagePart(partJSON) ?? parseMessagePartFromJSON(partJSON)
 
-    log("OpenCode API: Received message.part.updated for session: \(sessionID), message: \(messageID), part: \(id)")
+    log("Received message.part.updated: session=\(sessionID), msg=\(messageID), part=\(id)", level: .debug)
     return .messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: id, part: part)
   }
 

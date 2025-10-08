@@ -50,6 +50,9 @@ public struct ChatFeature: Sendable {
     public var messages: [OpenCodeMessage] = []
     public var exyteMessages: [Message] = []
     public var enhancedMessageParts: [String: [EnhancedMessagePart]] = [:] // messageID -> enhanced parts
+    // messageID -> identified enhanced parts
+    var identifiedEnhancedMessageParts:
+      [String: [ChatMessageMapper.IdentifiedEnhancedPart]] = [:]
     public var unsupportedPartKinds: Set<ChatUnsupportedMessagePartKind> = []
     public var currentMessage = ""
     public var isLoading = false
@@ -69,6 +72,11 @@ public struct ChatFeature: Sendable {
     public var workspaceDisplayTitle: String?
     public var isEventsConnected = false
     public var shouldReconnectEvents = false
+    public var providers: [Provider] = []
+    public var isLoadingProviders = false
+    public var selectedProviderID: String?
+    public var selectedModelID: String?
+    public var defaultModelIDsByProvider: [String: String] = [:]
 
     public init(thinkingBlocksEnabled: Bool = true, workspaceDisplayTitle: String? = nil) {
       self.thinkingBlocksEnabled = thinkingBlocksEnabled
@@ -80,6 +88,20 @@ public struct ChatFeature: Sendable {
         return "Select Session"
       }
       return session.displayTitle
+    }
+
+    public var currentProvider: Provider? {
+      guard let selectedProviderID = selectedProviderID else { return nil }
+      return providers.first { $0.id == selectedProviderID }
+    }
+
+    public var availableModels: [Model] {
+      return currentProvider?.models ?? []
+    }
+
+    public var currentModel: Model? {
+      guard let selectedModelID = selectedModelID else { return nil }
+      return availableModels.first { $0.id == selectedModelID }
     }
 
     public init(sessionID: String? = nil, serverURL: URL? = nil, workspaceDisplayTitle: String? = nil) {
@@ -126,6 +148,11 @@ public struct ChatFeature: Sendable {
     case reconnectEvents
     case appDidBecomeActive
     case appWillResignActive
+    case fetchProviders
+    case providersLoaded([Provider], defaultProviderID: String, defaultModelIDsByProvider: [String: String])
+    case providersFailed(String)
+    case selectProvider(String)
+    case selectModel(String)
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
@@ -151,6 +178,15 @@ public struct ChatFeature: Sendable {
       return .none
     case .task:
       return handleTask(state: &state)
+    case .loadMore:
+      return handleLoadMore(state: &state)
+    default:
+      return handleActionGroups(state: &state, action: action)
+    }
+  }
+
+  private func handleActionGroups(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
     case .sendMessage, .sendDraft, .draftUpdated:
       return handleMessageDraftActions(state: &state, action: action)
     case .messagesLoaded, .messagesFailed, .messageReceived, .messageUpdated, .messagePartUpdated,
@@ -160,13 +196,15 @@ public struct ChatFeature: Sendable {
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
          .newSession, .sessionCreated, .sessionCreationFailed:
       return handleSessionActions(state: &state, action: action)
-    case .loadMore:
-      return handleLoadMore(state: &state)
     case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
     case .eventsConnected, .eventsDisconnected, .eventReceived, .reconnectEvents,
          .appDidBecomeActive, .appWillResignActive:
       return handleEventActions(state: &state, action: action)
+    case .fetchProviders, .providersLoaded, .providersFailed, .selectProvider, .selectModel:
+      return handleProviderActions(state: &state, action: action)
+    default:
+      return .none
     }
   }
 
@@ -225,4 +263,5 @@ public struct ChatFeature: Sendable {
       return .none
     }
   }
+
 }
