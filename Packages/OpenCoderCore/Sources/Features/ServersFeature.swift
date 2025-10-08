@@ -347,16 +347,30 @@ public struct ServersFeature: Sendable {
   }
 
   private func handleMaintainPersistentConnections(state: inout State) -> Effect<Action> {
-    let reconnectEffects = state.persistentConnections.compactMap { id -> Effect<Action>? in
-      guard let serverIndex = state.servers.firstIndex(where: { $0.id == id }),
-        state.servers[serverIndex].connectionState != .connected
-      else { return nil }
+    let servers = state.servers
+    let persistentIDs = Array(state.persistentConnections)
+
+    let reconnectEffects = persistentIDs.compactMap { id -> Effect<Action>? in
+      guard let server = servers.first(where: { $0.id == id }) else { return nil }
+      let configID = server.configuration.id
+      let connectionState = server.connectionState
 
       return .run { send in
-        await send(.testConnection(id))
+        switch connectionState {
+        case .connecting:
+          break
+        case .connected:
+          let isStillConnected = await SSHConnectionPool.shared.isConnected(serverConfigID: configID)
+          if !isStillConnected {
+            await send(.testConnection(id))
+          }
+        case .disconnected, .error:
+          await send(.testConnection(id))
+        }
       }
     }
 
+    guard !reconnectEffects.isEmpty else { return .none }
     return .merge(reconnectEffects)
   }
 

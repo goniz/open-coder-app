@@ -231,54 +231,65 @@ extension LiveOpenCodeAPIClient {
   static func buildProviderDictionary(
     from providers: [Components.Schemas.Provider]
   ) -> [String: OpenCodeProviderInfo] {
-     var providerDict: [String: OpenCodeProviderInfo] = [:]
+    var providerDict: [String: OpenCodeProviderInfo] = [:]
 
-      for provider in providers {
-        var models: [String: String] = [:]
+    for provider in providers {
+      var models: [String: String] = [:]
 
-        for (modelId, model) in provider.models.additionalProperties {
-          models[modelId] = model.name
-        }
-
-        if models.isEmpty {
-          models[provider.id] = provider.name
-        }
-
-        providerDict[provider.id] = OpenCodeProviderInfo(
-          name: provider.name,
-          models: models
-        )
+      for (modelId, model) in provider.models.additionalProperties {
+        models[modelId] = model.name
       }
 
-     return providerDict
-   }
+      if models.isEmpty {
+        models[provider.id] = provider.name
+      }
 
-   struct ProviderDefaults: Equatable {
-     let primaryProviderID: String?
-     let primaryModelID: String?
-     let modelIDsByProvider: [String: String]
-     let didUseFallback: Bool
-   }
+      providerDict[provider.id] = OpenCodeProviderInfo(
+        name: provider.name,
+        models: models
+      )
+    }
+
+    return providerDict
+  }
+
+  struct ProviderDefaults: Equatable {
+    let primaryProviderID: String?
+    let primaryModelID: String?
+    let modelIDsByProvider: [String: String]
+    let didUseFallback: Bool
+  }
 
   static func extractDefaults(
     from defaultData: Operations.config_period_providers.Output.Ok.Body.jsonPayload._defaultPayload,
     fallback: String?
   ) -> ProviderDefaults {
-     let defaults = defaultData.additionalProperties
+    let defaults = defaultData.additionalProperties
 
     if defaults.isEmpty {
       return ProviderDefaults(
         primaryProviderID: fallback,
-        primaryModelID: nil,
+        primaryModelID: fallback.flatMap { defaults[$0] },
         modelIDsByProvider: defaults,
         didUseFallback: true
       )
     }
 
-    let primaryProviderID = defaults.keys.sorted().first
-    let primaryModelID = primaryProviderID.flatMap { defaults[$0] }
-    let resolvedProviderID = primaryProviderID ?? fallback
-    let didUseFallback = primaryProviderID == nil
+    let normalizedFallback = fallback?.lowercased()
+    let fallbackMatch = normalizedFallback.flatMap { id in
+      defaults.first { key, _ in key.lowercased() == id }
+    }
+
+    let primaryEntry: (key: String, value: String)?
+    if let match = fallbackMatch {
+      primaryEntry = match
+    } else {
+      primaryEntry = defaults.sorted { $0.key < $1.key }.first
+    }
+
+    let resolvedProviderID = primaryEntry?.key ?? fallback
+    let primaryModelID = primaryEntry?.value ?? fallback.flatMap { defaults[$0] }
+    let didUseFallback = fallbackMatch == nil && (primaryEntry == nil)
 
     return ProviderDefaults(
       primaryProviderID: resolvedProviderID,
@@ -288,36 +299,36 @@ extension LiveOpenCodeAPIClient {
     )
   }
 
-   private func shouldAttemptManualProviderFetch(for error: Error) -> Bool {
-     guard let clientError = error as? ClientError else {
-       return false
-     }
+  private func shouldAttemptManualProviderFetch(for error: Error) -> Bool {
+    guard let clientError = error as? ClientError else {
+      return false
+    }
 
-     if clientError.causeDescription == "Unknown",
-        clientError.underlyingError is DecodingError {
-       return true
-     }
+    if clientError.causeDescription == "Unknown",
+       clientError.underlyingError is DecodingError {
+      return true
+    }
 
-     return false
-   }
+    return false
+  }
 
-   private func manuallyFetchProviders() async throws -> OpenCodeProviders {
-     let providersURL = configuration.serverURL.appendingPathComponent("config/providers")
-     var request = URLRequest(url: providersURL)
-     request.timeoutInterval = configuration.timeout
-     request.setValue("application/json", forHTTPHeaderField: "Accept")
+  private func manuallyFetchProviders() async throws -> OpenCodeProviders {
+    let providersURL = configuration.serverURL.appendingPathComponent("config/providers")
+    var request = URLRequest(url: providersURL)
+    request.timeoutInterval = configuration.timeout
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-     let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await URLSession.shared.data(for: request)
 
-     guard let httpResponse = response as? HTTPURLResponse else {
-       throw OpenCodeAPIError.serverError("Invalid response when fetching providers")
-     }
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw OpenCodeAPIError.serverError("Invalid response when fetching providers")
+    }
 
-     guard (200..<300).contains(httpResponse.statusCode) else {
-       throw OpenCodeAPIError.serverError("Failed to fetch providers: \(httpResponse.statusCode)")
-     }
+    guard (200..<300).contains(httpResponse.statusCode) else {
+      throw OpenCodeAPIError.serverError("Failed to fetch providers: \(httpResponse.statusCode)")
+    }
 
-     let decoder = JSONDecoder()
+    let decoder = JSONDecoder()
      let payload = try decoder.decode(ManualProvidersResponse.self, from: data)
 
      let providerDict = Dictionary(uniqueKeysWithValues: payload.providers.map { provider in
