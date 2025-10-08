@@ -133,6 +133,9 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOSSH", package: "swift-nio-ssh"),
                 .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            resources: [
+                .process("Fixtures")
             ]
         ),
         .testTarget(
