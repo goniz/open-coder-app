@@ -6,12 +6,14 @@ enum ChatMessageMapper {
   struct BuildResult {
     var messages: [Message]
     var enhancedParts: [String: [EnhancedMessagePart]]
+    var identifiedParts: [String: [IdentifiedEnhancedPart]]
     var unsupportedParts: Set<ChatUnsupportedMessagePartKind>
   }
 
   struct MessageResult {
     let message: Message
     let enhancedParts: [EnhancedMessagePart]
+    let identifiedParts: [IdentifiedEnhancedPart]
     let unsupportedParts: Set<ChatUnsupportedMessagePartKind>
   }
 
@@ -28,12 +30,16 @@ enum ChatMessageMapper {
     let result = messages.reduce(into: BuildResult(
       messages: [],
       enhancedParts: [:],
+      identifiedParts: [:],
       unsupportedParts: []
     )) { result, message in
       let mapped = map(message: message)
       result.messages.append(mapped.message)
       if !mapped.enhancedParts.isEmpty {
         result.enhancedParts[message.id] = mapped.enhancedParts
+      }
+      if !mapped.identifiedParts.isEmpty {
+        result.identifiedParts[message.id] = mapped.identifiedParts
       }
       result.unsupportedParts.formUnion(mapped.unsupportedParts)
     }
@@ -51,6 +57,7 @@ enum ChatMessageMapper {
     message: OpenCodeMessage
   ) -> MessageResult {
     let content = textAndEnhancedParts(from: message.parts)
+    let identified = identifiedEnhancedParts(from: message.parts, messageID: message.id)
     let user = user(for: message.role, message: message)
     let status = status(for: message.role)
 
@@ -69,6 +76,7 @@ enum ChatMessageMapper {
     return MessageResult(
       message: exyteMessage,
       enhancedParts: content.enhancedParts,
+      identifiedParts: identified,
       unsupportedParts: content.unsupportedParts
     )
   }
@@ -208,6 +216,66 @@ enum ChatMessageMapper {
       return nil
     }
   }
+
+  // MARK: - Identified Parts for Stable Rendering
+
+  struct IdentifiedEnhancedPart: Equatable, Identifiable, Sendable {
+    let id: String
+    let part: EnhancedMessagePart
+  }
+
+  private static func identifiedEnhancedParts(
+    from parts: [MessagePart],
+    messageID: String
+  ) -> [IdentifiedEnhancedPart] {
+    var result: [IdentifiedEnhancedPart] = []
+    for (index, part) in parts.enumerated() {
+      let enhanced = processMessagePart(part).enhancedPart
+      guard let enhanced else { continue }
+      let key = partStableID(part, fallback: makeFallbackID(messageID: messageID, index: index, part: part))
+      result.append(IdentifiedEnhancedPart(id: key, part: enhanced))
+    }
+    return result
+  }
+
+  private static func partStableID(_ part: MessagePart, fallback: String) -> String {
+    switch part {
+    case let .text(_, id):
+      return id ?? fallback
+    case let .reasoning(_, id):
+      return id ?? fallback
+    case let .file(_, _, id):
+      return id ?? fallback
+    case let .agent(_, _, id):
+      return id ?? fallback
+    case let .tool(_, _, _, _, id):
+      return id ?? fallback
+    case let .patch(_, _, id):
+      return id ?? fallback
+    case let .stepStart(id):
+      return id ?? fallback
+    case let .stepFinish(_, _, _, id):
+      return id ?? fallback
+    case let .snapshot(_, id):
+      return id ?? fallback
+    }
+  }
+
+  private static func makeFallbackID(messageID: String, index: Int, part: MessagePart) -> String {
+    let kind: String
+    switch part {
+    case .text: kind = "text"
+    case .reasoning: kind = "reasoning"
+    case .file: kind = "file"
+    case .agent: kind = "agent"
+    case .tool: kind = "tool"
+    case .patch: kind = "patch"
+    case .stepStart: kind = "stepStart"
+    case .stepFinish: kind = "stepFinish"
+    case .snapshot: kind = "snapshot"
+    }
+    return "m:\(messageID)#p:\(kind)#i:\(index)"
+  }
 }
 
 extension ChatFeature.State {
@@ -217,6 +285,7 @@ extension ChatFeature.State {
     )
     exyteMessages = result.messages
     enhancedMessageParts = result.enhancedParts
+    identifiedEnhancedMessageParts = result.identifiedParts
     unsupportedPartKinds = result.unsupportedParts
   }
 }

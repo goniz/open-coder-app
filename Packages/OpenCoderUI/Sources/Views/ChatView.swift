@@ -7,6 +7,7 @@ import UIKit
 struct ChatView: View {
   @State private var isSettingsExpanded = false
   @State private var activeSettingsMenu: ActiveSettingsMenu?
+  @State private var isAutoScrollEnabled = true
   @Bindable var store: StoreOf<ChatFeature>
 
   var body: some View {
@@ -55,7 +56,13 @@ struct ChatView: View {
       store.send(.appWillResignActive)
     }
     .onChange(of: store.scrollToBottomSequence) { _, _ in
-      NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+      guard isAutoScrollEnabled else { return }
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
+      }
+    }
+    .onChange(of: store.sessionID) { _, _ in
+      isAutoScrollEnabled = true
     }
   }
 
@@ -318,8 +325,8 @@ private extension ChatView {
       reactionDelegate: nil,
       // swiftlint:disable:next line_length
       messageBuilder: { message, positionInUserGroup, positionInMessagesSection, positionInCommentsGroup, showContextMenuClosure, messageActionClosure, showAttachmentClosure in
-        // Get enhanced parts for this message if available
-        let enhancedParts = getEnhancedParts(for: message.id)
+        // Get identified parts for this message if available (stable IDs for streaming)
+        let identifiedParts = getIdentifiedParts(for: message.id)
 
         return ChatMessageView(
           message: message,
@@ -329,7 +336,7 @@ private extension ChatView {
           showContextMenuClosure: showContextMenuClosure,
           messageActionClosure: messageActionClosure,
           showAttachmentClosure: showAttachmentClosure,
-          enhancedParts: enhancedParts,
+          identifiedParts: identifiedParts,
           thinkingBlocksEnabled: store.thinkingBlocksEnabled
         )
       },
@@ -345,6 +352,13 @@ private extension ChatView {
               Image(systemName: "photo")
                 .foregroundColor(.secondary)
             }
+          }
+
+          Button {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+          } label: {
+            Image(systemName: "keyboard.chevron.compact.down")
+              .foregroundColor(.secondary)
           }
 
           Button {
@@ -428,6 +442,11 @@ private extension ChatView {
     )
     .frame(maxWidth: CGFloat.infinity, maxHeight: CGFloat.infinity, alignment: Alignment.top)
     .onTapGesture(perform: collapseSettings)
+    .overlay(alignment: .topLeading) {
+      ChatScrollObserver(isAutoScrollEnabled: $isAutoScrollEnabled)
+        .allowsHitTesting(false)
+        .frame(width: 0, height: 0)
+    }
   }
 
   var unsupportedMessageDescription: String? {
@@ -447,7 +466,7 @@ private extension ChatView {
     return AppColorType.green.color
   }
 
-  private func getEnhancedParts(for messageID: String) -> [EnhancedMessagePart]? {
-    return store.enhancedMessageParts[messageID]
+  private func getIdentifiedParts(for messageID: String) -> [ChatMessageMapper.IdentifiedEnhancedPart]? {
+    return store.identifiedEnhancedMessageParts[messageID]
   }
 }

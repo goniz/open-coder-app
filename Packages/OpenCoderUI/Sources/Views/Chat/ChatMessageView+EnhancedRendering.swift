@@ -41,6 +41,21 @@ public struct CompositeMessageRenderer {
     }
   }
 
+  // Stable-ID rendering path to avoid flicker when streaming
+  func render(identifiedParts: [ChatMessageMapper.IdentifiedEnhancedPart], message: Message) -> some View {
+    let visible = identifiedParts.filter { identified in
+      if case .reasoning = identified.part, !thinkingBlocksEnabled { return false }
+      return true
+    }
+
+    return VStack(alignment: message.user.isCurrentUser ? .trailing : .leading, spacing: 8) {
+      ForEach(visible, id: \.id) { identified in
+        renderPart(identified.part, message: message)
+          .frame(maxWidth: .infinity, alignment: message.user.isCurrentUser ? .trailing : .leading)
+      }
+    }
+  }
+
   private func renderPart(_ part: EnhancedMessagePart, message: Message) -> AnyView {
     for renderer in renderers where renderer.canRender(part) {
       return renderer.render(part, message: message)
