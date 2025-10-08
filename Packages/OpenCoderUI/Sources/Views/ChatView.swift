@@ -56,6 +56,13 @@ struct ChatView: View {
     .onChange(of: store.scrollToBottomSequence) { _, _ in
       NotificationCenter.default.post(name: .onScrollToBottom, object: nil)
     }
+    .simultaneousGesture(TapGesture().onEnded {
+      if isSettingsExpanded {
+        withAnimation(.easeInOut(duration: 0.2)) {
+          isSettingsExpanded = false
+        }
+      }
+    })
   }
 
   private var settingsMenu: some View {
@@ -72,7 +79,7 @@ struct ChatView: View {
           .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
 
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
           Text("Chat Settings")
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.primary)
@@ -80,20 +87,19 @@ struct ChatView: View {
           Text(settingsSummary)
             .font(.caption)
             .foregroundStyle(.secondary)
-            .lineLimit(2)
+            .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)
+
+          statusChips
+            .padding(.top, 2)
         }
 
         Spacer(minLength: 4)
 
-        VStack(alignment: .trailing, spacing: 4) {
-          statusChips
-
-          Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.tertiary)
-        }
-        .padding(.top, 2)
+        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.tertiary)
+          .padding(.top, 2)
       }
       .padding(.vertical, 6)
       .padding(.horizontal, 10)
