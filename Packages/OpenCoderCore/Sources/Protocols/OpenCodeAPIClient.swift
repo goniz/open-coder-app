@@ -339,7 +339,9 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
   public func listProviders() async throws -> OpenCodeProviders {
     return OpenCodeProviders(
       providers: ["openai": OpenCodeProviderInfo(name: "OpenAI", models: ["gpt-4": "GPT-4"])],
-      defaultProvider: "openai"
+      defaultModelsByProvider: ["openai": "gpt-4"],
+      primaryDefaultProviderID: "openai",
+      primaryDefaultModelID: "gpt-4"
     )
   }
 

@@ -127,6 +127,7 @@ let package = Package(
                 "Models",
                 "Protocols", 
                 "Implementations",
+                "OpenAPIGenerated",
                 .product(name: "CustomDump", package: "swift-custom-dump"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),

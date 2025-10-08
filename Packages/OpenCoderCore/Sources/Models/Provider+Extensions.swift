@@ -3,12 +3,24 @@ import Foundation
 public struct ProvidersWithDefaults {
   public let providers: [Provider]
   public let defaultProviderID: String
-  public let defaultModelID: String?
+  public let defaultModelIDsByProvider: [String: String]
 
-  public init(providers: [Provider], defaultProviderID: String, defaultModelID: String?) {
+  public init(
+    providers: [Provider],
+    defaultProviderID: String,
+    defaultModelIDsByProvider: [String: String] = [:]
+  ) {
     self.providers = providers
     self.defaultProviderID = defaultProviderID
-    self.defaultModelID = defaultModelID
+    self.defaultModelIDsByProvider = defaultModelIDsByProvider
+  }
+
+  public func defaultModelID(for providerID: String) -> String? {
+    defaultModelIDsByProvider[providerID]
+  }
+
+  public var defaultModelID: String? {
+    defaultModelID(for: defaultProviderID)
   }
 }
 
@@ -29,10 +41,23 @@ extension ProvidersWithDefaults {
       )
     }.sorted { $0.name < $1.name }
 
+    let primaryDefaultProviderID = openCodeProviders.primaryDefaultProviderID
+      ?? providers.first?.id
+      ?? openCodeProviders.providers.keys.sorted().first
+      ?? ""
+
+    var defaultModelsByProvider = openCodeProviders.defaultModelsByProvider
+
+    if let primaryDefaultModelID = openCodeProviders.primaryDefaultModelID,
+       !primaryDefaultModelID.isEmpty,
+       defaultModelsByProvider[primaryDefaultProviderID] == nil {
+      defaultModelsByProvider[primaryDefaultProviderID] = primaryDefaultModelID
+    }
+
     return ProvidersWithDefaults(
       providers: providers,
-      defaultProviderID: openCodeProviders.defaultProvider,
-      defaultModelID: openCodeProviders.defaultModel
+      defaultProviderID: primaryDefaultProviderID,
+      defaultModelIDsByProvider: defaultModelsByProvider
     )
   }
 }
