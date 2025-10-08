@@ -76,11 +76,21 @@ package protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /session/{id}/children`.
     /// - Remark: Generated from `#/paths//session/{id}/children/get(session.children)`.
     func session_period_children(_ input: Operations.session_period_children.Input) async throws -> Operations.session_period_children.Output
+    /// Get the todo list for a session
+    ///
+    /// - Remark: HTTP `GET /session/{id}/todo`.
+    /// - Remark: Generated from `#/paths//session/{id}/todo/get(session.todo)`.
+    func session_period_todo(_ input: Operations.session_period_todo.Input) async throws -> Operations.session_period_todo.Output
     /// Analyze the app and create an AGENTS.md file
     ///
     /// - Remark: HTTP `POST /session/{id}/init`.
     /// - Remark: Generated from `#/paths//session/{id}/init/post(session.init)`.
     func session_period_init(_ input: Operations.session_period_init.Input) async throws -> Operations.session_period_init.Output
+    /// Fork an existing session at a specific message
+    ///
+    /// - Remark: HTTP `POST /session/{id}/fork`.
+    /// - Remark: Generated from `#/paths//session/{id}/fork/post(session.fork)`.
+    func session_period_fork(_ input: Operations.session_period_fork.Input) async throws -> Operations.session_period_fork.Output
     /// Abort a session
     ///
     /// - Remark: HTTP `POST /session/{id}/abort`.
@@ -191,6 +201,11 @@ package protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /agent`.
     /// - Remark: Generated from `#/paths//agent/get(app.agents)`.
     func app_period_agents(_ input: Operations.app_period_agents.Input) async throws -> Operations.app_period_agents.Output
+    /// Get MCP server status
+    ///
+    /// - Remark: HTTP `GET /mcp`.
+    /// - Remark: Generated from `#/paths//mcp/get(mcp.status)`.
+    func mcp_period_status(_ input: Operations.mcp_period_status.Input) async throws -> Operations.mcp_period_status.Output
     /// Append prompt to the TUI
     ///
     /// - Remark: HTTP `POST /tui/append-prompt`.
@@ -433,6 +448,21 @@ extension APIProtocol {
             headers: headers
         ))
     }
+    /// Get the todo list for a session
+    ///
+    /// - Remark: HTTP `GET /session/{id}/todo`.
+    /// - Remark: Generated from `#/paths//session/{id}/todo/get(session.todo)`.
+    package func session_period_todo(
+        path: Operations.session_period_todo.Input.Path,
+        query: Operations.session_period_todo.Input.Query = .init(),
+        headers: Operations.session_period_todo.Input.Headers = .init()
+    ) async throws -> Operations.session_period_todo.Output {
+        try await session_period_todo(Operations.session_period_todo.Input(
+            path: path,
+            query: query,
+            headers: headers
+        ))
+    }
     /// Analyze the app and create an AGENTS.md file
     ///
     /// - Remark: HTTP `POST /session/{id}/init`.
@@ -444,6 +474,23 @@ extension APIProtocol {
         body: Operations.session_period_init.Input.Body? = nil
     ) async throws -> Operations.session_period_init.Output {
         try await session_period_init(Operations.session_period_init.Input(
+            path: path,
+            query: query,
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Fork an existing session at a specific message
+    ///
+    /// - Remark: HTTP `POST /session/{id}/fork`.
+    /// - Remark: Generated from `#/paths//session/{id}/fork/post(session.fork)`.
+    package func session_period_fork(
+        path: Operations.session_period_fork.Input.Path,
+        query: Operations.session_period_fork.Input.Query = .init(),
+        headers: Operations.session_period_fork.Input.Headers = .init(),
+        body: Operations.session_period_fork.Input.Body? = nil
+    ) async throws -> Operations.session_period_fork.Output {
+        try await session_period_fork(Operations.session_period_fork.Input(
             path: path,
             query: query,
             headers: headers,
@@ -770,6 +817,19 @@ extension APIProtocol {
         headers: Operations.app_period_agents.Input.Headers = .init()
     ) async throws -> Operations.app_period_agents.Output {
         try await app_period_agents(Operations.app_period_agents.Input(
+            query: query,
+            headers: headers
+        ))
+    }
+    /// Get MCP server status
+    ///
+    /// - Remark: HTTP `GET /mcp`.
+    /// - Remark: Generated from `#/paths//mcp/get(mcp.status)`.
+    package func mcp_period_status(
+        query: Operations.mcp_period_status.Input.Query = .init(),
+        headers: Operations.mcp_period_status.Input.Headers = .init()
+    ) async throws -> Operations.mcp_period_status.Output {
+        try await mcp_period_status(Operations.mcp_period_status.Input(
             query: query,
             headers: headers
         ))
@@ -4553,6 +4613,49 @@ package enum Components {
                 case version
                 case time
                 case revert
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/Todo`.
+        package struct Todo: Codable, Hashable, Sendable {
+            /// Brief description of the task
+            ///
+            /// - Remark: Generated from `#/components/schemas/Todo/content`.
+            package var content: Swift.String
+            /// Current status of the task: pending, in_progress, completed, cancelled
+            ///
+            /// - Remark: Generated from `#/components/schemas/Todo/status`.
+            package var status: Swift.String
+            /// Priority level of the task: high, medium, low
+            ///
+            /// - Remark: Generated from `#/components/schemas/Todo/priority`.
+            package var priority: Swift.String
+            /// Unique identifier for the todo item
+            ///
+            /// - Remark: Generated from `#/components/schemas/Todo/id`.
+            package var id: Swift.String
+            /// Creates a new `Todo`.
+            ///
+            /// - Parameters:
+            ///   - content: Brief description of the task
+            ///   - status: Current status of the task: pending, in_progress, completed, cancelled
+            ///   - priority: Priority level of the task: high, medium, low
+            ///   - id: Unique identifier for the todo item
+            package init(
+                content: Swift.String,
+                status: Swift.String,
+                priority: Swift.String,
+                id: Swift.String
+            ) {
+                self.content = content
+                self.status = status
+                self.priority = priority
+                self.id = id
+            }
+            package enum CodingKeys: String, CodingKey {
+                case content
+                case status
+                case priority
+                case id
             }
         }
         /// - Remark: Generated from `#/components/schemas/UserMessage`.
@@ -8586,6 +8689,56 @@ package enum Components {
                 case properties
             }
         }
+        /// - Remark: Generated from `#/components/schemas/Event.todo.updated`.
+        package struct Event_period_todo_period_updated: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/Event.todo.updated/type`.
+            @frozen package enum _typePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case todo_period_updated = "todo.updated"
+            }
+            /// - Remark: Generated from `#/components/schemas/Event.todo.updated/type`.
+            package var _type: Components.Schemas.Event_period_todo_period_updated._typePayload
+            /// - Remark: Generated from `#/components/schemas/Event.todo.updated/properties`.
+            package struct propertiesPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/Event.todo.updated/properties/sessionID`.
+                package var sessionID: Swift.String
+                /// - Remark: Generated from `#/components/schemas/Event.todo.updated/properties/todos`.
+                package var todos: [Components.Schemas.Todo]
+                /// Creates a new `propertiesPayload`.
+                ///
+                /// - Parameters:
+                ///   - sessionID:
+                ///   - todos:
+                package init(
+                    sessionID: Swift.String,
+                    todos: [Components.Schemas.Todo]
+                ) {
+                    self.sessionID = sessionID
+                    self.todos = todos
+                }
+                package enum CodingKeys: String, CodingKey {
+                    case sessionID
+                    case todos
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/Event.todo.updated/properties`.
+            package var properties: Components.Schemas.Event_period_todo_period_updated.propertiesPayload
+            /// Creates a new `Event_period_todo_period_updated`.
+            ///
+            /// - Parameters:
+            ///   - _type:
+            ///   - properties:
+            package init(
+                _type: Components.Schemas.Event_period_todo_period_updated._typePayload,
+                properties: Components.Schemas.Event_period_todo_period_updated.propertiesPayload
+            ) {
+                self._type = _type
+                self.properties = properties
+            }
+            package enum CodingKeys: String, CodingKey {
+                case _type = "type"
+                case properties
+            }
+        }
         /// - Remark: Generated from `#/components/schemas/Event.session.idle`.
         package struct Event_period_session_period_idle: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Event.session.idle/type`.
@@ -8925,17 +9078,19 @@ package enum Components {
             /// - Remark: Generated from `#/components/schemas/Event/value11`.
             package var value11: Components.Schemas.Event_period_file_period_watcher_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value12`.
-            package var value12: Components.Schemas.Event_period_session_period_idle?
+            package var value12: Components.Schemas.Event_period_todo_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value13`.
-            package var value13: Components.Schemas.Event_period_session_period_updated?
+            package var value13: Components.Schemas.Event_period_session_period_idle?
             /// - Remark: Generated from `#/components/schemas/Event/value14`.
-            package var value14: Components.Schemas.Event_period_session_period_deleted?
+            package var value14: Components.Schemas.Event_period_session_period_updated?
             /// - Remark: Generated from `#/components/schemas/Event/value15`.
-            package var value15: Components.Schemas.Event_period_session_period_error?
+            package var value15: Components.Schemas.Event_period_session_period_deleted?
             /// - Remark: Generated from `#/components/schemas/Event/value16`.
-            package var value16: Components.Schemas.Event_period_server_period_connected?
+            package var value16: Components.Schemas.Event_period_session_period_error?
             /// - Remark: Generated from `#/components/schemas/Event/value17`.
-            package var value17: Components.Schemas.Event_period_ide_period_installed?
+            package var value17: Components.Schemas.Event_period_server_period_connected?
+            /// - Remark: Generated from `#/components/schemas/Event/value18`.
+            package var value18: Components.Schemas.Event_period_ide_period_installed?
             /// Creates a new `Event`.
             ///
             /// - Parameters:
@@ -8956,6 +9111,7 @@ package enum Components {
             ///   - value15:
             ///   - value16:
             ///   - value17:
+            ///   - value18:
             package init(
                 value1: Components.Schemas.Event_period_installation_period_updated? = nil,
                 value2: Components.Schemas.Event_period_lsp_period_client_period_diagnostics? = nil,
@@ -8968,12 +9124,13 @@ package enum Components {
                 value9: Components.Schemas.Event_period_permission_period_replied? = nil,
                 value10: Components.Schemas.Event_period_file_period_edited? = nil,
                 value11: Components.Schemas.Event_period_file_period_watcher_period_updated? = nil,
-                value12: Components.Schemas.Event_period_session_period_idle? = nil,
-                value13: Components.Schemas.Event_period_session_period_updated? = nil,
-                value14: Components.Schemas.Event_period_session_period_deleted? = nil,
-                value15: Components.Schemas.Event_period_session_period_error? = nil,
-                value16: Components.Schemas.Event_period_server_period_connected? = nil,
-                value17: Components.Schemas.Event_period_ide_period_installed? = nil
+                value12: Components.Schemas.Event_period_todo_period_updated? = nil,
+                value13: Components.Schemas.Event_period_session_period_idle? = nil,
+                value14: Components.Schemas.Event_period_session_period_updated? = nil,
+                value15: Components.Schemas.Event_period_session_period_deleted? = nil,
+                value16: Components.Schemas.Event_period_session_period_error? = nil,
+                value17: Components.Schemas.Event_period_server_period_connected? = nil,
+                value18: Components.Schemas.Event_period_ide_period_installed? = nil
             ) {
                 self.value1 = value1
                 self.value2 = value2
@@ -8992,6 +9149,7 @@ package enum Components {
                 self.value15 = value15
                 self.value16 = value16
                 self.value17 = value17
+                self.value18 = value18
             }
             package init(from decoder: any Decoder) throws {
                 var errors: [any Error] = []
@@ -9080,6 +9238,11 @@ package enum Components {
                 } catch {
                     errors.append(error)
                 }
+                do {
+                    self.value18 = try .init(from: decoder)
+                } catch {
+                    errors.append(error)
+                }
                 try Swift.DecodingError.verifyAtLeastOneSchemaIsNotNil(
                     [
                         self.value1,
@@ -9098,7 +9261,8 @@ package enum Components {
                         self.value14,
                         self.value15,
                         self.value16,
-                        self.value17
+                        self.value17,
+                        self.value18
                     ],
                     type: Self.self,
                     codingPath: decoder.codingPath,
@@ -9123,6 +9287,7 @@ package enum Components {
                 try self.value15?.encode(to: encoder)
                 try self.value16?.encode(to: encoder)
                 try self.value17?.encode(to: encoder)
+                try self.value18?.encode(to: encoder)
             }
         }
     }
@@ -11147,6 +11312,152 @@ package enum Operations {
             }
         }
     }
+    /// Get the todo list for a session
+    ///
+    /// - Remark: HTTP `GET /session/{id}/todo`.
+    /// - Remark: Generated from `#/paths//session/{id}/todo/get(session.todo)`.
+    package enum session_period_todo {
+        package static let id: Swift.String = "session.todo"
+        package struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/session/{id}/todo/GET/path`.
+            package struct Path: Sendable, Hashable {
+                /// Session ID
+                ///
+                /// - Remark: Generated from `#/paths/session/{id}/todo/GET/path/id`.
+                package var id: Swift.String
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - id: Session ID
+                package init(id: Swift.String) {
+                    self.id = id
+                }
+            }
+            package var path: Operations.session_period_todo.Input.Path
+            /// - Remark: Generated from `#/paths/session/{id}/todo/GET/query`.
+            package struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/todo/GET/query/directory`.
+                package var directory: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - directory:
+                package init(directory: Swift.String? = nil) {
+                    self.directory = directory
+                }
+            }
+            package var query: Operations.session_period_todo.Input.Query
+            /// - Remark: Generated from `#/paths/session/{id}/todo/GET/header`.
+            package struct Headers: Sendable, Hashable {
+                package var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.session_period_todo.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                package init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.session_period_todo.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            package var headers: Operations.session_period_todo.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - query:
+            ///   - headers:
+            package init(
+                path: Operations.session_period_todo.Input.Path,
+                query: Operations.session_period_todo.Input.Query = .init(),
+                headers: Operations.session_period_todo.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen package enum Output: Sendable, Hashable {
+            package struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/todo/GET/responses/200/content`.
+                @frozen package enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/session/{id}/todo/GET/responses/200/content/application\/json`.
+                    case json([Components.Schemas.Todo])
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    package var json: [Components.Schemas.Todo] {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                package var body: Operations.session_period_todo.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                package init(body: Operations.session_period_todo.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Todo list
+            ///
+            /// - Remark: Generated from `#/paths//session/{id}/todo/get(session.todo)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.session_period_todo.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            package var ok: Operations.session_period_todo.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen package enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            package init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            package var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            package static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Analyze the app and create an AGENTS.md file
     ///
     /// - Remark: HTTP `POST /session/{id}/init`.
@@ -11198,31 +11509,31 @@ package enum Operations {
             @frozen package enum Body: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json`.
                 package struct jsonPayload: Codable, Hashable, Sendable {
-                    /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json/messageID`.
-                    package var messageID: Swift.String
-                    /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json/providerID`.
-                    package var providerID: Swift.String
                     /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json/modelID`.
                     package var modelID: Swift.String
+                    /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json/providerID`.
+                    package var providerID: Swift.String
+                    /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/json/messageID`.
+                    package var messageID: Swift.String
                     /// Creates a new `jsonPayload`.
                     ///
                     /// - Parameters:
-                    ///   - messageID:
-                    ///   - providerID:
                     ///   - modelID:
+                    ///   - providerID:
+                    ///   - messageID:
                     package init(
-                        messageID: Swift.String,
+                        modelID: Swift.String,
                         providerID: Swift.String,
-                        modelID: Swift.String
+                        messageID: Swift.String
                     ) {
-                        self.messageID = messageID
-                        self.providerID = providerID
                         self.modelID = modelID
+                        self.providerID = providerID
+                        self.messageID = messageID
                     }
                     package enum CodingKeys: String, CodingKey {
-                        case messageID
-                        case providerID
                         case modelID
+                        case providerID
+                        case messageID
                     }
                 }
                 /// - Remark: Generated from `#/paths/session/{id}/init/POST/requestBody/content/application\/json`.
@@ -11288,6 +11599,174 @@ package enum Operations {
             /// - Throws: An error if `self` is not `.ok`.
             /// - SeeAlso: `.ok`.
             package var ok: Operations.session_period_init.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen package enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            package init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            package var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            package static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Fork an existing session at a specific message
+    ///
+    /// - Remark: HTTP `POST /session/{id}/fork`.
+    /// - Remark: Generated from `#/paths//session/{id}/fork/post(session.fork)`.
+    package enum session_period_fork {
+        package static let id: Swift.String = "session.fork"
+        package struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/session/{id}/fork/POST/path`.
+            package struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/fork/POST/path/id`.
+                package var id: Swift.String
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - id:
+                package init(id: Swift.String) {
+                    self.id = id
+                }
+            }
+            package var path: Operations.session_period_fork.Input.Path
+            /// - Remark: Generated from `#/paths/session/{id}/fork/POST/query`.
+            package struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/fork/POST/query/directory`.
+                package var directory: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - directory:
+                package init(directory: Swift.String? = nil) {
+                    self.directory = directory
+                }
+            }
+            package var query: Operations.session_period_fork.Input.Query
+            /// - Remark: Generated from `#/paths/session/{id}/fork/POST/header`.
+            package struct Headers: Sendable, Hashable {
+                package var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.session_period_fork.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                package init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.session_period_fork.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            package var headers: Operations.session_period_fork.Input.Headers
+            /// - Remark: Generated from `#/paths/session/{id}/fork/POST/requestBody`.
+            @frozen package enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/fork/POST/requestBody/json`.
+                package struct jsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/session/{id}/fork/POST/requestBody/json/messageID`.
+                    package var messageID: Swift.String?
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - messageID:
+                    package init(messageID: Swift.String? = nil) {
+                        self.messageID = messageID
+                    }
+                    package enum CodingKeys: String, CodingKey {
+                        case messageID
+                    }
+                }
+                /// - Remark: Generated from `#/paths/session/{id}/fork/POST/requestBody/content/application\/json`.
+                case json(Operations.session_period_fork.Input.Body.jsonPayload)
+            }
+            package var body: Operations.session_period_fork.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - query:
+            ///   - headers:
+            ///   - body:
+            package init(
+                path: Operations.session_period_fork.Input.Path,
+                query: Operations.session_period_fork.Input.Query = .init(),
+                headers: Operations.session_period_fork.Input.Headers = .init(),
+                body: Operations.session_period_fork.Input.Body? = nil
+            ) {
+                self.path = path
+                self.query = query
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen package enum Output: Sendable, Hashable {
+            package struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/session/{id}/fork/POST/responses/200/content`.
+                @frozen package enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/session/{id}/fork/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.Session)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    package var json: Components.Schemas.Session {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                package var body: Operations.session_period_fork.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                package init(body: Operations.session_period_fork.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// 200
+            ///
+            /// - Remark: Generated from `#/paths//session/{id}/fork/post(session.fork)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.session_period_fork.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            package var ok: Operations.session_period_fork.Output.Ok {
                 get throws {
                     switch self {
                     case let .ok(response):
@@ -15026,6 +15505,134 @@ package enum Operations {
             /// - Throws: An error if `self` is not `.ok`.
             /// - SeeAlso: `.ok`.
             package var ok: Operations.app_period_agents.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen package enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            package init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            package var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            package static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Get MCP server status
+    ///
+    /// - Remark: HTTP `GET /mcp`.
+    /// - Remark: Generated from `#/paths//mcp/get(mcp.status)`.
+    package enum mcp_period_status {
+        package static let id: Swift.String = "mcp.status"
+        package struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/mcp/GET/query`.
+            package struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/mcp/GET/query/directory`.
+                package var directory: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - directory:
+                package init(directory: Swift.String? = nil) {
+                    self.directory = directory
+                }
+            }
+            package var query: Operations.mcp_period_status.Input.Query
+            /// - Remark: Generated from `#/paths/mcp/GET/header`.
+            package struct Headers: Sendable, Hashable {
+                package var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.mcp_period_status.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                package init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.mcp_period_status.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            package var headers: Operations.mcp_period_status.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            package init(
+                query: Operations.mcp_period_status.Input.Query = .init(),
+                headers: Operations.mcp_period_status.Input.Headers = .init()
+            ) {
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen package enum Output: Sendable, Hashable {
+            package struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/mcp/GET/responses/200/content`.
+                @frozen package enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/mcp/GET/responses/200/content/application\/json`.
+                    case json(OpenAPIRuntime.OpenAPIValueContainer)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    package var json: OpenAPIRuntime.OpenAPIValueContainer {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                package var body: Operations.mcp_period_status.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                package init(body: Operations.mcp_period_status.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// MCP server status
+            ///
+            /// - Remark: Generated from `#/paths//mcp/get(mcp.status)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.mcp_period_status.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            package var ok: Operations.mcp_period_status.Output.Ok {
                 get throws {
                     switch self {
                     case let .ok(response):

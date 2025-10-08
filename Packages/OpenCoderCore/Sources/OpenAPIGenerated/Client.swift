@@ -1052,6 +1052,75 @@ package struct Client: APIProtocol {
             }
         )
     }
+    /// Get the todo list for a session
+    ///
+    /// - Remark: HTTP `GET /session/{id}/todo`.
+    /// - Remark: Generated from `#/paths//session/{id}/todo/get(session.todo)`.
+    package func session_period_todo(_ input: Operations.session_period_todo.Input) async throws -> Operations.session_period_todo.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.session_period_todo.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/session/{}/todo",
+                    parameters: [
+                        input.path.id
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "directory",
+                    value: input.query.directory
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.session_period_todo.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            [Components.Schemas.Todo].self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Analyze the app and create an AGENTS.md file
     ///
     /// - Remark: HTTP `POST /session/{id}/init`.
@@ -1111,6 +1180,86 @@ package struct Client: APIProtocol {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
                             Swift.Bool.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Fork an existing session at a specific message
+    ///
+    /// - Remark: HTTP `POST /session/{id}/fork`.
+    /// - Remark: Generated from `#/paths//session/{id}/fork/post(session.fork)`.
+    package func session_period_fork(_ input: Operations.session_period_fork.Input) async throws -> Operations.session_period_fork.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.session_period_fork.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/session/{}/fork",
+                    parameters: [
+                        input.path.id
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "directory",
+                    value: input.query.directory
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.session_period_fork.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Session.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -2723,6 +2872,73 @@ package struct Client: APIProtocol {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
                             [Components.Schemas.Agent].self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get MCP server status
+    ///
+    /// - Remark: HTTP `GET /mcp`.
+    /// - Remark: Generated from `#/paths//mcp/get(mcp.status)`.
+    package func mcp_period_status(_ input: Operations.mcp_period_status.Input) async throws -> Operations.mcp_period_status.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.mcp_period_status.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/mcp",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "directory",
+                    value: input.query.directory
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.mcp_period_status.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            OpenAPIRuntime.OpenAPIValueContainer.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)

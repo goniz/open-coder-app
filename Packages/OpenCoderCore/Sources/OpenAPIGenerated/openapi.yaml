@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: opencode
   description: opencode api
-  version: 0.14.3
+  version: 0.14.6
 paths:
   /project:
     get:
@@ -197,6 +197,7 @@ paths:
               properties:
                 parentID:
                   type: string
+                  pattern: ^ses.*
                 title:
                   type: string
   /session/{id}:
@@ -211,6 +212,7 @@ paths:
           name: id
           schema:
             type: string
+            pattern: ^ses.*
           required: true
       description: Get session
       responses:
@@ -231,6 +233,7 @@ paths:
           name: id
           schema:
             type: string
+            pattern: ^ses.*
           required: true
       description: Delete a session and all its data
       responses:
@@ -280,6 +283,7 @@ paths:
           name: id
           schema:
             type: string
+            pattern: ^ses.*
           required: true
       description: Get a session's children
       responses:
@@ -291,6 +295,30 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Session'
+  /session/{id}/todo:
+    get:
+      operationId: session.todo
+      parameters:
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Session ID
+      description: Get the todo list for a session
+      responses:
+        "200":
+          description: Todo list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
   /session/{id}/init:
     post:
       operationId: session.init
@@ -319,16 +347,48 @@ paths:
             schema:
               type: object
               properties:
-                messageID:
+                modelID:
                   type: string
                 providerID:
                   type: string
-                modelID:
+                messageID:
                   type: string
+                  pattern: ^msg.*
               required:
-                - messageID
-                - providerID
                 - modelID
+                - providerID
+                - messageID
+  /session/{id}/fork:
+    post:
+      operationId: session.fork
+      parameters:
+        - in: query
+          name: directory
+          schema:
+            type: string
+        - in: path
+          name: id
+          schema:
+            type: string
+            pattern: ^ses.*
+          required: true
+      description: Fork an existing session at a specific message
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messageID:
+                  type: string
+                  pattern: ^msg.*
   /session/{id}/abort:
     post:
       operationId: session.abort
@@ -382,6 +442,7 @@ paths:
           name: id
           schema:
             type: string
+            pattern: ^ses.*
           required: true
       description: Unshare the session
       responses:
@@ -1038,6 +1099,21 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Agent'
+  /mcp:
+    get:
+      operationId: mcp.status
+      parameters:
+        - in: query
+          name: directory
+          schema:
+            type: string
+      description: Get MCP server status
+      responses:
+        "200":
+          description: MCP server status
+          content:
+            application/json:
+              schema: {}
   /tui/append-prompt:
     post:
       operationId: tui.appendPrompt
@@ -2093,6 +2169,26 @@ components:
         - title
         - version
         - time
+    Todo:
+      type: object
+      properties:
+        content:
+          description: Brief description of the task
+          type: string
+        status:
+          description: 'Current status of the task: pending, in_progress, completed, cancelled'
+          type: string
+        priority:
+          description: 'Priority level of the task: high, medium, low'
+          type: string
+        id:
+          description: Unique identifier for the todo item
+          type: string
+      required:
+        - content
+        - status
+        - priority
+        - id
     UserMessage:
       type: object
       properties:
@@ -3424,6 +3520,27 @@ components:
       required:
         - type
         - properties
+    Event.todo.updated:
+      type: object
+      properties:
+        type:
+          type: string
+          const: todo.updated
+        properties:
+          type: object
+          properties:
+            sessionID:
+              type: string
+            todos:
+              type: array
+              items:
+                $ref: '#/components/schemas/Todo'
+          required:
+            - sessionID
+            - todos
+      required:
+        - type
+        - properties
     Event.session.idle:
       type: object
       properties:
@@ -3533,6 +3650,7 @@ components:
         - $ref: '#/components/schemas/Event.permission.replied'
         - $ref: '#/components/schemas/Event.file.edited'
         - $ref: '#/components/schemas/Event.file.watcher.updated'
+        - $ref: '#/components/schemas/Event.todo.updated'
         - $ref: '#/components/schemas/Event.session.idle'
         - $ref: '#/components/schemas/Event.session.updated'
         - $ref: '#/components/schemas/Event.session.deleted'

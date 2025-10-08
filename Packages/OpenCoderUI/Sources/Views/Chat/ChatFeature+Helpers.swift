@@ -45,7 +45,8 @@ extension ChatFeature {
     let factory = self.openCodeAPIFactory
     return .merge(
       loadMessagesEffect(sessionID: sessionID, serverURL: serverURL, factory: factory),
-      subscribeToEventsEffect(serverURL: serverURL, factory: factory)
+      subscribeToEventsEffect(serverURL: serverURL, factory: factory),
+      .send(.fetchProviders)
     )
   }
 

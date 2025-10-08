@@ -165,16 +165,6 @@ public struct OpenCodeConfig: Equatable, Sendable {
   }
 }
 
-public struct OpenCodeProviders: Equatable, Sendable {
-  public let providers: [String: [String: String]]
-  public let defaultProvider: String
-
-  public init(providers: [String: [String: String]], defaultProvider: String) {
-    self.providers = providers
-    self.defaultProvider = defaultProvider
-  }
-}
-
 // MARK: - Error Handling
 
 public enum OpenCodeAPIError: Error, Equatable, Sendable {

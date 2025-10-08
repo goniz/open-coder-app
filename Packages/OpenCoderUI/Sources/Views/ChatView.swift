@@ -18,6 +18,7 @@ struct ChatView: View {
               .lineLimit(1)
               .truncationMode(.tail)
             Spacer(minLength: 0)
+            ModelPickerView(store: store)
             sessionSelectorButton
           }
 
