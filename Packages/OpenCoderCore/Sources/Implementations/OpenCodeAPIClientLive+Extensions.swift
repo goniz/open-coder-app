@@ -201,6 +201,13 @@ extension LiveOpenCodeAPIClient {
               fallback: providersData.providers.first?.id
             )
 
+            if defaults.didUseFallback {
+              let fallbackProviderID = defaults.primaryProviderID ?? "unknown"
+              let message =
+                "OpenCode API: Providers response missing _default; using fallback provider '\(fallbackProviderID)'"
+              log(message, level: .warning)
+            }
+
             return OpenCodeProviders(
               providers: providerDict,
               defaultModelsByProvider: defaults.modelIDsByProvider,
@@ -250,6 +257,7 @@ extension LiveOpenCodeAPIClient {
      let primaryProviderID: String?
      let primaryModelID: String?
      let modelIDsByProvider: [String: String]
+     let didUseFallback: Bool
    }
 
   static func extractDefaults(
@@ -258,23 +266,27 @@ extension LiveOpenCodeAPIClient {
   ) -> ProviderDefaults {
      let defaults = defaultData.additionalProperties
 
-     if defaults.isEmpty {
-       return ProviderDefaults(
-         primaryProviderID: fallback,
-         primaryModelID: fallback.flatMap { defaults[$0] },
-         modelIDsByProvider: defaults
-       )
-     }
+    if defaults.isEmpty {
+      return ProviderDefaults(
+        primaryProviderID: fallback,
+        primaryModelID: nil,
+        modelIDsByProvider: defaults,
+        didUseFallback: true
+      )
+    }
 
-     let primaryProviderID = fallback ?? defaults.keys.sorted().first
-     let primaryModelID = primaryProviderID.flatMap { defaults[$0] }
+    let primaryProviderID = defaults.keys.sorted().first
+    let primaryModelID = primaryProviderID.flatMap { defaults[$0] }
+    let resolvedProviderID = primaryProviderID ?? fallback
+    let didUseFallback = primaryProviderID == nil
 
-     return ProviderDefaults(
-       primaryProviderID: primaryProviderID,
-       primaryModelID: primaryModelID,
-       modelIDsByProvider: defaults
-     )
-   }
+    return ProviderDefaults(
+      primaryProviderID: resolvedProviderID,
+      primaryModelID: primaryModelID,
+      modelIDsByProvider: defaults,
+      didUseFallback: didUseFallback
+    )
+  }
 
    private func shouldAttemptManualProviderFetch(for error: Error) -> Bool {
      guard let clientError = error as? ClientError else {
