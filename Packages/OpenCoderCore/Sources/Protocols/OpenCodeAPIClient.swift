@@ -19,7 +19,12 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
   func getCurrentProject() async throws -> OpenCodeProject?
 
   // Message Operations
-  func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage
+  func sendMessage(
+    sessionID: String,
+    parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) async throws -> OpenCodeMessage
   func getMessages(sessionID: String) async throws -> [OpenCodeMessage]
   func getMessage(sessionID: String, messageID: String) async throws -> OpenCodeMessage
 
@@ -277,15 +282,20 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     return projects.first
   }
 
-  public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
+  public func sendMessage(
+    sessionID: String,
+    parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) async throws -> OpenCodeMessage {
     let message = OpenCodeMessage(
       id: UUID().uuidString,
       sessionID: sessionID,
       parts: parts,
       timestamp: Date(),
       role: .user,
-      modelID: nil,
-      providerID: nil
+      modelID: modelID,
+      providerID: providerID
     )
     return message
   }

@@ -10,10 +10,19 @@ import Models
 // MARK: - Message Operations
 
 extension LiveOpenCodeAPIClient {
-  public func sendMessage(sessionID: String, parts: [MessagePart]) async throws -> OpenCodeMessage {
+  public func sendMessage(
+    sessionID: String,
+    parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) async throws -> OpenCodeMessage {
     log("OpenCode API: Sending message to session: \(sessionID)")
 
-    let requestBody = createSendMessageRequestBody(from: parts)
+    let requestBody = createSendMessageRequestBody(
+      from: parts,
+      providerID: providerID,
+      modelID: modelID
+    )
     let input = Operations.session_period_prompt.Input(path: .init(id: sessionID), body: requestBody)
 
     do {
@@ -25,7 +34,11 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
-  private func createSendMessageRequestBody(from parts: [MessagePart]) -> Operations.session_period_prompt.Input.Body {
+  private func createSendMessageRequestBody(
+    from parts: [MessagePart],
+    providerID: String?,
+    modelID: String?
+  ) -> Operations.session_period_prompt.Input.Body {
     let textContent = parts.compactMap { part in
       switch part {
       case let .text(content, _):
@@ -58,7 +71,19 @@ extension LiveOpenCodeAPIClient {
       value1: textPart, value2: nil, value3: nil
     )
 
-    return Operations.session_period_prompt.Input.Body.json(.init(parts: [partPayload]))
+    let modelPayload: Operations.session_period_prompt.Input.Body.jsonPayload.modelPayload?
+    if let providerID, let modelID {
+      modelPayload = .init(providerID: providerID, modelID: modelID)
+    } else {
+      modelPayload = nil
+    }
+
+    return Operations.session_period_prompt.Input.Body.json(
+      .init(
+        model: modelPayload,
+        parts: [partPayload]
+      )
+    )
   }
 
   private func handleSendMessageResponse(

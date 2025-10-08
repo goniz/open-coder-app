@@ -93,6 +93,9 @@ extension ChatFeature {
     let messageID = draft.id ?? UUID().uuidString
     let parts: [MessagePart] = [.text(trimmedText, id: nil)]
 
+    let providerID = state.selectedProviderID
+    let modelID = state.selectedModelID
+
     state.draft = ChatDraftState()
     state.isLoading = true
 
@@ -100,7 +103,12 @@ extension ChatFeature {
     return .run { send in
       do {
         let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
-        let serverMessage = try await apiClient.sendMessage(sessionID: sessionID, parts: parts)
+        let serverMessage = try await apiClient.sendMessage(
+          sessionID: sessionID,
+          parts: parts,
+          providerID: providerID,
+          modelID: modelID
+        )
         await send(.messageReceived(serverMessage))
         await send(.messageSendCompleted(messageID: serverMessage.id))
       } catch {
