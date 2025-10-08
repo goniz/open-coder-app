@@ -145,7 +145,7 @@ public struct ChatFeature: Sendable {
     case appDidBecomeActive
     case appWillResignActive
     case fetchProviders
-    case providersLoaded([Provider])
+    case providersLoaded([Provider], defaultProviderID: String, defaultModelID: String?)
     case providersFailed(String)
     case selectProvider(String)
     case selectModel(String)

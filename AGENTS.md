@@ -40,10 +40,15 @@ The command uses `&&` chaining to exit immediately on any failure, ensuring issu
 - Test targets for each package and module
 
 ## Generated API Files
-- Auto-generated API files are created during the build process from OpenAPI specifications in `Packages/OpenCoderCore/Sources/OpenAPIGenerated/`.
-- Key files include `Types.swift` which contains type definitions for API models.
-- After running `swift build`, generated files can be found in the `.build/` directory under the OpenAPIGenerated target.
-- Use `just generate-opencode-api` to regenerate API specifications from the latest OpenCode CLI.
+- **IMPORTANT: Files in `Packages/OpenCoderCore/Sources/OpenAPIGenerated/` are AUTO-GENERATED and MUST NOT be edited manually**
+- These files include:
+  - `Client.swift` - Generated API client implementation
+  - `Types.swift` - Generated type definitions for API models
+  - `openapi.yaml` - OpenAPI specification (generated from OpenCode CLI)
+  - `openapi-generator-config.yaml` - Configuration for code generation (do not edit)
+- **To update these files, ALWAYS use: `just generate-opencode-api`**
+- This command fetches the latest OpenAPI spec from OpenCode CLI and regenerates all client code
+- Never commit manual edits to generated files - they will be overwritten on next generation
 
 ## Code Style
 - Swift 6.0 with strict concurrency

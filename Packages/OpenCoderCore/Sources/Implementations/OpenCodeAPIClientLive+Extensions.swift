@@ -189,30 +189,33 @@ extension LiveOpenCodeAPIClient {
        "Listing providers",
        input: input,
        apiCall: client.config_period_providers
-     ) { response in
-       switch response {
-       case let .ok(okResponse):
-         switch okResponse.body {
-         case let .json(providersData):
-           let providerDict = buildProviderDictionary(from: providersData.providers)
-           let defaultProvider = extractDefaultProvider(
-             from: providersData._default,
-             fallback: providersData.providers.first?.id
-           )
+      ) { response in
+        switch response {
+        case let .ok(okResponse):
+          switch okResponse.body {
+          case let .json(providersData):
+            let providerDict = buildProviderDictionary(from: providersData.providers)
+            let (defaultProvider, defaultModel) = extractDefaults(
+              from: providersData._default,
+              fallback: providersData.providers.first?.id
+            )
 
-           return OpenCodeProviders(
-             providers: providerDict,
-             defaultProvider: defaultProvider
-           )
-         }
-       case let .undocumented(statusCode, _):
-         return try handleUndocumentedResponse("list providers", statusCode: statusCode)
-       }
-     }
+            return OpenCodeProviders(
+              providers: providerDict,
+              defaultProvider: defaultProvider,
+              defaultModel: defaultModel
+            )
+          }
+        case let .undocumented(statusCode, _):
+          return try handleUndocumentedResponse("list providers", statusCode: statusCode)
+        }
+      }
    }
 
-  private func buildProviderDictionary(from providers: [Components.Schemas.Provider]) -> [String: [String: String]] {
-     var providerDict: [String: [String: String]] = [:]
+  private func buildProviderDictionary(
+    from providers: [Components.Schemas.Provider]
+  ) -> [String: OpenCodeProviderInfo] {
+     var providerDict: [String: OpenCodeProviderInfo] = [:]
 
       for provider in providers {
         var models: [String: String] = [:]
@@ -225,19 +228,23 @@ extension LiveOpenCodeAPIClient {
           models[provider.id] = provider.name
         }
 
-        providerDict[provider.id] = models
+        providerDict[provider.id] = OpenCodeProviderInfo(
+          name: provider.name,
+          models: models
+        )
       }
 
      return providerDict
    }
 
-   private func extractDefaultProvider(
+   private func extractDefaults(
     from defaultData: Operations.config_period_providers.Output.Ok.Body.jsonPayload._defaultPayload,
     fallback: String?
-  ) -> String {
-     if let provider = defaultData.additionalProperties.keys.first {
-       return provider
+  ) -> (provider: String, model: String?) {
+     if let providerID = defaultData.additionalProperties.keys.first {
+       let modelID = defaultData.additionalProperties[providerID]
+       return (providerID, modelID)
      }
-     return fallback ?? "openai"
+     return (fallback ?? "openai", nil)
    }
 }
