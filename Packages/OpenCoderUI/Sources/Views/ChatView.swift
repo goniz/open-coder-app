@@ -69,24 +69,38 @@ struct ChatView: View {
       }
       .padding(.top, 8)
     } label: {
-      HStack(spacing: 8) {
+      HStack(alignment: .top, spacing: 10) {
         Image(systemName: "slider.horizontal.3")
-          .font(.subheadline.weight(.semibold))
-        Text("Chat Settings")
-          .font(.subheadline.weight(.semibold))
-        Spacer()
-        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
           .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
+
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Chat Settings")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.primary)
+
+          Text(settingsSummary)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+
+        Spacer(minLength: 4)
+
+        Image(systemName: isSettingsExpanded ? "chevron.up" : "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.tertiary)
+          .padding(.top, 2)
       }
-      .padding(.vertical, 8)
-      .padding(.horizontal, 12)
+      .padding(.vertical, 6)
+      .padding(.horizontal, 10)
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
           .fill(Color(.systemGray6))
       )
-      .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     .animation(.easeInOut(duration: 0.2), value: isSettingsExpanded)
   }
@@ -121,6 +135,28 @@ struct ChatView: View {
       .background(Color(.systemGray6))
       .cornerRadius(4)
     }
+  }
+
+  private var settingsSummary: String {
+    let sessionText: String
+    if let sessionID = store.sessionID, !sessionID.isEmpty {
+      sessionText = store.currentSessionTitle
+    } else {
+      sessionText = "Session not selected"
+    }
+
+    let providerText: String
+    if let provider = store.currentProvider {
+      if let model = store.currentModel {
+        providerText = "\(provider.name) · \(model.displayName)"
+      } else {
+        providerText = provider.name
+      }
+    } else {
+      providerText = "Model not selected"
+    }
+
+    return [sessionText, providerText].joined(separator: " • ")
   }
 
   private var sessionSelectorButton: some View {
