@@ -33,7 +33,9 @@ platform :ios do
   end
 
   desc "Build preview IPA using Bazel"
-  lane :preview do
+  lane :preview do |options|
+    quiet = options[:quiet] || false
+    
     api_key = app_store_connect_api_key(
       key_id: "ZZR4FFP696",
       issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
@@ -52,8 +54,10 @@ platform :ios do
     # Increment Xcode build number (source of truth)
     increment_build_number(xcodeproj: "OpenCoder.xcodeproj")
     
-    puts "🔨 Building preview IPA with Bazel (auto-extracting versions)..."
-    sh("cd ../.. && bazel build --config=release //:OpenCoder.preview")
+    bazel_flags = quiet ? "--ui_event_filters=-info,-debug --noshow_progress" : ""
+    
+    puts "🔨 Building preview IPA with Bazel (auto-extracting versions)..." unless quiet
+    sh("cd ../.. && bazel build --config=release #{bazel_flags} //:OpenCoder.preview")
     
     fastlane_dir = File.dirname(__FILE__)
     ipa_path = File.expand_path("../../bazel-bin/OpenCoder.preview.ipa", fastlane_dir)
@@ -62,7 +66,7 @@ platform :ios do
       UI.user_error!("Preview IPA not found at #{ipa_path} after Bazel build.")
     end
     
-    puts "✅ Preview IPA created: #{ipa_path}"
+    puts "✅ Preview IPA created: #{ipa_path}" unless quiet
   end
 
   desc "Generate screenshots for development"
