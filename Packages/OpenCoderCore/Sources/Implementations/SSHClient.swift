@@ -840,7 +840,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
     Task {
       await AppLogger.shared.log(
         "CommandOutputHandler initialized for command: \(command.prefix(80))",
-        level: .debug,
+        level: .trace,
         category: .ssh
       )
     }
@@ -873,7 +873,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         Task {
           await AppLogger.shared.log(
             "Received stdout (\(bytes.count) bytes): \(receivedString.prefix(100))",
-            level: .debug,
+            level: .trace,
             category: .ssh
           )
         }
@@ -899,7 +899,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
         Task {
           await AppLogger.shared.log(
             "Received stderr (\(bytes.count) bytes): \(receivedString.prefix(100))",
-            level: .debug,
+            level: .trace,
             category: .ssh
           )
         }
@@ -923,7 +923,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
     Task {
       await AppLogger.shared.log(
         "CommandOutputHandler received event: \(eventType)",
-        level: .debug,
+        level: .trace,
         category: .ssh
       )
     }
@@ -945,7 +945,7 @@ private final class CommandOutputHandler: ChannelInboundHandler, @unchecked Send
     Task {
       await AppLogger.shared.log(
         "Command exit status received: \(exitStatusEvent.exitStatus)",
-        level: .debug,
+        level: .trace,
         category: .ssh
       )
     }
@@ -1082,7 +1082,7 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
     let ed25519Seed = try SSHUserAuthDelegate.extractEd25519Seed(from: keyData)
     let edKey = try Curve25519.Signing.PrivateKey(rawRepresentation: ed25519Seed)
     let nioKey = NIOSSHPrivateKey(ed25519Key: edKey)
-    Task { await AppLogger.shared.log("Using public key auth", level: .debug, category: .ssh) }
+    Task { await AppLogger.shared.log("Using public key auth", level: .trace, category: .ssh) }
     return NIOSSHUserAuthenticationOffer(
       username: config.username,
       serviceName: "ssh-connection",
@@ -1093,7 +1093,7 @@ private final class SSHUserAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
   private func buildPasswordOffer(availableMethods: NIOSSHAvailableUserAuthenticationMethods)
     -> NIOSSHUserAuthenticationOffer? {
     guard availableMethods.contains(.password), !config.password.isEmpty else { return nil }
-    Task { await AppLogger.shared.log("Using password auth", level: .debug, category: .ssh) }
+    Task { await AppLogger.shared.log("Using password auth", level: .trace, category: .ssh) }
     return NIOSSHUserAuthenticationOffer(
       username: config.username,
       serviceName: "ssh-connection",
@@ -1307,7 +1307,7 @@ private final class AcceptAllHostKeysDelegate: NIOSSHClientServerAuthenticationD
       Task {
         await AppLogger.shared.log(
           "Accepting host key for \(hostIdentifier) (fingerprint verification not implemented)",
-          level: .debug,
+          level: .trace,
           category: .ssh
         )
       }
@@ -1372,7 +1372,7 @@ public actor SSHConnectionManager {
     // Create new connection with retry logic
     return try await withRetry(maxRetries: 3, baseDelay: 1.0) { [self] in
       if self.connection == nil || !self.connection!.isHealthy {
-        await AppLogger.shared.log("Creating new SSH connection", level: .debug, category: .ssh)
+        await AppLogger.shared.log("Creating new SSH connection", level: .trace, category: .ssh)
         self.connection = try await self.createConnection()
 
         // Add a small delay to ensure the connection is fully ready
@@ -1596,7 +1596,7 @@ public struct SSHConnection: Sendable {
           Task {
             await AppLogger.shared.log(
               "SSH session channel created via connection pool and handler attached",
-              level: .debug,
+              level: .trace,
               category: .ssh
             )
           }
@@ -1621,7 +1621,7 @@ public struct SSHConnection: Sendable {
     sessionChannel.triggerUserOutboundEvent(execRequest, promise: noPromise)
     await AppLogger.shared.log(
       "Command exec request sent via connection pool: \(command.prefix(100))",
-      level: .debug,
+      level: .trace,
       category: .ssh
     )
 
@@ -1637,7 +1637,7 @@ public struct SSHConnection: Sendable {
       // Log but don't fail - channel might already be closed
       await AppLogger.shared.log(
         "Session channel cleanup warning: \(error.localizedDescription)",
-        level: .debug,
+        level: .trace,
         category: .ssh
       )
     }

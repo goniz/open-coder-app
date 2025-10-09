@@ -183,7 +183,7 @@ extension WorkspaceService {
       await healthCheck(port: port, workspace: workspace) {
       await AppLogger.shared.log(
         "Workspace already online on port \(port) - reusing session",
-        level: .info,
+        level: .debug,
         category: .workspace
       )
       return SpawnResult(port: port, online: true, error: nil)
@@ -228,7 +228,7 @@ extension WorkspaceService {
     let logPath = workspaceLogPath(for: workspace)
 
     return """
-      set -euo pipefail
+      set +e
       state_dir=\(stateDirectory.escapingDoubleQuotes())
       lock_dir="$state_dir/lock.d"
       log_file=\(logPath.escapingDoubleQuotes())
@@ -244,11 +244,19 @@ extension WorkspaceService {
 
       if mkdir "$lock_dir" 2>/dev/null; then
         trap cleanup_lock EXIT INT TERM HUP
-        cd "$run_dir"
-        \(opencodeCommand) | tee -a "$log_file"
+        cd "$run_dir" || {
+          printf '[Live Output] Failed to cd to %s\\n' "$run_dir"
+          read
+          exit 1
+        }
+        printf '[Live Output] Starting opencode server...\\n' | tee -a "$log_file"
+        \(opencodeCommand) 2>&1 | tee -a "$log_file"
+        exit_code=$?
+        printf '\\n[Live Output] Command exited with code %d. Press enter to close or investigate.\\n' "$exit_code"
+        read
       else
         printf '[Live Output] Another opencode launch is already in progress.\\n'
-        exit 0
+        read
       fi
       """
   }
