@@ -63,8 +63,10 @@ extension LiveOpenCodeAPIClient {
       return parseMessageUpdatedEvent(json)
     case "message.part.updated":
       return parseMessagePartUpdatedEvent(json)
+    case "server.connected":
+      return nil
     default:
-      log("OpenCode API: Received unknown event type: \(type)", level: .warning)
+      log("OpenCode API: Received unknown event type: \(type)", level: .debug)
       return .unknown(jsonString)
     }
   }
@@ -142,7 +144,6 @@ extension LiveOpenCodeAPIClient {
       modelID: modelID,
       providerID: providerID
     )
-    log("Received message.updated: \(message.id)", level: .debug)
     return .messageUpdated(message)
   }
 
@@ -190,7 +191,6 @@ extension LiveOpenCodeAPIClient {
     let id = partJSON["id"] as? String ?? UUID().uuidString
     let part = parseMessagePart(partJSON) ?? parseMessagePartFromJSON(partJSON)
 
-    log("Received message.part.updated: session=\(sessionID), msg=\(messageID), part=\(id)", level: .debug)
     return .messagePartUpdated(sessionID: sessionID, messageID: messageID, partID: id, part: part)
   }
 
