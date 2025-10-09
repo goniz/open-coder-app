@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import OpenCoderCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if canImport(UIKit)
   import UIKit
@@ -40,6 +41,10 @@ struct SettingsView: View {
         Button("View Previous Launch Logs") {
           store.send(.togglePreviousLogs)
         }
+
+        Button("Download Logs") {
+          store.send(.exportLogs)
+        }
       }
     }
     .navigationTitle("Settings")
@@ -48,6 +53,23 @@ struct SettingsView: View {
     }
     .sheet(isPresented: $store.showingPreviousLogs) {
       PreviousLogsView(store: store)
+    }
+    .fileExporter(
+      isPresented: Binding(
+        get: { store.logsFileURL != nil },
+        set: { if !$0 { store.send(.logsFileGenerated(nil)) } }
+      ),
+      document: store.logsFileURL.map { LogsDocument(fileURL: $0) },
+      contentType: .plainText,
+      defaultFilename: store.logsFileURL?.lastPathComponent ?? "opencoder_logs.txt"
+    ) { result in
+      switch result {
+      case .success:
+        break
+      case .failure(let error):
+        AppLogger.shared.log("Failed to export logs: \(error.localizedDescription)", level: .error)
+      }
+      store.send(.logsFileGenerated(nil))
     }
     .task {
       await store.send(.task).finish()
@@ -264,6 +286,27 @@ struct PreviousLogsView: View {
   }
 }
 
+struct LogsDocument: FileDocument {
+  static var readableContentTypes: [UTType] { [.plainText] }
+
+  let fileURL: URL
+
+  init(fileURL: URL) {
+    self.fileURL = fileURL
+  }
+
+  init(configuration: ReadConfiguration) throws {
+    throw CocoaError(.fileReadUnknown)
+  }
+
+  func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+    guard let data = try? Data(contentsOf: fileURL) else {
+      throw CocoaError(.fileReadUnknown)
+    }
+    return FileWrapper(regularFileWithContents: data)
+  }
+}
+
 private struct LogEntryView: View {
   let entry: LogEntry
 
@@ -313,6 +356,7 @@ private struct LogEntryView: View {
 
   private func colorForLevel(_ level: LogLevel) -> Color {
     switch level {
+    case .trace: return .secondary
     case .debug: return .gray
     case .info: return .blue
     case .warning: return .orange

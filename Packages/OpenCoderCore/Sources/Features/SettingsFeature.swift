@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Foundation
 import Models
 
 @Reducer
@@ -11,6 +12,7 @@ public struct SettingsFeature: Sendable {
     public var thinkingBlocksEnabled = true
     public var showingLogs = false
     public var showingPreviousLogs = false
+    public var logsFileURL: URL?
 
     public init() {}
   }
@@ -23,6 +25,8 @@ public struct SettingsFeature: Sendable {
     case clearLogs
     case togglePreviousLogs
     case clearPreviousLogs
+    case exportLogs
+    case logsFileGenerated(URL?)
   }
 
   public init() {}
@@ -62,6 +66,16 @@ public struct SettingsFeature: Sendable {
       return .run { _ in
         await AppLogger.shared.clearPreviousLogs()
       }
+
+    case .exportLogs:
+      return .run { send in
+        let url = await AppLogger.shared.exportLogsToFile()
+        await send(.logsFileGenerated(url))
+      }
+
+    case .logsFileGenerated(let url):
+      state.logsFileURL = url
+      return .none
     }
   }
 }

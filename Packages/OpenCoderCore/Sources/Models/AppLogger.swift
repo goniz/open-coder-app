@@ -61,6 +61,8 @@ public final class AppLogger: ObservableObject {
 
     // Log to system logger as well
     switch level {
+    case .trace:
+      logger.debug("\(message)")
     case .debug:
       logger.debug("\(message)")
     case .info:
@@ -110,6 +112,35 @@ public final class AppLogger: ObservableObject {
     if hasPendingSave {
       await saveCurrentLogs()
       hasPendingSave = false
+    }
+  }
+
+  public func exportLogsToFile() async -> URL? {
+    let tempDir = FileManager.default.temporaryDirectory
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    let fileName = "opencoder_logs_\(timestamp).txt"
+    let fileURL = tempDir.appendingPathComponent(fileName)
+
+    var logText = "OpenCoder Current Session Logs\n"
+    logText += "Generated: \(timestamp)\n"
+    logText += "===========================================\n\n"
+
+    if !logEntries.isEmpty {
+      logText += "CURRENT SESSION LOGS (\(logEntries.count) entries)\n"
+      logText += "===========================================\n"
+      for entry in logEntries {
+        logText += entry.clipboardText + "\n"
+      }
+    } else {
+      logText += "No logs in current session\n"
+    }
+
+    do {
+      try logText.write(to: fileURL, atomically: true, encoding: .utf8)
+      return fileURL
+    } catch {
+      logger.error("Failed to export logs: \(error.localizedDescription)")
+      return nil
     }
   }
 
@@ -207,6 +238,7 @@ public struct LogEntry: Identifiable, Equatable, Sendable, Codable {
 
 public enum LogLevel: String, CaseIterable, Sendable, Codable {
 
+  case trace = "TRACE"
   case debug = "DEBUG"
   case info = "INFO"
   case warning = "WARNING"
@@ -214,6 +246,7 @@ public enum LogLevel: String, CaseIterable, Sendable, Codable {
 
   public var colorString: String {
     switch self {
+    case .trace: return "gray"
     case .debug: return "gray"
     case .info: return "blue"
     case .warning: return "orange"
@@ -225,6 +258,7 @@ public enum LogLevel: String, CaseIterable, Sendable, Codable {
   @available(iOS 13.0, macOS 10.15, *)
   public var color: Color {
     switch self {
+    case .trace: return .secondary
     case .debug: return .gray
     case .info: return .blue
     case .warning: return .orange
@@ -235,6 +269,7 @@ public enum LogLevel: String, CaseIterable, Sendable, Codable {
 
   public var icon: String {
     switch self {
+    case .trace: return "ant.circle"
     case .debug: return "info.circle"
     case .info: return "info.circle.fill"
     case .warning: return "exclamationmark.triangle.fill"
