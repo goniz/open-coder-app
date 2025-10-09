@@ -10,6 +10,7 @@ import Models
 // MARK: - Message Operations
 
 extension LiveOpenCodeAPIClient {
+
   public func sendMessage(
     sessionID: String,
     parts: [MessagePart],
@@ -39,7 +40,27 @@ extension LiveOpenCodeAPIClient {
     providerID: String?,
     modelID: String?
   ) -> Operations.session_period_prompt.Input.Body {
-    let textContent = parts.compactMap { part in
+    var requestParts: [Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload] = []
+
+    let textContent = extractTextContent(from: parts)
+    if !textContent.isEmpty {
+      requestParts.append(createTextPartPayload(textContent))
+    }
+
+    requestParts.append(contentsOf: createFilePartPayloads(from: parts))
+
+    let modelPayload = createModelPayload(providerID: providerID, modelID: modelID)
+
+    return Operations.session_period_prompt.Input.Body.json(
+      .init(
+        model: modelPayload,
+        parts: requestParts
+      )
+    )
+  }
+
+  private func extractTextContent(from parts: [MessagePart]) -> String {
+    return parts.compactMap { part in
       switch part {
       case let .text(content, _):
         return content
@@ -60,30 +81,67 @@ extension LiveOpenCodeAPIClient {
         return "Step finished - Cost: \(cost), Input tokens: \(inputTokens), Output tokens: \(outputTokens)"
       case let .snapshot(content, _):
         return "Snapshot: \(content)"
+      case .structuredFile:
+        return nil
       }
     }.joined(separator: "\n")
+  }
 
+  private func createTextPartPayload(
+    _ text: String
+  ) -> Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload {
     let textPart = Components.Schemas.TextPartInput(
-      id: nil, _type: .text, text: textContent, synthetic: nil, time: nil
+      id: nil, _type: .text, text: text, synthetic: nil, time: nil
     )
-
-    let partPayload = Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload(
+    return Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload(
       value1: textPart, value2: nil, value3: nil
     )
+  }
 
-    let modelPayload: Operations.session_period_prompt.Input.Body.jsonPayload.modelPayload?
-    if let providerID, let modelID {
-      modelPayload = .init(providerID: providerID, modelID: modelID)
-    } else {
-      modelPayload = nil
-    }
+  private func createFilePartPayloads(
+    from parts: [MessagePart]
+  ) -> [Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload] {
+    return parts.compactMap { part -> Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload? in
+      guard case let .structuredFile(path, url, mimeType, displayText, startIndex, endIndex, id) = part else {
+        return nil
+      }
 
-    return Operations.session_period_prompt.Input.Body.json(
-      .init(
-        model: modelPayload,
-        parts: [partPayload]
+      let source = Components.Schemas.FilePartSource(
+        value1: Components.Schemas.FileSource(
+          text: Components.Schemas.FilePartSourceText(
+            value: displayText,
+            start: startIndex,
+            end: endIndex
+          ),
+          _type: .file,
+          path: path
+        ),
+        value2: nil
       )
-    )
+
+      let filePartInput = Components.Schemas.FilePartInput(
+        id: id,
+        _type: .file,
+        mime: mimeType,
+        filename: path,
+        url: url,
+        source: source
+      )
+
+      return Operations.session_period_prompt.Input.Body.jsonPayload.partsPayloadPayload(
+        value1: nil, value2: filePartInput, value3: nil
+      )
+    }
+  }
+
+  private func createModelPayload(
+    providerID: String?,
+    modelID: String?
+  ) -> Operations.session_period_prompt.Input.Body.jsonPayload.modelPayload? {
+    if let providerID, let modelID {
+      return .init(providerID: providerID, modelID: modelID)
+    }
+    return nil
   }
 
   private func handleSendMessageResponse(
@@ -106,7 +164,7 @@ extension LiveOpenCodeAPIClient {
 
   public func getMessages(sessionID: String) async throws -> [OpenCodeMessage] {
      let startTime = CFAbsoluteTimeGetCurrent()
-     log("OpenCode API: Getting messages from session: \(sessionID)")
+     log("OpenCode API: Getting messages from session: \(sessionID)", level: .debug)
 
      let input = Operations.session_period_messages.Input(path: .init(id: sessionID))
 
@@ -130,7 +188,10 @@ extension LiveOpenCodeAPIClient {
              print("\(msg) \(parseMsg) for \(messages.count) messages")
            }
 
-           log("OpenCode API: Successfully retrieved \(messages.count) messages from session: \(sessionID)")
+           log(
+             "OpenCode API: Successfully retrieved \(messages.count) messages from session: \(sessionID)",
+             level: .debug
+           )
            return messages
          }
        case let .undocumented(statusCode, _):
@@ -254,7 +315,22 @@ extension LiveOpenCodeAPIClient {
         } else if let reasoningPart = part.value2 {
           return .reasoning(reasoningPart.text, id: nil)
         } else if let filePart = part.value3 {
-          return .file(path: filePart.filename ?? "unknown", content: filePart.url, id: nil)
+          // Check if this is a structured file part with proper source information
+          if let source = filePart.source?.value1 {
+            let text = source.text
+            return .structuredFile(
+              path: source.path,
+              url: filePart.url,
+              mimeType: filePart.mime,
+              displayText: text.value,
+              startIndex: Int(text.start),
+              endIndex: Int(text.end),
+              id: filePart.id
+            )
+          } else {
+            // Fallback to regular file part for backwards compatibility
+            return .file(path: filePart.filename ?? "unknown", content: filePart.url, id: nil)
+          }
         } else if let toolPart = part.value4 {
           return parseToolPart(toolPart)
         } else if let stepStartPart = part.value5 {

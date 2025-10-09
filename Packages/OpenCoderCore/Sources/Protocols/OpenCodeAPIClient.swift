@@ -1,9 +1,7 @@
 import Foundation
-import OpenAPIGenerated
-import OpenAPIRuntime
-import HTTPTypes
-import Dependencies
 import Models
+import OpenAPIGenerated
+import Dependencies
 
 // MARK: - Protocol Definition
 
@@ -38,6 +36,10 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
 
   // Event Streaming
   func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error>
+
+  // File Operations
+  func findFiles(query: String, directory: String?) async throws -> [FileSuggestion]
+  func readFile(path: String, directory: String?) async throws -> String
 }
 
 // MARK: - Event Models
@@ -150,6 +152,15 @@ public enum MessagePart: Equatable, Sendable {
   case text(String, id: String?)
   case reasoning(String, id: String?)
   case file(path: String, content: String, id: String?)
+  case structuredFile(
+    path: String,
+    url: String,
+    mimeType: String,
+    displayText: String,
+    startIndex: Int,
+    endIndex: Int,
+    id: String?
+  )
   case agent(type: String, result: String, id: String?)
   case tool(name: String, input: String, output: String, error: String?, id: String?)
   case patch(hash: String, files: [String], id: String?)
@@ -382,6 +393,28 @@ public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEven
     }
   }
 }
+
+  // MARK: - File Operations (Mock)
+
+  public func findFiles(query: String, directory: String?) async throws -> [FileSuggestion] {
+    let samples = [
+      "README.md",
+      "Sources/App/AppDelegate.swift",
+      "Sources/Feature/Chat/ChatView.swift"
+    ].filter { $0.localizedCaseInsensitiveContains(query) }
+
+    return samples.map { path in
+      let name = (path as NSString).lastPathComponent
+      let ext = (path as NSString).pathExtension
+      let type = ext.isEmpty ? nil : ext
+      return FileSuggestion(path: path, name: name, type: type)
+    }
+  }
+
+  public func readFile(path: String, directory: String?) async throws -> String {
+    // Return a short mock content
+    return "// Mock content for \(path)\nprint(\"Hello from mock!\")\n"
+  }
 }
 
 // MARK: - Dependency Injection
