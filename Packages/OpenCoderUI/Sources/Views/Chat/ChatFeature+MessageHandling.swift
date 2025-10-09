@@ -203,6 +203,8 @@ extension ChatFeature {
       return .reasoning(content)
     case .file(let path, let content, _):
       return .file(path: path, content: content, operation: .read)
+    case .structuredFile(let path, _, _, _, _, _, _):
+      return .file(path: path, content: "", operation: .read)
     case .tool(let name, let input, let output, let error, _):
       return convertToolPart(name: name, input: input, output: output, error: error)
     case .agent(let type, let result, _):

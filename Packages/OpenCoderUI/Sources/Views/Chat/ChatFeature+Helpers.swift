@@ -3,6 +3,7 @@ import Foundation
 import Protocols
 import ExyteChat
 import Models
+import OpenAPIGenerated
 
 package actor SharedAPIClientCache {
   static let shared = SharedAPIClientCache()
@@ -32,6 +33,138 @@ package actor SharedAPIClientCache {
 }
 
 extension ChatFeature {
+
+  // MARK: - File Attachment & Suggestions
+
+  func handleFileAttachmentActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case let .showFileSuggestions(query):
+      return handleShowFileSuggestions(state: &state, query: query)
+    case let .fileSuggestionsLoaded(suggestions):
+      return handleFileSuggestionsLoaded(state: &state, suggestions: suggestions)
+    case let .fileSuggestionsFailed(error):
+      return handleFileSuggestionsFailed(state: &state, error: error)
+    case let .selectFileSuggestion(suggestion):
+      return handleSelectFileSuggestion(state: &state, suggestion: suggestion)
+    case let .attachFile(file):
+      return handleAttachFile(state: &state, file: file)
+    case let .removeAttachedFile(id):
+      return handleRemoveAttachedFile(state: &state, id: id)
+    case let .fileContentLoaded(path, content):
+      return handleFileContentLoaded(state: &state, path: path, content: content)
+    case let .fileContentFailed(path, error):
+      return handleFileContentFailed(state: &state, path: path, error: error)
+    default:
+      return .none
+    }
+  }
+
+  private func handleShowFileSuggestions(state: inout State, query: String) -> Effect<Action> {
+    state.draft.suggestionQuery = query
+    state.draft.isShowingSuggestions = true
+    guard let serverURL = state.serverURL else {
+      state.draft.suggestions = makeInlineSuggestions(from: query)
+      return .none
+    }
+    let factory = self.openCodeAPIFactory
+    return .run { send in
+      do {
+        let api = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
+        let results = try await api.findFiles(query: query, directory: nil)
+        await send(.fileSuggestionsLoaded(results))
+      } catch {
+        await send(.fileSuggestionsFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleFileSuggestionsLoaded(state: inout State, suggestions: [FileSuggestion]) -> Effect<Action> {
+    state.draft.suggestions = suggestions
+    state.draft.isShowingSuggestions = true
+    return .none
+  }
+
+  private func handleFileSuggestionsFailed(state: inout State, error: String) -> Effect<Action> {
+    state.errorMessage = error
+    state.draft.isShowingSuggestions = false
+    return .none
+  }
+
+  private func handleSelectFileSuggestion(state: inout State, suggestion: FileSuggestion) -> Effect<Action> {
+    let file = AttachedFile(path: suggestion.path, content: nil)
+    state.draft.attachedFiles.append(file)
+    state.draft.isShowingSuggestions = false
+
+    guard let serverURL = state.serverURL else { return .none }
+    let filePath = suggestion.path
+    let factory = self.openCodeAPIFactory
+    return .run { send in
+      do {
+        let api = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
+        let content = try await api.readFile(path: filePath, directory: nil)
+        await send(.fileContentLoaded(path: filePath, content: content))
+      } catch {
+        await send(.fileContentFailed(path: filePath, error: error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleAttachFile(state: inout State, file: AttachedFile) -> Effect<Action> {
+    state.draft.attachedFiles.append(file)
+    return .none
+  }
+
+  private func handleRemoveAttachedFile(state: inout State, id: UUID) -> Effect<Action> {
+    state.draft.attachedFiles.removeAll { $0.id == id }
+    return .none
+  }
+
+  private func handleFileContentLoaded(state: inout State, path: String, content: String) -> Effect<Action> {
+    if let index = state.draft.attachedFiles.firstIndex(where: { $0.path == path }) {
+      let data = content.data(using: .utf8)
+      let existing = state.draft.attachedFiles[index]
+      state.draft.attachedFiles[index] = AttachedFile(
+        path: existing.path,
+        content: data,
+        metadata: existing.metadata
+      )
+    }
+    return .none
+  }
+
+  private func handleFileContentFailed(state: inout State, path: String, error: String) -> Effect<Action> {
+    state.errorMessage = "Failed to load file content for \(path): \(error)"
+    return .none
+  }
+
+  private func makeInlineSuggestions(from query: String) -> [FileSuggestion] {
+    let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return [] }
+
+    // Provide a few plausible filename completions locally as a stopgap
+    let base = (trimmed as NSString).lastPathComponent
+    let candidates = [
+      base,
+      base + ".swift",
+      base + ".md",
+      base + ".txt",
+      base + ".json"
+    ]
+
+    return candidates.map { name in
+      let path: String
+      if trimmed.contains("/") {
+        // Continue the typed directory structure
+        let dir = (trimmed as NSString).deletingLastPathComponent
+        path = (dir as NSString).appendingPathComponent(name)
+      } else {
+        path = name
+      }
+      let ext = (name as NSString).pathExtension
+      let type = ext.isEmpty ? nil : ext
+      return FileSuggestion(path: path, name: name, type: type)
+    }
+  }
 
   func handleTask(state: inout State) -> Effect<Action> {
     guard let sessionID = state.sessionID,
@@ -80,18 +213,28 @@ extension ChatFeature {
       return .none
     }
 
-    if draft.hasUnsupportedAttachments {
-      state.errorMessage = "Attachments are not supported yet."
-      return .none
-    }
-
     let trimmedText = draft.trimmedText
-    guard !trimmedText.isEmpty else {
+    guard !trimmedText.isEmpty || !draft.attachedFiles.isEmpty else {
       return .none
     }
 
     let messageID = draft.id ?? UUID().uuidString
-    let parts: [MessagePart] = [.text(trimmedText, id: nil)]
+
+    // Build complete text with file references included
+    let fullText = FileMentionBuilder.mergedText(trimmedText, with: draft.attachedFiles)
+
+    // Create structured file parts using the new MessagePart case
+    let (_, structuredParts) = createStructuredMessageParts(from: draft.attachedFiles, in: fullText)
+
+    // Build parts array (as an immutable value to satisfy Sendable captures)
+    let parts: [MessagePart] = {
+      var tmp: [MessagePart] = []
+      if !fullText.isEmpty {
+        tmp.append(.text(fullText, id: nil))
+      }
+      tmp.append(contentsOf: structuredParts)
+      return tmp
+    }()
 
     let providerID = state.selectedProviderID
     let modelID = state.selectedModelID
@@ -120,6 +263,90 @@ extension ChatFeature {
   func handleDraftUpdated(state: inout State, draft: ChatDraftState) -> Effect<Action> {
     state.draft = draft
     return .none
+  }
+
+  private func createStructuredMessageParts(
+    from attachedFiles: [AttachedFile],
+    in text: String
+  ) -> ([AttachedFile], [MessagePart]) {
+    var updatedFiles: [AttachedFile] = []
+    var messageParts: [MessagePart] = []
+    var currentPosition = 0
+
+    for file in attachedFiles {
+      // Prefer anchoring to an explicit path mention if present (e.g. "@full/path").
+      // Otherwise, fall back to the display name (e.g. "[Image]") which may have been
+      // synthesized by buildTextWithFileReferences.
+      let match = FileMentionBuilder.nextToken(in: text, for: file, startFrom: currentPosition)
+      let startIndex = match?.start ?? currentPosition
+      let endIndex = match.map { $0.end } ?? startIndex + file.displayName.utf16.count
+      let token = match?.token ?? file.displayName
+
+      // Update search position for next file
+      currentPosition = endIndex
+
+      // Update file with positions
+      var updatedFile = file
+      updatedFile.startIndex = startIndex
+      updatedFile.endIndex = endIndex
+      updatedFiles.append(updatedFile)
+
+      // Create URL based on file type
+      let url: String
+      if file.isImage, let content = file.content {
+        let base64Content = content.base64EncodedString()
+        url = "data:\(file.mimeType);base64,\(base64Content)"
+      } else {
+        // For text files, use file:// URL
+        let absolutePath = file.path.hasPrefix("/")
+          ? file.path
+          : FileManager.default.currentDirectoryPath + "/" + file.path
+        url = "file://\(absolutePath)"
+      }
+
+      // Create MessagePart.structuredFile (displayText must match the token found in text)
+      let messagePart = MessagePart.structuredFile(
+        path: file.path,
+        url: url,
+        mimeType: file.mimeType,
+        displayText: token,
+        startIndex: startIndex,
+        endIndex: endIndex,
+        id: file.id.uuidString
+      )
+
+      messageParts.append(messagePart)
+    }
+
+    return (updatedFiles, messageParts)
+  }
+
+  private func buildTextWithFileReferences(text: String, attachedFiles: [AttachedFile]) -> String {
+    // If no files, return text unchanged
+    guard !attachedFiles.isEmpty else { return text }
+
+    // Only add references for files that are NOT already mentioned in the text.
+    // A mention can appear either as the explicit path token ("@<path>") or as the
+    // display name (e.g. "[Image]") in cases like images.
+    var missingReferences: [String] = []
+    for file in attachedFiles {
+      let pathToken = file.displayPath          // "@<path>"
+      let nameToken = file.displayName          // "@<path>" or "[Image]"
+
+      // If either token already exists in the text, don't prepend another copy.
+      if text.contains(pathToken) || text.contains(nameToken) {
+        continue
+      }
+
+      // Otherwise, queue the display name to be inserted (keeps prior UX the same).
+      missingReferences.append(nameToken)
+    }
+
+    // Nothing to add — return as-is.
+    guard !missingReferences.isEmpty else { return text }
+
+    let prefix = missingReferences.joined(separator: " ")
+    return text.isEmpty ? prefix : "\(prefix) \(text)"
   }
 
   func handleUpdateSession(state: inout State, sessionID: String?) -> Effect<Action> {
