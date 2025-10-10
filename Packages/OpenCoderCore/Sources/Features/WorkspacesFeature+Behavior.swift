@@ -377,6 +377,10 @@ extension WorkspacesFeature {
      return .merge(cleanup, spawnEffect)
    }
 
+   func handleReloadServer(state: inout State, id: WorkspaceState.ID) -> Effect<Action> {
+     return handleCleanAndRetry(state: &state, id: id)
+   }
+
   func handleSpawnPhaseUpdated(
     state: inout State,
     id: WorkspaceState.ID,

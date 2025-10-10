@@ -98,7 +98,8 @@ struct WorkspacesView: View {
           onRefresh: { store.send(.refreshWorkspace(workspaceState.id)) },
           onDelete: { store.send(.removeWorkspace(workspaceState.id)) },
           onShowLiveOutput: { store.send(.showLiveOutput(workspaceState.id)) },
-          onCleanAndRetry: { store.send(.cleanAndRetry(workspaceState.id)) }
+          onCleanAndRetry: { store.send(.cleanAndRetry(workspaceState.id)) },
+          onReloadServer: { store.send(.reloadServer(workspaceState.id)) }
         )
       }
     }
@@ -123,6 +124,7 @@ struct WorkspaceRowView: View {
   let onDelete: () -> Void
   let onShowLiveOutput: () -> Void
   let onCleanAndRetry: () -> Void
+  let onReloadServer: () -> Void
 
   private var serverName: String {
     guard let serverID = workspaceState.workspace.serverID else {
@@ -279,6 +281,16 @@ struct WorkspaceRowView: View {
         }
         .buttonStyle(.bordered)
         .disabled(workspaceState.isRefreshing)
+
+        Menu {
+          Button(action: onReloadServer) {
+            Label("Reload Server", systemImage: "arrow.clockwise.circle")
+          }
+        } label: {
+          Image(systemName: "ellipsis.circle")
+            .font(.caption)
+        }
+        .buttonStyle(.bordered)
 
       case .error:
         Button(action: onCleanAndRetry) {

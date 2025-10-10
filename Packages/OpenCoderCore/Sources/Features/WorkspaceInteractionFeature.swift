@@ -72,6 +72,7 @@ public struct WorkspaceInteractionFeature: Sendable {
     case clearActivityEvents
     case onlineStateChanged(WorkspaceOnlineState)
     case retryConnection
+    case reloadServer
     case dismiss
     case sessionUpdated(OpenCodeSession)
   }
@@ -83,9 +84,16 @@ public struct WorkspaceInteractionFeature: Sendable {
   }
 
   public func core(state: inout State, action: Action) -> Effect<Action> {
-    return handleAction(state: &state, action: action)
+    switch action {
+    case .dismiss, .sessionUpdated:
+      return .none
+
+    default:
+      return handleAction(state: &state, action: action)
+    }
   }
 
+  // swiftlint:disable:next cyclomatic_complexity
   private func handleAction(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case .task:
@@ -115,8 +123,11 @@ public struct WorkspaceInteractionFeature: Sendable {
     case .retryConnection:
       return handleRetryConnection(state: &state)
 
+    case .reloadServer:
+      return handleReloadServer(state: &state)
+
     case .dismiss, .sessionUpdated:
-      return .none // These actions will be handled by the parent feature
+      return .none
     }
   }
 
@@ -198,10 +209,8 @@ public struct WorkspaceInteractionFeature: Sendable {
   }
 
   private func handleRetryConnection(state: inout State) -> Effect<Action> {
-    // Reset the online state and trigger a retry
     state.onlineState = .idle
 
-    // Add activity event for retry attempt
     let event = ActivityEvent(
       type: .sshConnection,
       message: "Retrying workspace connection..."
@@ -211,6 +220,15 @@ public struct WorkspaceInteractionFeature: Sendable {
       .send(.addActivityEvent(event)),
       .send(.task)
     )
+  }
+
+  private func handleReloadServer(state: inout State) -> Effect<Action> {
+    let event = ActivityEvent(
+      type: .openCodeSpawn,
+      message: "Reloading OpenCode server..."
+    )
+
+    return .send(.addActivityEvent(event))
   }
 }
 

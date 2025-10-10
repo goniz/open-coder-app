@@ -167,6 +167,15 @@ public struct WorkspaceService: Sendable {
       throw error
     }
   }
+
+  public func reloadServer(workspace: Models.Workspace) async throws -> SpawnResult {
+    await AppLogger.shared.log(
+      "Reloading OpenCode server for workspace: \(workspace.name)",
+      level: .info,
+      category: .workspace
+    )
+    return try await cleanAndRetry(workspace: workspace)
+  }
 }
 
 extension WorkspaceService {
@@ -353,7 +362,29 @@ extension WorkspaceService {
   }
 
   fileprivate func healthCheck(port: Int, workspace: Models.Workspace) async -> Bool {
-    port > 0
+    guard port > 0 else { return false }
+
+    do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
+      return try await connectionManager.withConnection { connection in
+        let curlCommand = """
+          curl -s -o /dev/null -w '%{http_code}' \
+          --max-time 2 \
+          --connect-timeout 2 \
+          http://127.0.0.1:\(port)/config/providers 2>/dev/null || echo '000'
+          """
+        let response = try await connection.exec(curlCommand)
+        let statusCode = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        return statusCode.hasPrefix("2")
+      }
+    } catch {
+      await AppLogger.shared.log(
+        "Health check failed for port \(port): \(error.localizedDescription)",
+        level: .debug,
+        category: .workspace
+      )
+      return false
+    }
   }
 }
 
