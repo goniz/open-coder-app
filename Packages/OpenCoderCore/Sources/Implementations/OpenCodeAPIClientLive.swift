@@ -140,6 +140,28 @@ extension LiveOpenCodeAPIClient {
     }
   }
 
+  public func abortSession(id: String) async throws {
+    log("OpenCode API: Aborting session: \(id)")
+
+    let input = Operations.session_period_abort.Input(path: .init(id: id))
+
+    do {
+      let response = try await client.session_period_abort(input)
+
+      switch response {
+      case .ok:
+        log("OpenCode API: Successfully aborted session: \(id)")
+        return
+      case let .undocumented(statusCode, _):
+        log("OpenCode API: Abort session failed with status code: \(statusCode)", level: .error)
+        throw OpenCodeAPIError.serverError("Failed to abort session: \(statusCode)")
+      }
+    } catch {
+      log("OpenCode API: Abort session failed: \(error.localizedDescription)", level: .error)
+      throw error
+    }
+  }
+
 }
 
 // MARK: - Event Streaming

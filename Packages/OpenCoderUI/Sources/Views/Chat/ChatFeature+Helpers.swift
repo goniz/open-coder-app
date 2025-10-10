@@ -363,12 +363,32 @@ extension ChatFeature {
 
   func handleSessionActions(state: inout State, action: Action) -> Effect<Action> {
     switch action {
+    case .fetchSessions, .sessionsLoaded, .sessionsFailed:
+      return handleSessionListActions(state: &state, action: action)
+    case .selectSession, .newSession, .sessionCreated, .sessionCreationFailed:
+      return handleSessionManagementActions(state: &state, action: action)
+    case .abortSession, .sessionAborted, .sessionAbortFailed:
+      return handleSessionAbortActions(state: &state, action: action)
+    default:
+      return .none
+    }
+  }
+
+  private func handleSessionListActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
     case .fetchSessions:
       return handleFetchSessions(state: &state)
     case let .sessionsLoaded(sessions):
       return handleSessionsLoaded(state: &state, sessions: sessions)
     case let .sessionsFailed(error):
       return handleSessionsFailed(state: &state, error: error)
+    default:
+      return .none
+    }
+  }
+
+  private func handleSessionManagementActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
     case let .selectSession(sessionID):
       return handleSelectSession(state: &state, sessionID: sessionID)
     case .newSession:
@@ -377,6 +397,19 @@ extension ChatFeature {
       return handleSessionCreated(state: &state, session: session)
     case let .sessionCreationFailed(error):
       return handleSessionCreationFailed(state: &state, error: error)
+    default:
+      return .none
+    }
+  }
+
+  private func handleSessionAbortActions(state: inout State, action: Action) -> Effect<Action> {
+    switch action {
+    case .abortSession:
+      return handleAbortSession(state: &state)
+    case .sessionAborted:
+      return handleSessionAborted(state: &state)
+    case let .sessionAbortFailed(error):
+      return handleSessionAbortFailed(state: &state, error: error)
     default:
       return .none
     }
@@ -450,6 +483,39 @@ extension ChatFeature {
 
   private func handleSessionCreationFailed(state: inout State, error: String) -> Effect<Action> {
     state.isLoadingSessions = false
+    state.errorMessage = error
+    return .none
+  }
+
+  private func handleAbortSession(state: inout State) -> Effect<Action> {
+    guard let sessionID = state.sessionID,
+          let serverURL = state.serverURL else {
+      return .run { send in
+        await send(.sessionAbortFailed("No session selected"))
+      }
+    }
+
+    state.isLoading = true
+    let factory = self.openCodeAPIFactory
+    return .run { send in
+      do {
+        let apiClient = await SharedAPIClientCache.shared.client(for: serverURL, factory: factory)
+        try await apiClient.abortSession(id: sessionID)
+        await send(.sessionAborted)
+      } catch {
+        await send(.sessionAbortFailed(error.localizedDescription))
+      }
+    }
+  }
+
+  private func handleSessionAborted(state: inout State) -> Effect<Action> {
+    state.isLoading = false
+    state.isAssistantTyping = false
+    return .none
+  }
+
+  private func handleSessionAbortFailed(state: inout State, error: String) -> Effect<Action> {
+    state.isLoading = false
     state.errorMessage = error
     return .none
   }

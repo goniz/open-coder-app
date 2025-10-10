@@ -11,6 +11,7 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
   func createSession() async throws -> OpenCodeSession
   func deleteSession(id: String) async throws
   func getSession(id: String) async throws -> OpenCodeSession
+  func abortSession(id: String) async throws
 
   // Project Operations
   func listProjects() async throws -> [OpenCodeProject]
@@ -276,6 +277,11 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
 
   public func deleteSession(id: String) async throws {
     // Mock implementation
+  }
+
+  public func abortSession(id: String) async throws {
+    log("🧪 Mock API: Aborting session \(id) (mock)")
+    log("✅ Mock API: Session aborted")
   }
 
   public func getSession(id: String) async throws -> OpenCodeSession {

@@ -166,6 +166,9 @@ public struct ChatFeature: Sendable {
     case newSession
     case sessionCreated(OpenCodeSession)
     case sessionCreationFailed(String)
+    case abortSession
+    case sessionAborted
+    case sessionAbortFailed(String)
     case loadMore
     case loadMoreCompleted([OpenCodeMessage], hasMore: Bool)
     case loadMoreFailed(String)
@@ -232,7 +235,8 @@ public struct ChatFeature: Sendable {
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
-         .newSession, .sessionCreated, .sessionCreationFailed:
+         .newSession, .sessionCreated, .sessionCreationFailed,
+         .abortSession, .sessionAborted, .sessionAbortFailed:
       return handleSessionActions(state: &state, action: action)
     case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)

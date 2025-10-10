@@ -14,12 +14,33 @@ struct ChatView: View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
         VStack(alignment: .leading, spacing: 12) {
-          Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
-            .multilineTextAlignment(.leading)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
+          HStack(alignment: .top) {
+            Text(store.currentSessionTitle)
+              .font(.title2)
+              .fontWeight(.bold)
+              .multilineTextAlignment(.leading)
+              .lineLimit(nil)
+              .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+
+            if store.isAssistantTyping || store.isLoading {
+              Button {
+                store.send(.abortSession)
+              } label: {
+                HStack(spacing: 4) {
+                  Image(systemName: "stop.circle.fill")
+                  Text("Abort")
+                    .font(.footnote.weight(.semibold))
+                }
+                .foregroundColor(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+              }
+            }
+          }
 
           settingsMenu
         }
