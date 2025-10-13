@@ -42,7 +42,7 @@ struct WorkspacesView: View {
       }
       .fullScreenCover(
         isPresented: Binding(
-          get: { store.showingWorkspaceInteraction },
+          get: { store.showingWorkspaceInteraction && store.workspaceInteraction != nil },
           set: { if !$0 { store.send(.hideWorkspaceInteraction) } }
         )
       ) {

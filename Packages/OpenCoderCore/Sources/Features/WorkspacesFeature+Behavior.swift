@@ -350,6 +350,17 @@ extension WorkspacesFeature {
      guard index < state.workspaces.count else { return .none }
      let workspace = state.workspaces[index].workspace
 
+     // Ensure interaction state exists before presenting the sheet to avoid blank screen
+     if state.workspaceInteraction == nil {
+       state.workspaceInteraction = WorkspaceInteractionFeature.State(
+         workspace: workspace,
+         onlineState: .idle, // Start idle, UI will transition to spawning next
+         selectedTab: state.interactionInitialTab,
+         forwardedPort: state.workspaces[index].forwardedPort,
+         openCodeSessionID: state.workspaces[index].openCodeSession?.id
+       )
+     }
+
      let cleanup = stopPortForward(&state, id: id)
 
      guard let serverConfig = WorkspacesStorage.loadSSHConfigForWorkspace(workspace) else {
@@ -369,6 +380,7 @@ extension WorkspacesFeature {
      if state.selectedWorkspace == id {
        return .merge(
          cleanup,
+         .send(.workspaceInteraction(.onlineStateChanged(.spawning(phase: .sshConnection)))),
          .send(.workspaceInteraction(.openCodeSessionUpdated(nil))),
          spawnEffect
        )
