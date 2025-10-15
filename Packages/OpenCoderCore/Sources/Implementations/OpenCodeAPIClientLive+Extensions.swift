@@ -27,12 +27,12 @@ extension LiveOpenCodeAPIClient {
     apiCall: (Input) async throws -> Output,
     responseHandler: (Output) throws -> Result
   ) async throws -> Result {
-    log("OpenCode API: \(operation)")
+    log("OpenCode API: \(operation)", level: .debug)
 
     do {
       let response = try await apiCall(input)
       let result = try responseHandler(response)
-      log("OpenCode API: Successfully completed \(operation.lowercased())")
+      log("OpenCode API: Successfully completed \(operation.lowercased())", level: .debug)
       return result
     } catch {
       return try handleAPIError(operation, error: error)
@@ -366,6 +366,63 @@ extension LiveOpenCodeAPIClient {
      )
    }
 
+}
+
+// MARK: - File Operations Extension
+
+extension LiveOpenCodeAPIClient {
+  public func findFiles(query: String, directory: String?) async throws -> [FileSuggestion] {
+    let input = Operations.find_period_files.Input(
+      query: .init(directory: directory, query: query)
+    )
+
+    log("OpenCode API: Finding files for query: \(query)", level: .debug)
+
+    do {
+      let response = try await client.find_period_files(input)
+      switch response {
+      case let .ok(okResponse):
+        switch okResponse.body {
+        case let .json(paths):
+          let suggestions = paths.map { path in
+            let name = (path as NSString).lastPathComponent
+            let ext = (path as NSString).pathExtension
+            return FileSuggestion(path: path, name: name, type: ext.isEmpty ? nil : ext)
+          }
+          log("OpenCode API: Successfully completed finding files for query: \(query)", level: .debug)
+          return suggestions
+        }
+      case let .undocumented(statusCode, _):
+        return try handleUndocumentedResponse("find files", statusCode: statusCode)
+      }
+    } catch {
+      return try handleAPIError("find files", error: error)
+    }
+  }
+
+  public func readFile(path: String, directory: String?) async throws -> String {
+    let input = Operations.file_period_read.Input(
+      query: .init(directory: directory, path: path)
+    )
+
+    log("OpenCode API: Reading file: \(path)", level: .debug)
+
+    do {
+      let response = try await client.file_period_read(input)
+      switch response {
+      case let .ok(okResponse):
+        switch okResponse.body {
+        case let .json(fileContent):
+          log("OpenCode API: Successfully completed reading file: \(path.lowercased())", level: .debug)
+          return fileContent.content
+        }
+      case let .undocumented(statusCode, _):
+        return try handleUndocumentedResponse("read file", statusCode: statusCode)
+      }
+    } catch {
+      return try handleAPIError("read file", error: error)
+    }
+  }
 }
 
 private struct ManualProviderModelPayload: Decodable {

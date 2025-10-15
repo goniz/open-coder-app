@@ -14,19 +14,49 @@ public enum ChatUnsupportedMessagePartKind: String, Hashable, Sendable {
 public struct ChatDraftState: Equatable, Sendable {
   public var id: String?
   public var text: String
-  public var attachmentCount: Int
+  public var attachmentCount: Int { attachedFiles.count }
   public var hasUnsupportedAttachments: Bool
+  public var isShowingSuggestions = false
+  public var suggestionQuery = ""
+  public var suggestions: [FileSuggestion] = []
+  public var attachedFiles: [AttachedFile] = []
 
   public init(
     id: String? = nil,
     text: String = "",
-    attachmentCount: Int = 0,
-    hasUnsupportedAttachments: Bool = false
+    attachmentCount: Int,
+    hasUnsupportedAttachments: Bool = false,
+    isShowingSuggestions: Bool = false,
+    suggestionQuery: String = "",
+    suggestions: [FileSuggestion] = [],
+    attachedFiles: [AttachedFile] = []
   ) {
     self.id = id
     self.text = text
-    self.attachmentCount = attachmentCount
+    _ = attachmentCount // kept for backward compatibility with callers
     self.hasUnsupportedAttachments = hasUnsupportedAttachments
+    self.isShowingSuggestions = isShowingSuggestions
+    self.suggestionQuery = suggestionQuery
+    self.suggestions = suggestions
+    self.attachedFiles = attachedFiles
+  }
+
+  public init(
+    id: String? = nil,
+    text: String = "",
+    hasUnsupportedAttachments: Bool = false,
+    isShowingSuggestions: Bool = false,
+    suggestionQuery: String = "",
+    suggestions: [FileSuggestion] = [],
+    attachedFiles: [AttachedFile] = []
+  ) {
+    self.id = id
+    self.text = text
+    self.hasUnsupportedAttachments = hasUnsupportedAttachments
+    self.isShowingSuggestions = isShowingSuggestions
+    self.suggestionQuery = suggestionQuery
+    self.suggestions = suggestions
+    self.attachedFiles = attachedFiles
   }
 
   public var trimmedText: String {
@@ -34,7 +64,7 @@ public struct ChatDraftState: Equatable, Sendable {
   }
 
   public var isEmpty: Bool {
-    trimmedText.isEmpty && attachmentCount == 0
+    trimmedText.isEmpty && attachedFiles.isEmpty
   }
 }
 
@@ -136,6 +166,9 @@ public struct ChatFeature: Sendable {
     case newSession
     case sessionCreated(OpenCodeSession)
     case sessionCreationFailed(String)
+    case abortSession
+    case sessionAborted
+    case sessionAbortFailed(String)
     case loadMore
     case loadMoreCompleted([OpenCodeMessage], hasMore: Bool)
     case loadMoreFailed(String)
@@ -153,6 +186,14 @@ public struct ChatFeature: Sendable {
     case providersFailed(String)
     case selectProvider(String)
     case selectModel(String)
+    case showFileSuggestions(String)
+    case fileSuggestionsLoaded([FileSuggestion])
+    case fileSuggestionsFailed(String)
+    case selectFileSuggestion(FileSuggestion)
+    case attachFile(AttachedFile)
+    case removeAttachedFile(UUID)
+    case fileContentLoaded(path: String, content: String)
+    case fileContentFailed(path: String, error: String)
   }
 
   @Dependency(\.openCodeAPIFactory) var openCodeAPIFactory
@@ -194,7 +235,8 @@ public struct ChatFeature: Sendable {
          .messageSendCompleted, .messageSendFailed, .loadMoreCompleted, .loadMoreFailed, .updateSession:
       return handleCoreMessageActions(state: &state, action: action)
     case .fetchSessions, .sessionsLoaded, .sessionsFailed, .selectSession,
-         .newSession, .sessionCreated, .sessionCreationFailed:
+         .newSession, .sessionCreated, .sessionCreationFailed,
+         .abortSession, .sessionAborted, .sessionAbortFailed:
       return handleSessionActions(state: &state, action: action)
     case .mediaPickerPresented, .mediaPickerAttachmentsUpdated:
       return handleMediaPickerActions(state: &state, action: action)
@@ -203,6 +245,10 @@ public struct ChatFeature: Sendable {
       return handleEventActions(state: &state, action: action)
     case .fetchProviders, .providersLoaded, .providersFailed, .selectProvider, .selectModel:
       return handleProviderActions(state: &state, action: action)
+    case .showFileSuggestions, .fileSuggestionsLoaded, .fileSuggestionsFailed,
+         .selectFileSuggestion, .attachFile, .removeAttachedFile,
+         .fileContentLoaded, .fileContentFailed:
+      return handleFileAttachmentActions(state: &state, action: action)
     default:
       return .none
     }

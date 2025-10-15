@@ -28,7 +28,7 @@ public struct LiveOpenCodeAPIClient: OpenCodeAPIClientProtocol {
 
 extension LiveOpenCodeAPIClient {
   public func listSessions() async throws -> [OpenCodeSession] {
-    log("OpenCode API: Listing sessions from \(configuration.serverURL)")
+    log("OpenCode API: Listing sessions from \(configuration.serverURL)", level: .debug)
 
     let input = Operations.session_period_list.Input()
 
@@ -43,13 +43,13 @@ extension LiveOpenCodeAPIClient {
             // Convert API response to domain model using actual properties
             return OpenCodeSession(
               id: sessionData.id,
-              createdAt: Date(timeIntervalSince1970: sessionData.time.created),
-              updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+              createdAt: Date(timeIntervalSince1970: sessionData.time.created / 1000),
+              updatedAt: Date(timeIntervalSince1970: sessionData.time.updated / 1000),
               isActive: true, // Assume active if listed
               title: sessionData.title
             )
           }
-          log("OpenCode API: Successfully retrieved \(sessions.count) sessions")
+          log("OpenCode API: Successfully retrieved \(sessions.count) sessions", level: .debug)
           return sessions
         }
       case let .undocumented(statusCode, _):
@@ -76,8 +76,8 @@ extension LiveOpenCodeAPIClient {
         case let .json(sessionData):
           let session = OpenCodeSession(
             id: sessionData.id,
-            createdAt: Date(timeIntervalSince1970: sessionData.time.created),
-            updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+            createdAt: Date(timeIntervalSince1970: sessionData.time.created / 1000),
+            updatedAt: Date(timeIntervalSince1970: sessionData.time.updated / 1000),
             isActive: true,
             title: sessionData.title
           )
@@ -129,14 +129,36 @@ extension LiveOpenCodeAPIClient {
       case let .json(sessionData):
         return OpenCodeSession(
           id: sessionData.id,
-          createdAt: Date(timeIntervalSince1970: sessionData.time.created),
-          updatedAt: Date(timeIntervalSince1970: sessionData.time.updated),
+          createdAt: Date(timeIntervalSince1970: sessionData.time.created / 1000),
+          updatedAt: Date(timeIntervalSince1970: sessionData.time.updated / 1000),
           isActive: true,
           title: sessionData.title
         )
       }
     case .undocumented:
       throw OpenCodeAPIError.sessionNotFound(id)
+    }
+  }
+
+  public func abortSession(id: String) async throws {
+    log("OpenCode API: Aborting session: \(id)")
+
+    let input = Operations.session_period_abort.Input(path: .init(id: id))
+
+    do {
+      let response = try await client.session_period_abort(input)
+
+      switch response {
+      case .ok:
+        log("OpenCode API: Successfully aborted session: \(id)")
+        return
+      case let .undocumented(statusCode, _):
+        log("OpenCode API: Abort session failed with status code: \(statusCode)", level: .error)
+        throw OpenCodeAPIError.serverError("Failed to abort session: \(statusCode)")
+      }
+    } catch {
+      log("OpenCode API: Abort session failed: \(error.localizedDescription)", level: .error)
+      throw error
     }
   }
 

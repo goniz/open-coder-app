@@ -52,6 +52,7 @@ public struct WorkspacesFeature: Sendable {
     case dismissAddWorkspace
     case showLiveOutput(WorkspaceState.ID)
     case cleanAndRetry(WorkspaceState.ID)
+    case reloadServer(WorkspaceState.ID)
     case spawnPhaseUpdated(WorkspaceState.ID, SpawnPhase)
     case hideWorkspaceInteraction
     case workspacePortForwardEstablished(WorkspaceState.ID, PortForwardToken)
@@ -138,6 +139,9 @@ public struct WorkspacesFeature: Sendable {
     case let .cleanAndRetry(id):
       return handleCleanAndRetry(state: &state, id: id)
 
+    case let .reloadServer(id):
+      return handleReloadServer(state: &state, id: id)
+
     case let .spawnPhaseUpdated(id, phase):
       return handleSpawnPhaseUpdated(state: &state, id: id, phase: phase)
 
@@ -152,6 +156,12 @@ public struct WorkspacesFeature: Sendable {
 
     case let .workspaceInteraction(.sessionUpdated(session)):
       return handleSessionUpdated(state: &state, session: session)
+
+    case .workspaceInteraction(.reloadServer):
+      if let selectedID = state.selectedWorkspace {
+        return .send(.reloadServer(selectedID))
+      }
+      return .none
 
     case .workspaceInteraction:
       return .none

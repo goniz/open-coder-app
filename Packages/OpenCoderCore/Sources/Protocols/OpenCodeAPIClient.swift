@@ -1,9 +1,7 @@
 import Foundation
-import OpenAPIGenerated
-import OpenAPIRuntime
-import HTTPTypes
-import Dependencies
 import Models
+import OpenAPIGenerated
+import Dependencies
 
 // MARK: - Protocol Definition
 
@@ -13,6 +11,7 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
   func createSession() async throws -> OpenCodeSession
   func deleteSession(id: String) async throws
   func getSession(id: String) async throws -> OpenCodeSession
+  func abortSession(id: String) async throws
 
   // Project Operations
   func listProjects() async throws -> [OpenCodeProject]
@@ -38,6 +37,10 @@ public protocol OpenCodeAPIClientProtocol: Sendable {
 
   // Event Streaming
   func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEvent, Error>
+
+  // File Operations
+  func findFiles(query: String, directory: String?) async throws -> [FileSuggestion]
+  func readFile(path: String, directory: String?) async throws -> String
 }
 
 // MARK: - Event Models
@@ -150,6 +153,15 @@ public enum MessagePart: Equatable, Sendable {
   case text(String, id: String?)
   case reasoning(String, id: String?)
   case file(path: String, content: String, id: String?)
+  case structuredFile(
+    path: String,
+    url: String,
+    mimeType: String,
+    displayText: String,
+    startIndex: Int,
+    endIndex: Int,
+    id: String?
+  )
   case agent(type: String, result: String, id: String?)
   case tool(name: String, input: String, output: String, error: String?, id: String?)
   case patch(hash: String, files: [String], id: String?)
@@ -267,6 +279,11 @@ public struct MockOpenCodeAPIClient: OpenCodeAPIClientProtocol, Sendable {
     // Mock implementation
   }
 
+  public func abortSession(id: String) async throws {
+    log("🧪 Mock API: Aborting session \(id) (mock)")
+    log("✅ Mock API: Session aborted")
+  }
+
   public func getSession(id: String) async throws -> OpenCodeSession {
     guard let session = sessions.first(where: { $0.id == id }) else {
       throw OpenCodeAPIError.sessionNotFound(id)
@@ -382,6 +399,28 @@ public func subscribeToEvents() async throws -> AsyncThrowingStream<OpenCodeEven
     }
   }
 }
+
+  // MARK: - File Operations (Mock)
+
+  public func findFiles(query: String, directory: String?) async throws -> [FileSuggestion] {
+    let samples = [
+      "README.md",
+      "Sources/App/AppDelegate.swift",
+      "Sources/Feature/Chat/ChatView.swift"
+    ].filter { $0.localizedCaseInsensitiveContains(query) }
+
+    return samples.map { path in
+      let name = (path as NSString).lastPathComponent
+      let ext = (path as NSString).pathExtension
+      let type = ext.isEmpty ? nil : ext
+      return FileSuggestion(path: path, name: name, type: type)
+    }
+  }
+
+  public func readFile(path: String, directory: String?) async throws -> String {
+    // Return a short mock content
+    return "// Mock content for \(path)\nprint(\"Hello from mock!\")\n"
+  }
 }
 
 // MARK: - Dependency Injection

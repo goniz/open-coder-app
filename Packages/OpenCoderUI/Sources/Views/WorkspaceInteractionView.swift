@@ -112,6 +112,16 @@ struct WorkspaceInteractionView: View {
             Image(systemName: "xmark")
           }
         }
+
+        ToolbarItem(placement: .primaryAction) {
+          if case .online = store.onlineState {
+            Button {
+              store.send(.reloadServer)
+            } label: {
+              Label("Reload Server", systemImage: "arrow.clockwise")
+            }
+          }
+        }
       }
       .task { await store.send(.task).finish() }
       .task(id: store.onlineState) { await store.send(.task).finish() }

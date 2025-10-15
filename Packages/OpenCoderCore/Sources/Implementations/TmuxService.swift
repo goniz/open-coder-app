@@ -55,7 +55,7 @@ struct TmuxService: Sendable {
             message.lowercased().contains("duplicate session") {
             await AppLogger.shared.log(
               "Using existing tmux session: \(name.value)",
-              level: .info,
+              level: .debug,
               category: .workspace
             )
             return .existing

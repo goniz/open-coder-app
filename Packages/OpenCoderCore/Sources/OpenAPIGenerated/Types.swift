@@ -2927,6 +2927,51 @@ package enum Components {
                             }
                             /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/limit`.
                             package var limit: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.limitPayload?
+                            /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities`.
+                            package struct modalitiesPayload: Codable, Hashable, Sendable {
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/inputPayload`.
+                                @frozen package enum inputPayloadPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                                    case text = "text"
+                                    case audio = "audio"
+                                    case image = "image"
+                                    case video = "video"
+                                    case pdf = "pdf"
+                                }
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/input`.
+                                package typealias inputPayload = [Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.inputPayloadPayload]
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/input`.
+                                package var input: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.inputPayload
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/outputPayload`.
+                                @frozen package enum outputPayloadPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                                    case text = "text"
+                                    case audio = "audio"
+                                    case image = "image"
+                                    case video = "video"
+                                    case pdf = "pdf"
+                                }
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/output`.
+                                package typealias outputPayload = [Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.outputPayloadPayload]
+                                /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities/output`.
+                                package var output: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.outputPayload
+                                /// Creates a new `modalitiesPayload`.
+                                ///
+                                /// - Parameters:
+                                ///   - input:
+                                ///   - output:
+                                package init(
+                                    input: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.inputPayload,
+                                    output: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload.outputPayload
+                                ) {
+                                    self.input = input
+                                    self.output = output
+                                }
+                                package enum CodingKeys: String, CodingKey {
+                                    case input
+                                    case output
+                                }
+                            }
+                            /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/modalities`.
+                            package var modalities: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload?
                             /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/experimental`.
                             package var experimental: Swift.Bool?
                             /// - Remark: Generated from `#/components/schemas/Config/provider/additionalProperties/models/additionalProperties/options`.
@@ -2978,6 +3023,7 @@ package enum Components {
                             ///   - tool_call:
                             ///   - cost:
                             ///   - limit:
+                            ///   - modalities:
                             ///   - experimental:
                             ///   - options:
                             ///   - provider:
@@ -2991,6 +3037,7 @@ package enum Components {
                                 tool_call: Swift.Bool? = nil,
                                 cost: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.costPayload? = nil,
                                 limit: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.limitPayload? = nil,
+                                modalities: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.modalitiesPayload? = nil,
                                 experimental: Swift.Bool? = nil,
                                 options: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.optionsPayload? = nil,
                                 provider: Components.Schemas.Config.providerPayload.additionalPropertiesPayload.modelsPayload.additionalPropertiesPayload.providerPayload? = nil
@@ -3004,6 +3051,7 @@ package enum Components {
                                 self.tool_call = tool_call
                                 self.cost = cost
                                 self.limit = limit
+                                self.modalities = modalities
                                 self.experimental = experimental
                                 self.options = options
                                 self.provider = provider
@@ -3018,6 +3066,7 @@ package enum Components {
                                 case tool_call
                                 case cost
                                 case limit
+                                case modalities
                                 case experimental
                                 case options
                                 case provider
@@ -5856,6 +5905,8 @@ package enum Components {
             }
             /// - Remark: Generated from `#/components/schemas/ToolStateCompleted/time`.
             package var time: Components.Schemas.ToolStateCompleted.timePayload
+            /// - Remark: Generated from `#/components/schemas/ToolStateCompleted/attachments`.
+            package var attachments: [Components.Schemas.FilePart]?
             /// Creates a new `ToolStateCompleted`.
             ///
             /// - Parameters:
@@ -5865,13 +5916,15 @@ package enum Components {
             ///   - title:
             ///   - metadata:
             ///   - time:
+            ///   - attachments:
             package init(
                 status: Components.Schemas.ToolStateCompleted.statusPayload,
                 input: Components.Schemas.ToolStateCompleted.inputPayload,
                 output: Swift.String,
                 title: Swift.String,
                 metadata: Components.Schemas.ToolStateCompleted.metadataPayload,
-                time: Components.Schemas.ToolStateCompleted.timePayload
+                time: Components.Schemas.ToolStateCompleted.timePayload,
+                attachments: [Components.Schemas.FilePart]? = nil
             ) {
                 self.status = status
                 self.input = input
@@ -5879,6 +5932,7 @@ package enum Components {
                 self.title = title
                 self.metadata = metadata
                 self.time = time
+                self.attachments = attachments
             }
             package enum CodingKeys: String, CodingKey {
                 case status
@@ -5887,6 +5941,7 @@ package enum Components {
                 case title
                 case metadata
                 case time
+                case attachments
             }
         }
         /// - Remark: Generated from `#/components/schemas/ToolStateError`.
@@ -6932,6 +6987,51 @@ package enum Components {
             }
             /// - Remark: Generated from `#/components/schemas/Model/limit`.
             package var limit: Components.Schemas.Model.limitPayload
+            /// - Remark: Generated from `#/components/schemas/Model/modalities`.
+            package struct modalitiesPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/inputPayload`.
+                @frozen package enum inputPayloadPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case text = "text"
+                    case audio = "audio"
+                    case image = "image"
+                    case video = "video"
+                    case pdf = "pdf"
+                }
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/input`.
+                package typealias inputPayload = [Components.Schemas.Model.modalitiesPayload.inputPayloadPayload]
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/input`.
+                package var input: Components.Schemas.Model.modalitiesPayload.inputPayload
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/outputPayload`.
+                @frozen package enum outputPayloadPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case text = "text"
+                    case audio = "audio"
+                    case image = "image"
+                    case video = "video"
+                    case pdf = "pdf"
+                }
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/output`.
+                package typealias outputPayload = [Components.Schemas.Model.modalitiesPayload.outputPayloadPayload]
+                /// - Remark: Generated from `#/components/schemas/Model/modalities/output`.
+                package var output: Components.Schemas.Model.modalitiesPayload.outputPayload
+                /// Creates a new `modalitiesPayload`.
+                ///
+                /// - Parameters:
+                ///   - input:
+                ///   - output:
+                package init(
+                    input: Components.Schemas.Model.modalitiesPayload.inputPayload,
+                    output: Components.Schemas.Model.modalitiesPayload.outputPayload
+                ) {
+                    self.input = input
+                    self.output = output
+                }
+                package enum CodingKeys: String, CodingKey {
+                    case input
+                    case output
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/Model/modalities`.
+            package var modalities: Components.Schemas.Model.modalitiesPayload?
             /// - Remark: Generated from `#/components/schemas/Model/experimental`.
             package var experimental: Swift.Bool?
             /// - Remark: Generated from `#/components/schemas/Model/options`.
@@ -6983,6 +7083,7 @@ package enum Components {
             ///   - tool_call:
             ///   - cost:
             ///   - limit:
+            ///   - modalities:
             ///   - experimental:
             ///   - options:
             ///   - provider:
@@ -6996,6 +7097,7 @@ package enum Components {
                 tool_call: Swift.Bool,
                 cost: Components.Schemas.Model.costPayload,
                 limit: Components.Schemas.Model.limitPayload,
+                modalities: Components.Schemas.Model.modalitiesPayload? = nil,
                 experimental: Swift.Bool? = nil,
                 options: Components.Schemas.Model.optionsPayload,
                 provider: Components.Schemas.Model.providerPayload? = nil
@@ -7009,6 +7111,7 @@ package enum Components {
                 self.tool_call = tool_call
                 self.cost = cost
                 self.limit = limit
+                self.modalities = modalities
                 self.experimental = experimental
                 self.options = options
                 self.provider = provider
@@ -7023,6 +7126,7 @@ package enum Components {
                 case tool_call
                 case cost
                 case limit
+                case modalities
                 case experimental
                 case options
                 case provider

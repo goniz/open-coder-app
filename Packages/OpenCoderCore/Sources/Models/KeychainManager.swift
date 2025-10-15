@@ -31,6 +31,42 @@ public struct KeychainManager: Sendable {
 
   // MARK: - SSH Password Management
 
+#if targetEnvironment(simulator)
+
+  public static func saveSSHPassword(for serverID: String, password: String) throws {
+    UserDefaults.standard.set(password, forKey: "ssh-password-\(serverID)")
+  }
+
+  public static func loadSSHPassword(for serverID: String) throws -> String {
+    guard let password = UserDefaults.standard.string(forKey: "ssh-password-\(serverID)") else {
+      throw KeychainError.itemNotFound
+    }
+    return password
+  }
+
+  public static func deleteSSHPassword(for serverID: String) throws {
+    UserDefaults.standard.removeObject(forKey: "ssh-password-\(serverID)")
+  }
+
+  public static func saveSSHPrivateKey(for serverID: String, privateKeyData: Data) throws {
+    UserDefaults.standard.set(privateKeyData, forKey: "ssh-privatekey-\(serverID)")
+  }
+
+  public static func loadSSHPrivateKey(for serverID: String) throws -> Data {
+    guard let data = UserDefaults.standard.data(forKey: "ssh-privatekey-\(serverID)") else {
+      throw KeychainError.itemNotFound
+    }
+    return data
+  }
+
+  public static func deleteSSHPrivateKey(for serverID: String) throws {
+    UserDefaults.standard.removeObject(forKey: "ssh-privatekey-\(serverID)")
+  }
+
+#else
+
+  // MARK: - SSH Password Management
+
   public static func saveSSHPassword(for serverID: String, password: String) throws {
     let passwordData = password.data(using: .utf8) ?? Data()
 
@@ -200,6 +236,8 @@ public struct KeychainManager: Sendable {
       throw KeychainError.unhandledError(status: status)
     }
   }
+
+#endif
 
   // MARK: - Cleanup
 

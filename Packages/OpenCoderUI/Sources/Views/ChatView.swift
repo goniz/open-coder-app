@@ -14,12 +14,33 @@ struct ChatView: View {
     VStack(alignment: .leading, spacing: 12) {
       if store.workspaceDisplayTitle != nil {
         VStack(alignment: .leading, spacing: 12) {
-          Text(store.currentSessionTitle)
-            .font(.title2)
-            .fontWeight(.bold)
-            .multilineTextAlignment(.leading)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
+          HStack(alignment: .top) {
+            Text(store.currentSessionTitle)
+              .font(.title2)
+              .fontWeight(.bold)
+              .multilineTextAlignment(.leading)
+              .lineLimit(nil)
+              .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+
+            if store.isAssistantTyping || store.isLoading {
+              Button {
+                store.send(.abortSession)
+              } label: {
+                HStack(spacing: 4) {
+                  Image(systemName: "stop.circle.fill")
+                  Text("Abort")
+                    .font(.footnote.weight(.semibold))
+                }
+                .foregroundColor(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+              }
+            }
+          }
 
           settingsMenu
         }
@@ -341,38 +362,133 @@ private extension ChatView {
         )
       },
       inputViewBuilder: { textBinding, _, _, _, inputViewActionClosure, _ in
-        HStack(spacing: 8) {
-          TextField("Type a message...", text: textBinding, axis: .vertical)
-            .textFieldStyle(.roundedBorder)
+VStack(spacing: 6) {
+          // Inline file suggestions panel (above the input)
+          if store.draft.isShowingSuggestions && !store.draft.suggestions.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+              ForEach(store.draft.suggestions) { suggestion in
+                Button {
+                  let newText = replaceLastAtToken(
+                    in: textBinding.wrappedValue,
+                    with: suggestion.path
+                  )
+                  textBinding.wrappedValue = newText
+                  var draft = store.draft
+                  draft.text = newText
+                  store.send(.draftUpdated(draft))
+                  store.send(.selectFileSuggestion(suggestion))
+                } label: {
+                  HStack(spacing: 6) {
+                    Image(systemName: "doc.text")
+                      .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                      Text(suggestion.name)
+                        .font(.caption)
+                        .foregroundStyle(.primary)
+                      Text(suggestion.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 4)
+                  }
+                  .padding(.horizontal, 8)
+                  .padding(.vertical, 6)
+                  .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Divider()
+              }
+            }
+            .background(
+              RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
+            )
+            .overlay(
+              RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(.separator))
+            )
+            .padding(.horizontal)
+            .frame(maxHeight: 120)
+            .transition(.opacity)
+          }
 
-          if textBinding.wrappedValue.isEmpty {
-            Button {
-              inputViewActionClosure(.photo)
-            } label: {
-              Image(systemName: "photo")
-                .foregroundColor(.secondary)
+          VStack(alignment: .leading, spacing: 8) {
+            if !store.draft.attachedFiles.isEmpty {
+              ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                  ForEach(store.draft.attachedFiles) { file in
+                    HStack(spacing: 4) {
+                      Text(file.path.components(separatedBy: "/").last ?? file.path)
+                        .font(.caption)
+                      Button {
+                        store.send(.removeAttachedFile(file.id))
+                      } label: {
+                        Image(systemName: "xmark.circle.fill")
+                          .foregroundColor(.red)
+                          .font(.caption)
+                      }
+                    }
+                    .padding(6)
+                    .background(Color(.systemGray5))
+                    .cornerRadius(8)
+                  }
+                }
+              }
+              .frame(height: 30)
+            }
+
+            HStack(spacing: 8) {
+              TextField("Type a message...", text: textBinding, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+
+              if textBinding.wrappedValue.isEmpty {
+                Button {
+                  inputViewActionClosure(.photo)
+                } label: {
+                  Image(systemName: "photo")
+                    .foregroundColor(.secondary)
+                }
+              }
+
+              Button {
+                UIApplication.shared.sendAction(
+                  #selector(UIResponder.resignFirstResponder),
+                  to: nil,
+                  from: nil,
+                  for: nil
+                )
+              } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                  .foregroundColor(.secondary)
+              }
+
+              Button {
+                inputViewActionClosure(.send)
+              } label: {
+                Image(systemName: "paperplane.fill")
+                  .foregroundColor(sendButtonColor(
+                    isEmpty: textBinding.wrappedValue.isEmpty && store.draft.attachedFiles.isEmpty
+                  ))
+              }
+              .disabled(textBinding.wrappedValue.isEmpty && store.draft.attachedFiles.isEmpty)
             }
           }
-
-          Button {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-          } label: {
-            Image(systemName: "keyboard.chevron.compact.down")
-              .foregroundColor(.secondary)
+          .padding(.horizontal)
+          .background(Color(.systemGray6))
+          .cornerRadius(20)
+          .padding(.horizontal)
+          .onChange(of: textBinding.wrappedValue) { _, newValue in
+            var draft = store.draft
+            draft.text = newValue
+            store.send(.draftUpdated(draft))
           }
 
-          Button {
-            inputViewActionClosure(.send)
-          } label: {
-            Image(systemName: "paperplane.fill")
-              .foregroundColor(sendButtonColor(isEmpty: textBinding.wrappedValue.isEmpty))
-          }
-          .disabled(textBinding.wrappedValue.isEmpty)
+          // Suggestions are rendered above; none here.
         }
-        .padding(.horizontal)
-        .background(Color(.systemGray6))
-        .cornerRadius(20)
-        .padding(.horizontal)
+
       },
       // swiftlint:disable:next line_length
       messageMenuAction: { (action: DefaultMessageMenuAction, defaultActionClosure: (ExyteChat.Message, DefaultMessageMenuAction) -> Void, message: ExyteChat.Message) in
@@ -447,6 +563,21 @@ private extension ChatView {
         .allowsHitTesting(false)
         .frame(width: 0, height: 0)
     }
+    .onChange(of: store.draft.text) { _, newValue in
+      if let lastAtIndex = newValue.lastIndex(of: "@") {
+        let tail = String(newValue[newValue.index(after: lastAtIndex)...])
+        let firstToken = tail.split(separator: " ").first
+        let query = firstToken.map(String.init) ?? ""
+        if !query.isEmpty {
+          store.send(.showFileSuggestions(query))
+        } else {
+          store.draft.isShowingSuggestions = false
+        }
+      } else {
+        store.draft.isShowingSuggestions = false
+      }
+    }
+    // Inline suggestions replace the sheet presentation
   }
 
   var unsupportedMessageDescription: String? {
@@ -464,6 +595,23 @@ private extension ChatView {
       return .secondary
     }
     return AppColorType.green.color
+  }
+
+  // Replace the last token that starts with '@' with the provided full path.
+  private func replaceLastAtToken(in text: String, with replacement: String) -> String {
+    guard let atIndex = text.lastIndex(of: "@") else { return text }
+    let afterAt = text.index(after: atIndex)
+    let tail = text[afterAt...]
+
+    // Token ends at first whitespace; if none, replace until end
+    if let end = tail.firstIndex(where: { $0.isWhitespace }) {
+      let head = text[..<atIndex]
+      let remainder = tail[end...]
+      return String(head) + "@" + replacement + String(remainder)
+    } else {
+      let head = text[..<atIndex]
+      return String(head) + "@" + replacement
+    }
   }
 
   private func getIdentifiedParts(for messageID: String) -> [ChatMessageMapper.IdentifiedEnhancedPart]? {

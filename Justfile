@@ -32,6 +32,12 @@ beta:
 preview args="":
     cd Xcode && fastlane preview {{args}}
 
+run-simulator:
+   bazel run --config=simulator //:OpenCoder.dev
+
+build-simulator:
+    bazel build --config=simulator //:OpenCoder.dev
+
 devcycle:
     just fix --quiet && \
     just lint --quiet && \

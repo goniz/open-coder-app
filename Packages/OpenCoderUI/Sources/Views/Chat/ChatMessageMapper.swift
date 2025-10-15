@@ -112,6 +112,9 @@ enum ChatMessageMapper {
       return (nil, .reasoning(content))
     case let .file(path, content, _):
       return (nil, .file(path: path, content: content, operation: .read))
+    case let .structuredFile(path, _, _, _, _, _, _):
+      // Treat structured file similarly to a read file for rendering purposes.
+      return (nil, .file(path: path, content: "", operation: .read))
     case let .agent(agentType, content, _):
       return (nil, .agent(content, agentType: agentType))
     case let .tool(name, input, output, error, _):
@@ -246,6 +249,8 @@ enum ChatMessageMapper {
       return id ?? fallback
     case let .file(_, _, id):
       return id ?? fallback
+    case let .structuredFile(_, _, _, _, _, _, id):
+      return id ?? fallback
     case let .agent(_, _, id):
       return id ?? fallback
     case let .tool(_, _, _, _, id):
@@ -267,6 +272,7 @@ enum ChatMessageMapper {
     case .text: kind = "text"
     case .reasoning: kind = "reasoning"
     case .file: kind = "file"
+    case .structuredFile: kind = "structuredFile"
     case .agent: kind = "agent"
     case .tool: kind = "tool"
     case .patch: kind = "patch"

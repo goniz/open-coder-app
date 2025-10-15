@@ -10,6 +10,7 @@ extension MessagePart {
     case .text(_, let id),
          .reasoning(_, let id),
          .file(_, _, let id),
+         .structuredFile(_, _, _, _, _, _, let id),
          .agent(_, _, let id),
          .tool(_, _, _, _, let id),
          .patch(_, _, let id),

@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: opencode
   description: opencode api
-  version: 0.14.6
+  version: 0.14.7
 paths:
   /project:
     get:
@@ -1865,6 +1865,32 @@ components:
                       required:
                         - context
                         - output
+                    modalities:
+                      type: object
+                      properties:
+                        input:
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                              - text
+                              - audio
+                              - image
+                              - video
+                              - pdf
+                        output:
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                              - text
+                              - audio
+                              - image
+                              - video
+                              - pdf
+                      required:
+                        - input
+                        - output
                     experimental:
                       type: boolean
                     options:
@@ -2612,6 +2638,10 @@ components:
           required:
             - start
             - end
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilePart'
       required:
         - status
         - input
@@ -2981,6 +3011,32 @@ components:
               type: number
           required:
             - context
+            - output
+        modalities:
+          type: object
+          properties:
+            input:
+              type: array
+              items:
+                type: string
+                enum:
+                  - text
+                  - audio
+                  - image
+                  - video
+                  - pdf
+            output:
+              type: array
+              items:
+                type: string
+                enum:
+                  - text
+                  - audio
+                  - image
+                  - video
+                  - pdf
+          required:
+            - input
             - output
         experimental:
           type: boolean
