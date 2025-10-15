@@ -15,6 +15,8 @@ build/
 *.xcworkspace/*
 !*.xcworkspace/contents.xcworkspacedata
 Xcode/xcode.sh
+Xcode/Gemfile
+Xcode/Gemfile.lock
 *.playground
 *.ipa
 *.dSYM.zip
