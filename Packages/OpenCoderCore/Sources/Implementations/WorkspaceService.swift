@@ -142,12 +142,8 @@ public struct WorkspaceService: Sendable {
     do {
       let connectionManager = await SSHConnectionPool.shared.manager(for: config)
       try await connectionManager.withConnection { connection in
-        let stateDirectory = workspaceStateDirectory(for: workspace)
-        let daemonPath = workspaceDaemonPath(for: workspace)
-        let logPath = workspaceLogPath(for: workspace)
-        let cleanupCommand = "rm -f \(daemonPath) \(logPath); rm -rf \(stateDirectory)/lock.d"
-        _ = try await connection.exec(cleanupCommand)
-        try await tmuxService.killSession(workspace.tmuxSession)
+        try await cleanStaleServerData(workspace: workspace, connection: connection)
+        try await tmuxService.killWindow(session: workspace.tmuxSession, window: "opencode")
       }
 
       return try await attachOrSpawn(workspace: workspace)
@@ -188,14 +184,22 @@ extension WorkspaceService {
     connection: SSHConnection
   ) async throws -> SpawnResult? {
     if let daemonData = try await readDaemonData(workspace: workspace, connection: connection),
-      let port = daemonData["port"],
-      await healthCheck(port: port, workspace: workspace) {
-      await AppLogger.shared.log(
-        "Workspace already online on port \(port) - reusing session",
-        level: .debug,
-        category: .workspace
-      )
-      return SpawnResult(port: port, online: true, error: nil)
+      let port = daemonData["port"] {
+      if await healthCheck(port: port, workspace: workspace) {
+        await AppLogger.shared.log(
+          "Workspace already online on port \(port) - reusing session",
+          level: .debug,
+          category: .workspace
+        )
+        return SpawnResult(port: port, online: true, error: nil)
+      } else {
+        await AppLogger.shared.log(
+          "Stale daemon.json found with port \(port) - cleaning up before retry",
+          level: .info,
+          category: .workspace
+        )
+        try await cleanStaleServerData(workspace: workspace, connection: connection)
+      }
     }
     return nil
   }
@@ -385,6 +389,19 @@ extension WorkspaceService {
       )
       return false
     }
+  }
+
+  fileprivate func cleanStaleServerData(workspace: Models.Workspace, connection: SSHConnection) async throws {
+    let stateDirectory = workspaceStateDirectory(for: workspace)
+    let daemonPath = workspaceDaemonPath(for: workspace)
+    let logPath = workspaceLogPath(for: workspace)
+    let cleanupCommand = "rm -f \(daemonPath) \(logPath); rm -rf \(stateDirectory)/lock.d"
+    _ = try await connection.exec(cleanupCommand)
+    await AppLogger.shared.log(
+      "Cleaned stale server data for workspace: \(workspace.name)",
+      level: .debug,
+      category: .workspace
+    )
   }
 }
 
