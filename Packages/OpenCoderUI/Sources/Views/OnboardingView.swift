@@ -10,7 +10,7 @@ struct OnboardingView: View {
   }
 
   var body: some View {
-    NavigationView {
+    NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           headerSection
@@ -129,31 +129,27 @@ struct OnboardingView: View {
   private var actionButtons: some View {
     VStack(spacing: 12) {
       Button(
-        action: { store.send(.connectButtonTapped) },
-        label: {
-          HStack {
-            if store.isConnecting {
-              ProgressView()
-                .scaleEffect(0.8)
-                .tint(.white)
-            } else {
-              Image(systemName: "network")
-            }
-
-            Text(store.isConnecting ? "Connecting..." : "Test Connection")
+        action: { store.send(.connectButtonTapped) }
+      ) {
+        HStack {
+          if store.isConnecting {
+            ProgressView()
+              .scaleEffect(0.8)
+              .tint(.white)
+          } else {
+            Image(systemName: "network")
           }
-          .font(.headline)
-          .foregroundColor(.white)
-          .frame(maxWidth: .infinity)
-          .frame(height: 50)
-          .background(
-            store.serverConfiguration.isValid && !store.isConnecting
-              ? Color.accentColor
-              : Color.gray
-          )
-          .cornerRadius(8)
+
+          Text(store.isConnecting ? "Connecting..." : "Test Connection")
         }
-      )
+        .font(.headline)
+        .foregroundColor(.white)
+        .frame(maxWidth: .infinity)
+        .frame(height: 50)
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(.accentColor)
+      .disabled(!store.serverConfiguration.isValid || store.isConnecting)
 
       Button(
         action: { store.send(.skipOnboarding) },

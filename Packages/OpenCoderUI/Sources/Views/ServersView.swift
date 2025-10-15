@@ -100,6 +100,10 @@ struct ServerRowView: View {
 
   @State private var showingTaskMenu = false
 
+  private var serverDisplayName: String {
+    server.configuration.name.isEmpty ? server.configuration.host : server.configuration.name
+  }
+
   var body: some View {
     HStack {
       VStack(alignment: .leading) {
@@ -125,6 +129,8 @@ struct ServerRowView: View {
           Image(systemName: "play.fill")
             .foregroundColor(.green)
         }
+        .accessibilityLabel("Start task for \(serverDisplayName)")
+        .accessibilityHint("Opens actions such as build, test, or deploy")
         .confirmationDialog("Start Task", isPresented: $showingTaskMenu) {
           Button("Build") {
             onStartTask(CodingTask.mockBuildTask(serverID: server.id))
@@ -143,6 +149,8 @@ struct ServerRowView: View {
           Image(systemName: "bolt.slash")
             .foregroundColor(.red)
         }
+        .accessibilityLabel("Disconnect \(serverDisplayName)")
+        .accessibilityHint("Ends the SSH session")
         .disabled(server.connectionState == .connecting)
       }
 
@@ -150,6 +158,8 @@ struct ServerRowView: View {
         Image(systemName: "network")
           .foregroundColor(.accentColor)
       }
+      .accessibilityLabel("Test connection for \(serverDisplayName)")
+      .accessibilityHint("Checks SSH connectivity")
       .disabled(server.connectionState == .connecting)
     }
     .swipeActions {
