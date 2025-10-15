@@ -14,6 +14,7 @@ build/
 !*.xcodeproj/xcshareddata/
 *.xcworkspace/*
 !*.xcworkspace/contents.xcworkspacedata
+Xcode/xcode.sh
 *.playground
 *.ipa
 *.dSYM.zip
