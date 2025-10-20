@@ -29,8 +29,25 @@ build-ios:
 beta:
     cd Xcode && fastlane appstore
 
-preview args="":
-    cd Xcode && fastlane preview {{args}}
+preview quiet="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    BAZEL_FLAGS="--config=release"
+    if [ "{{quiet}}" = "true" ]; then
+        BAZEL_FLAGS="$BAZEL_FLAGS --ui_event_filters=-info,-debug --noshow_progress"
+        cd Xcode && fastlane fetch_credentials > /dev/null 2>&1
+    else
+        echo "Fetching credentials..."
+        cd Xcode && fastlane fetch_credentials
+        echo "Building preview IPA with Bazel..."
+    fi
+    
+    bazel build $BAZEL_FLAGS //:OpenCoder.preview
+    
+    if [ "{{quiet}}" = "false" ]; then
+        echo "✅ Preview IPA built: bazel-bin/OpenCoder.preview.ipa"
+    fi
 
 run-simulator:
    bazel run --config=simulator //:OpenCoder.dev
@@ -41,7 +58,7 @@ build-simulator:
 devcycle:
     just fix --quiet && \
     just lint --quiet && \
-    just preview quiet:true
+    just preview quiet=true
 
 ota-host *args:
     cd swift-ota-host && swift run swift-ota-host {{args}}

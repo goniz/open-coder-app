@@ -36,4 +36,4 @@ build --noslim_profile --experimental_profile_include_target_label --experimenta
 
 # selectively disable remote capabilities for certain build actions, which can improve overall build performance. For iOS builds, we recommend:
 build --modify_execution_info=^(AppleLipo|BitcodeSymbolsCopy|BundleApp|BundleTreeApp|DsymDwarf|DsymLipo|GenerateAppleSymbolsFile|ObjcBinarySymbolStrip|CppArchive|CppLink|ObjcLink|ProcessAndSign|SignBinary|SwiftArchive|SwiftStdlibCopy)$=+no-remote,^(BundleResources|ImportedDynamicFrameworkProcessor)$=+no-remote-exec
-try-import .bazelrc-user
+try-import %workspace%/.bazelrc-user

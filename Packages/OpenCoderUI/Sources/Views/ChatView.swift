@@ -441,8 +441,33 @@ VStack(spacing: 6) {
             }
 
             HStack(spacing: 8) {
-              TextField("Type a message...", text: textBinding, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+              ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                  .fill(Color(.systemBackground))
+                  .allowsHitTesting(false)
+                  .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                      .stroke(Color(.separator))
+                      .allowsHitTesting(false)
+                  )
+
+                TextEditor(text: textBinding)
+                  .frame(minHeight: 40, maxHeight: 140)
+                  .padding(.horizontal, 8)
+                  .padding(.vertical, 6)
+                  .background(Color.clear)
+                  .scrollContentBackground(.hidden)
+                  .font(.body)
+                  .accessibilityLabel("Message input")
+
+                if textBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                  Text("Type a message...")
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .allowsHitTesting(false)
+                }
+              }
 
               if textBinding.wrappedValue.isEmpty {
                 Button {
@@ -451,6 +476,7 @@ VStack(spacing: 6) {
                   Image(systemName: "photo")
                     .foregroundColor(.secondary)
                 }
+                .accessibilityLabel("Add attachment")
               }
 
               Button {
@@ -464,16 +490,20 @@ VStack(spacing: 6) {
                 Image(systemName: "keyboard.chevron.compact.down")
                   .foregroundColor(.secondary)
               }
+              .accessibilityLabel("Dismiss keyboard")
 
               Button {
                 inputViewActionClosure(.send)
               } label: {
                 Image(systemName: "paperplane.fill")
                   .foregroundColor(sendButtonColor(
-                    isEmpty: textBinding.wrappedValue.isEmpty && store.draft.attachedFiles.isEmpty
+                    isEmpty: textBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      && store.draft.attachedFiles.isEmpty
                   ))
               }
-              .disabled(textBinding.wrappedValue.isEmpty && store.draft.attachedFiles.isEmpty)
+              .accessibilityLabel("Send message")
+              .disabled(textBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && store.draft.attachedFiles.isEmpty)
             }
           }
           .padding(.horizontal)

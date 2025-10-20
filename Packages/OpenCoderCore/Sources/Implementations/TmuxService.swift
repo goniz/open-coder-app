@@ -168,6 +168,30 @@ struct TmuxService: Sendable {
       throw error
     }
   }
+
+  func killWindow(session: TmuxSessionName, window: String) async throws {
+    do {
+      let connectionManager = await SSHConnectionPool.shared.manager(for: config)
+      try await connectionManager.withConnection { connection in
+        let escapedSession = escapeShellArgument(session.value)
+        let escapedWindow = escapeShellArgument(window)
+        let command = "tmux kill-window -t \(escapedSession):\(escapedWindow) 2>/dev/null || true"
+        _ = try await connection.exec(command)
+        await AppLogger.shared.log(
+          "Killed tmux window '\(window)' in session '\(session.value)'",
+          level: .debug,
+          category: .workspace
+        )
+      }
+    } catch {
+      if error is CancellationError {
+        throw SSHError.commandFailed(
+          "Tmux window kill was cancelled. This may be due to network issues or server timeout.")
+      }
+
+      throw error
+    }
+  }
 }
 
 extension TmuxService {

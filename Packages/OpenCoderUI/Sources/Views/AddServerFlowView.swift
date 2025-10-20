@@ -70,7 +70,9 @@ struct AddServerFlowView: View {
       case 2:
         AuthenticationStep(config: $config, passwordInput: $passwordInput)
       case 3:
-        FingerprintStep(config: config)
+        FingerprintStep(config: config) {
+          showingFingerprintAlert = true
+        }
       case 4:
         TestConnectionStep(
           config: config,
@@ -265,6 +267,7 @@ struct AuthenticationStep: View {
 struct FingerprintStep: View {
   let config: SSHServerConfiguration
   @State private var fingerprint = "SHA256:abcd1234..."
+  let onAccept: () -> Void
 
   var body: some View {
     Form {
@@ -291,7 +294,7 @@ struct FingerprintStep: View {
 
       Section {
         Button("Accept and Continue") {
-          // Continue to next step handled by parent
+          onAccept()
         }
         .buttonStyle(.borderedProminent)
         .tint(.green)

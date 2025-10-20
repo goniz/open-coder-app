@@ -90,7 +90,7 @@ ios_application(
     ],
     infoplists = [":Info_preview_plist"],
     minimum_os_version = "17.0",
-    provisioning_profile = "//Xcode:adhoc_preview_profile",
+    provisioning_profile = "//Xcode:preview_profile",
     resources = [
         "//Xcode:app_assets",
     ],

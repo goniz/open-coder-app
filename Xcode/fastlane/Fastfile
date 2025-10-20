@@ -25,6 +25,46 @@ platform :ios do
     sh("defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES")
   end
 
+  desc "Fetch provisioning profiles and certificates for adhoc and appstore"
+  lane :fetch_credentials do
+    api_key = app_store_connect_api_key(
+      key_id: "ZZR4FFP696",
+      issuer_id: "d5f4a2be-8aae-409d-9526-b299f949a6d9",
+      key_filepath: "./fastlane/AuthKey_ZZR4FFP696.p8"
+    )
+    
+    xcode_dir = File.expand_path("..", File.dirname(__FILE__))
+    
+    puts "📥 Fetching distribution certificates and importing to keychain..."
+    cert_id = get_certificates(
+      development: false,
+      api_key: api_key,
+      output_path: xcode_dir
+    )
+    
+    puts "📥 Fetching adhoc provisioning profile for com.goniz.opencoderapp.preview..."
+    profile_path = sigh(
+      app_identifier: "com.goniz.opencoderapp.preview",
+      adhoc: true,
+      api_key: api_key,
+      force: true,
+      platform: "ios"
+    )
+    puts "Profile installed: #{profile_path}"
+    
+    puts "📥 Fetching appstore provisioning profile for com.goniz.opencoderapp..."
+    profile_path = sigh(
+      app_identifier: "com.goniz.opencoderapp",
+      adhoc: false,
+      api_key: api_key,
+      force: true,
+      platform: "ios"
+    )
+    puts "Profile installed: #{profile_path}"
+    
+    puts "✅ All credentials fetched and installed to system keychain"
+  end
+
   desc "Build for development without publishing"
   lane :build do
     puts "🔨 Building development IPA with Bazel..."

@@ -15,6 +15,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## iOS
 
+### ios fetch_credentials
+
+```sh
+[bundle exec] fastlane ios fetch_credentials
+```
+
+Fetch provisioning profiles and certificates for adhoc and appstore
+
 ### ios build
 
 ```sh
