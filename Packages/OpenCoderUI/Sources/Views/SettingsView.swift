@@ -13,20 +13,7 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
-      Section(header: Text("Appearance")) {
-        Picker("Theme", selection: $store.theme) {
-          ForEach(Theme.allCases, id: \.self) { theme in
-            Text(theme.rawValue.capitalized)
-          }
-        }
-      }
-
-      Section(header: Text("Notifications")) {
-        Toggle("Enable Notifications", isOn: $store.notificationsEnabled)
-      }
-
       Section(header: Text("General")) {
-        Toggle("Auto Save", isOn: $store.autoSaveEnabled)
         Toggle("Show Thinking Blocks", isOn: $store.thinkingBlocksEnabled)
         Button("Reset to Defaults") {
           store.send(.resetToDefaults)

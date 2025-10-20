@@ -6,9 +6,6 @@ import Models
 public struct SettingsFeature: Sendable {
   @ObservableState
   public struct State: Equatable, Sendable {
-    public var theme: Theme = .system
-    public var notificationsEnabled = true
-    public var autoSaveEnabled = true
     public var thinkingBlocksEnabled = true
     public var showingLogs = false
     public var showingPreviousLogs = false
@@ -78,10 +75,4 @@ public struct SettingsFeature: Sendable {
       return .none
     }
   }
-}
-
-public enum Theme: String, Equatable, CaseIterable, Sendable {
-  case light
-  case dark
-  case system
 }
